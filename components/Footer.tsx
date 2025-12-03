@@ -30,7 +30,7 @@ const Footer: React.FC = () => {
               <li>
                 <a
                   className="hover:text-primary dark:hover:text-white transition-colors"
-                  href="#"
+                  href="https://databits.co-id.id/"
                 >
                   Company
                 </a>
@@ -38,7 +38,7 @@ const Footer: React.FC = () => {
               <li>
                 <a
                   className="hover:text-primary dark:hover:text-white transition-colors"
-                  href="#"
+                  href="https://databits.co-id.id/"
                 >
                   Service
                 </a>
