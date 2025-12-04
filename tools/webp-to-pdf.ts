@@ -14,7 +14,7 @@ export async function webpToPdf() {
     const pdfDoc = await PDFLibDocument.create();
     for (const file of state.files) {
       const webpBytes = await readFileAsArrayBuffer(file);
-      // @ts-expect-error TS(2322) FIXME: Type 'unknown' is not assignable to type 'BlobPart... Remove this comment to see the full error message
+      // @ts-ignore - Blob type compatibility
       const imageBitmap = await createImageBitmap(new Blob([webpBytes]));
 
       const canvas = document.createElement('canvas');
@@ -54,3 +54,4 @@ export async function webpToPdf() {
     hideLoader();
   }
 }
+

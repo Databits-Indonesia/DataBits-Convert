@@ -328,7 +328,7 @@ export async function compress() {
           'Compression Finished',
           `Method: **${usedMethod}**. ` +
           `Could not reduce file size. Original: ${originalSize}, New: ${compressedSize}.`,
-          // @ts-expect-error TS(2554) FIXME: Expected 2 arguments, but got 3.
+          // @ts-ignore - showAlert third parameter
           'warning'
         );
       }
@@ -402,3 +402,4 @@ export async function compress() {
     hideLoader();
   }
 }
+

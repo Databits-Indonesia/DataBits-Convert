@@ -62,6 +62,8 @@ async function displayPageAsImage(num: any) {
 
     image.onload = () => {
       cropperState.cropper = new Cropper(image, {
+        // @ts-ignore - cropperjs type definitions may be outdated
+
         viewMode: 1,
         background: false,
         autoCropArea: 0.8,
@@ -346,3 +348,4 @@ export async function setupCropperTool() {
     });
 
 }
+

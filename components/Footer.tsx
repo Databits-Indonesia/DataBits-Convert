@@ -1,4 +1,4 @@
-import React from "react";
+import React from 'react';
 
 const Footer: React.FC = () => {
   return (
@@ -15,22 +15,41 @@ const Footer: React.FC = () => {
             >
               <rect x="1" y="1" width="142" height="42" stroke="currentColor" strokeWidth="2" />
               <rect x="2" y="2" width="70" height="40" fill="currentColor" />
-              <text x="37" y="29" className="text-white dark:text-black" fill="currentColor" fontSize="20" fontWeight="bold" fontFamily="Inter, sans-serif" textAnchor="middle">DATA</text>
-              <text x="107" y="29" fill="currentColor" fontSize="20" fontWeight="bold" fontFamily="Inter, sans-serif" textAnchor="middle">BITS</text>
+              <text
+                x="37"
+                y="29"
+                className="text-white dark:text-black"
+                fill="currentColor"
+                fontSize="20"
+                fontWeight="bold"
+                fontFamily="Inter, sans-serif"
+                textAnchor="middle"
+              >
+                DATA
+              </text>
+              <text
+                x="107"
+                y="29"
+                fill="currentColor"
+                fontSize="20"
+                fontWeight="bold"
+                fontFamily="Inter, sans-serif"
+                textAnchor="middle"
+              >
+                BITS
+              </text>
             </svg>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               © Copyright Databits Indonesia, 2025 - Present
             </p>
           </div>
           <div className="space-y-2">
-            <h4 className="font-semibold text-gray-900 dark:text-white">
-              Links
-            </h4>
+            <h4 className="font-semibold text-gray-900 dark:text-white">Links</h4>
             <ul className="space-y-1 text-gray-600 dark:text-gray-300">
               <li>
                 <a
                   className="hover:text-primary dark:hover:text-white transition-colors"
-                  href="#"
+                  href="http://databits.co-id.id/"
                 >
                   Company
                 </a>
@@ -38,25 +57,20 @@ const Footer: React.FC = () => {
               <li>
                 <a
                   className="hover:text-primary dark:hover:text-white transition-colors"
-                  href="#"
+                  href="http://databits.co-id.id/"
                 >
                   Service
                 </a>
               </li>
               <li>
-                <a
-                  className="hover:text-primary dark:hover:text-white transition-colors"
-                  href="#"
-                >
+                <a className="hover:text-primary dark:hover:text-white transition-colors" href="#">
                   Pricing
                 </a>
               </li>
             </ul>
           </div>
           <div className="flex flex-col items-center md:items-start">
-            <h4 className="font-semibold text-gray-900 dark:text-white">
-              Contact
-            </h4>
+            <h4 className="font-semibold text-gray-900 dark:text-white">Contact</h4>
             <p className="mt-2 text-gray-600 dark:text-gray-300 mb-3">
               More service in AI and Analytics
             </p>

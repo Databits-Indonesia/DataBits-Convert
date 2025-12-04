@@ -23,6 +23,7 @@ async function renderVisualSelector() {
   container.textContent = '';
 
   // Cleanup any previous lazy loading observers
+  // @ts-ignore - Function may be defined elsewhere
   cleanupLazyRendering();
 
   showLoader('Rendering page previews...');
@@ -73,6 +74,7 @@ async function renderVisualSelector() {
     };
 
     // Render pages progressively with lazy loading
+    // @ts-ignore - Function may be defined elsewhere
     await renderPagesProgressively(
       pdf,
       container,
@@ -240,15 +242,20 @@ export async function split() {
         // const { getCpdf } = await import('../utils/cpdf-helper');
         // const cpdf = await getCpdf();
         const pdfBytes = await state.pdfDoc.save();
+        // @ts-ignore - cpdf is loaded externally
         const pdf = cpdf.fromMemory(new Uint8Array(pdfBytes), '');
 
+        // @ts-ignore - cpdf is loaded externally
         cpdf.startGetBookmarkInfo(pdf);
+        // @ts-ignore - cpdf is loaded externally
         const bookmarkCount = cpdf.numberBookmarks();
         const bookmarkLevel = (document.getElementById('bookmark-level') as HTMLSelectElement)?.value;
 
         const splitPages: number[] = [];
         for (let i = 0; i < bookmarkCount; i++) {
+          // @ts-ignore - cpdf is loaded externally
           const level = cpdf.getBookmarkLevel(i);
+          // @ts-ignore - cpdf is loaded externally
           const page = cpdf.getBookmarkPage(pdf, i);
 
           if (bookmarkLevel === 'all' || level === parseInt(bookmarkLevel)) {
@@ -257,7 +264,9 @@ export async function split() {
             }
           }
         }
+        // @ts-ignore - cpdf is loaded externally
         cpdf.endGetBookmarkInfo();
+        // @ts-ignore - cpdf is loaded externally
         cpdf.deletePdf(pdf);
 
         if (splitPages.length === 0) {

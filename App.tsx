@@ -7,7 +7,7 @@ import DownloadSection from "./components/DownloadSection";
 import ActionButtons from "./components/ActionButtons";
 import ToolsGrid from "./components/ToolsGrid";
 import CloudFilePicker from "./components/CloudFilePicker";
-import { InputOption, FileState, Tool } from "./types";
+import { FileState } from "./types";
 import { merge, setupMergeTool } from "./tools/merge";
 import { split, setupSplitTool } from "./tools/split";
 import { compress } from "./tools/compress";
@@ -21,26 +21,7 @@ import { editAttachments, setupEditAttachmentsTool } from "./tools/edit-attachme
 import { state, setFiles } from "./state";
 import { initiateOAuth, downloadGoogleDriveFile, downloadOneDriveFile, downloadDropboxFile } from "./utils/oauth";
 import { isOAuthConfigured } from "./config/oauth.config";
-
-const INPUT_OPTIONS: InputOption[] = [
-  { id: "gdrive", label: "Google Drive", icon: "add_to_drive" },
-  { id: "onedrive", label: "OneDrive", icon: "cloud_upload" },
-  { id: "dropbox", label: "Dropbox", icon: "inventory_2" },
-  { id: "url", label: "URL", icon: "link" },
-];
-
-const POPULAR_TOOLS: Tool[] = [
-  { id: 'merge', name: 'Merge PDF', icon: 'call_merge', description: 'Combine multiple PDFs into one file.' },
-  { id: 'split', name: 'Split PDF', icon: 'call_split', description: 'Extract a range of pages into a new PDF.' },
-  { id: 'compress', name: 'Compress PDF', icon: 'compress', description: 'Reduce the file size of your PDF.' },
-  { id: 'edit', name: 'PDF Editor', icon: 'edit', description: 'Annotate, highlight, and add comments.' },
-  { id: 'image-to-pdf', name: 'Image to PDF', icon: 'image', description: 'Convert images to PDF.' },
-  { id: 'sign', name: 'Sign PDF', icon: 'draw', description: 'Add your signature to a PDF.' },
-  { id: 'crop', name: 'Crop PDF', icon: 'crop', description: 'Trim the margins of your PDF pages.' },
-  { id: 'extract', name: 'Extract Pages', icon: 'file_upload', description: 'Save specific pages as new files.' },
-  { id: 'organize', name: 'Organize PDF', icon: 'library_books', description: 'Sort, reorder, and delete pages.' },
-  { id: 'delete', name: 'Delete Pages', icon: 'delete', description: 'Remove unwanted pages.' },
-];
+import { INPUT_OPTIONS, POPULAR_TOOLS, ERROR_MESSAGES } from "./config/constants";
 
 const App: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<FileState | null>(null);
