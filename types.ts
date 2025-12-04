@@ -9,3 +9,11 @@ export interface FileState {
   name: string;
   size: number;
 }
+
+export interface Tool {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  popular?: boolean;
+}

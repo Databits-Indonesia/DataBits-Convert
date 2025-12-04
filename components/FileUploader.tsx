@@ -2,22 +2,39 @@ import React, { useCallback, useState } from "react";
 import { FileState } from "../types";
 
 interface FileUploaderProps {
-  onFileSelect: (file: FileState) => void;
+  onFileSelect: (file: FileState, allFiles?: File[]) => void;
   selectedFile: FileState | null;
+  acceptType?: 'image' | 'pdf';
+  allowMultiple?: boolean;
 }
 
 const FileUploader: React.FC<FileUploaderProps> = ({
   onFileSelect,
   selectedFile,
+  acceptType = 'image',
+  allowMultiple = false,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const validateFile = (file: File) => {
-    // Check for .docx extension
-    if (!file.name.toLowerCase().endsWith('.docx')) {
-      setError("Invalid file type. Please upload a .docx file.");
-      return false;
+    if (acceptType === 'pdf') {
+      // Check for PDF file types
+      const isValidPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+      if (!isValidPdf) {
+        setError("Invalid file type. Please upload a PDF file.");
+        return false;
+      }
+    } else {
+      // Check for image file types
+      const validImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/svg+xml'];
+      const isValidType = validImageTypes.includes(file.type) || 
+                          /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(file.name);
+      
+      if (!isValidType) {
+        setError("Invalid file type. Please upload an image file (JPG, PNG, GIF, WebP, BMP, or SVG).");
+        return false;
+      }
     }
     setError(null);
     return true;
@@ -39,33 +56,60 @@ const FileUploader: React.FC<FileUploaderProps> = ({
       setIsDragging(false);
 
       if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        const file = e.dataTransfer.files[0];
-        if (validateFile(file)) {
-          onFileSelect({
-            file: file,
-            name: file.name,
-            size: file.size,
-          });
+        if (allowMultiple && acceptType === 'pdf') {
+          // Handle multiple PDF files for merge
+          const files = Array.from(e.dataTransfer.files) as File[];
+          const validFiles = files.filter((f: File) => validateFile(f));
+          if (validFiles.length > 0) {
+            // For multiple files, pass all files to parent
+            onFileSelect({
+              file: validFiles[0],
+              name: `${validFiles.length} file${validFiles.length > 1 ? 's' : ''} selected`,
+              size: validFiles.reduce((sum, f) => sum + f.size, 0),
+            }, validFiles);
+          }
+        } else {
+          const file = e.dataTransfer.files[0];
+          if (validateFile(file)) {
+            onFileSelect({
+              file: file,
+              name: file.name,
+              size: file.size,
+            });
+          }
         }
       }
     },
-    [onFileSelect]
+    [onFileSelect, allowMultiple, acceptType]
   );
 
   const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files.length > 0) {
-        const file = e.target.files[0];
-        if (validateFile(file)) {
-          onFileSelect({
-            file: file,
-            name: file.name,
-            size: file.size,
-          });
+        if (allowMultiple && acceptType === 'pdf') {
+          // Handle multiple PDF files for merge
+          const files = Array.from(e.target.files) as File[];
+          const validFiles = files.filter((f: File) => validateFile(f));
+          if (validFiles.length > 0) {
+            onFileSelect({
+              file: validFiles[0],
+              name: `${validFiles.length} file${validFiles.length > 1 ? 's' : ''} selected`,
+              size: validFiles.reduce((sum, f) => sum + f.size, 0),
+            }, validFiles);
+          }
+        } else {
+          const file = e.target.files[0];
+          if (validateFile(file)) {
+            onFileSelect({
+              file: file,
+              name: file.name,
+              size: file.size,
+            });
+          }
         }
       }
     },
-    [onFileSelect]
+    [onFileSelect, allowMultiple, acceptType]
   );
 
   return (
@@ -121,7 +165,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({
         ) : (
           <>
             <p className="text-xl font-medium text-gray-800 dark:text-gray-200">
-              Drag your .docx file here!
+              Drag your file here!
             </p>
             <p className="text-gray-500 dark:text-gray-400 mt-2">
               or click to browse
@@ -133,7 +177,8 @@ const FileUploader: React.FC<FileUploaderProps> = ({
           aria-label="Upload file"
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
           type="file"
-          accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          accept={acceptType === 'pdf' ? 'application/pdf,.pdf' : 'image/*,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg'}
+          multiple={allowMultiple}
           onChange={handleFileInput}
         />
       </div>
