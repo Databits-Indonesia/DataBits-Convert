@@ -1,13 +1,6 @@
 import { showLoader, hideLoader, showAlert } from '../ui';
-import { downloadFile, readFileAsArrayBuffer } from '../utils/helpers';
+import { downloadFile } from '../utils/helpers';
 import { state } from '../state';
-import { jpgToPdf } from './jpg-to-pdf';
-import { pngToPdf } from './png-to-pdf';
-import { webpToPdf } from './webp-to-pdf';
-import { bmpToPdf } from './bmp-to-pdf';
-import { tiffToPdf } from './tiff-to-pdf';
-import { svgToPdf } from './svg-to-pdf';
-import { heicToPdf } from './heic-to-pdf';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
 
 export async function imageToPdf() {
@@ -17,26 +10,26 @@ export async function imageToPdf() {
     input.type = 'file';
     input.multiple = true;
     input.accept = 'image/*';
-    
+
     const filePromise = new Promise<FileList | null>((resolve) => {
       input.onchange = () => resolve(input.files);
       input.oncancel = () => resolve(null);
     });
-    
+
     input.click();
-    
+
     const files = await filePromise;
     if (!files || files.length === 0) {
       showAlert('No Files', 'Please select at least one image file.', 'info');
       return;
     }
-    
+
     // Add files to state
     state.files = Array.from(files);
   }
 
   showLoader('Converting images to PDF...');
-  
+
   try {
     const pdfDoc = await PDFLibDocument.create();
 
@@ -55,7 +48,7 @@ export async function imageToPdf() {
           canvas.toBlob(resolve, 'image/jpeg', 0.9)
         );
         const jpegBytes = new Uint8Array(await jpegBlob.arrayBuffer());
-        
+
         // Embed the image in the PDF
         const image = await pdfDoc.embedJpg(jpegBytes);
         const page = pdfDoc.addPage([image.width, image.height]);
@@ -65,7 +58,7 @@ export async function imageToPdf() {
           width: image.width,
           height: image.height,
         });
-        
+
         imageBitmap.close();
       } catch (e) {
         console.warn(`Failed to process ${file.name}:`, e);
@@ -78,9 +71,7 @@ export async function imageToPdf() {
           const ctx = canvas.getContext('2d');
           ctx.drawImage(imageBitmap, 0, 0);
 
-          const pngBlob = await new Promise<Blob>((resolve) =>
-            canvas.toBlob(resolve, 'image/png')
-          );
+          const pngBlob = await new Promise<Blob>((resolve) => canvas.toBlob(resolve, 'image/png'));
           const pngBytes = await pngBlob.arrayBuffer();
           const pngImage = await pdfDoc.embedPng(pngBytes);
           const page = pdfDoc.addPage([pngImage.width, pngImage.height]);
@@ -106,7 +97,7 @@ export async function imageToPdf() {
       new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' }),
       'images-to-pdf.pdf'
     );
-    
+
     showAlert('Success', `Successfully converted ${state.files.length} image(s) to PDF!`);
   } catch (e) {
     console.error(e);

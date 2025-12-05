@@ -8,7 +8,10 @@ import JSZip from 'jszip';
 
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
 
 let visualSelectorRendered = false;
 
@@ -22,33 +25,43 @@ async function renderVisualSelector() {
 
   container.textContent = '';
 
-  // Cleanup any previous lazy loading observers
-  // @ts-ignore - Function may be defined elsewhere
-  cleanupLazyRendering();
-
   showLoader('Rendering page previews...');
 
   try {
     const pdfData = await state.pdfDoc.save();
     const pdf = await getPDFDocument({ data: pdfData }).promise;
 
-    // Function to create wrapper element for each page
-    const createWrapper = (canvas: HTMLCanvasElement, pageNumber: number) => {
+    const totalPages = pdf.numPages;
+
+    // Render pages directly
+    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const viewport = page.getViewport({ scale: 1.5 });
+
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+
+      await page.render({ canvasContext: context!, viewport, canvas }).promise;
+
+      // Create wrapper element for each page
       const wrapper = document.createElement('div');
       wrapper.className =
         'page-thumbnail-wrapper p-1 border-2 border-transparent rounded-lg cursor-pointer hover:border-indigo-500';
-      // @ts-expect-error TS(2322) FIXME: Type 'number' is not assignable to type 'string'.
-      wrapper.dataset.pageIndex = pageNumber - 1;
+      wrapper.dataset.pageIndex = String(pageNum - 1);
 
       const img = document.createElement('img');
       img.src = canvas.toDataURL();
       img.className = 'rounded-md w-full h-auto';
+
       const p = document.createElement('p');
       p.className = 'text-center text-xs mt-1 text-gray-300';
-      p.textContent = `Page ${pageNumber}`;
+      p.textContent = `Page ${pageNum}`;
+
       wrapper.append(img, p);
 
-      const handleSelection = (e: any) => {
+      const handleSelection = (e: Event) => {
         e.preventDefault();
         e.stopPropagation();
 
@@ -70,27 +83,15 @@ async function renderVisualSelector() {
         e.preventDefault();
       });
 
-      return wrapper;
-    };
+      container.appendChild(wrapper);
 
-    // Render pages progressively with lazy loading
-    // @ts-ignore - Function may be defined elsewhere
-    await renderPagesProgressively(
-      pdf,
-      container,
-      createWrapper,
-      {
-        batchSize: 8,
-        useLazyLoading: true,
-        lazyLoadMargin: '400px',
-        onProgress: (current, total) => {
-          showLoader(`Rendering page previews: ${current}/${total}`);
-        },
-        onBatchComplete: () => {
-          createIcons({ icons });
-        }
+      // Update loader with progress
+      if (pageNum % 5 === 0 || pageNum === totalPages) {
+        showLoader(`Rendering page previews: ${pageNum}/${totalPages}`);
       }
-    );
+    }
+
+    createIcons({ icons });
   } catch (error) {
     console.error('Error rendering visual selector:', error);
     showAlert('Error', 'Failed to render page previews.');
@@ -101,7 +102,29 @@ async function renderVisualSelector() {
   }
 }
 
-export function setupSplitTool() {
+export async function setupSplitTool() {
+  // Show the split tool container
+  document.getElementById('split-tool-container')?.classList.remove('hidden');
+
+  // Load the PDF document into state if not already loaded
+  if (!state.pdfDoc && state.files.length > 0) {
+    try {
+      showLoader('Loading PDF...');
+      const file = state.files[0];
+      const { readFileAsArrayBuffer } = await import('../utils/helpers');
+      const arrayBuffer = await readFileAsArrayBuffer(file);
+      const pdfDoc = await PDFLibDocument.load(arrayBuffer);
+      const { setPdfDoc } = await import('../state');
+      setPdfDoc(pdfDoc);
+      hideLoader();
+    } catch (error) {
+      hideLoader();
+      showAlert('Error', 'Failed to load PDF document.');
+      console.error('Error loading PDF:', error);
+      return;
+    }
+  }
+
   const splitModeSelect = document.getElementById('split-mode');
   const rangePanel = document.getElementById('range-panel');
   const visualPanel = document.getElementById('visual-select-panel');
@@ -154,7 +177,9 @@ export function setupSplitTool() {
       const updateWarning = () => {
         if (!state.pdfDoc) return;
         const totalPages = state.pdfDoc.getPageCount();
-        const nValue = parseInt((document.getElementById('split-n-value') as HTMLInputElement)?.value || '5');
+        const nValue = parseInt(
+          (document.getElementById('split-n-value') as HTMLInputElement)?.value || '5'
+        );
         const remainder = totalPages % nValue;
         if (remainder !== 0 && nTimesWarning) {
           nTimesWarning.classList.remove('hidden');
@@ -180,8 +205,7 @@ export async function split() {
   // @ts-expect-error TS(2339) FIXME: Property 'value' does not exist on type 'HTMLEleme... Remove this comment to see the full error message
   const splitMode = document.getElementById('split-mode').value;
   const downloadAsZip =
-    (document.getElementById('download-as-zip') as HTMLInputElement)?.checked ||
-    false;
+    (document.getElementById('download-as-zip') as HTMLInputElement)?.checked || false;
 
   showLoader('Splitting PDF...');
 
@@ -199,13 +223,7 @@ export async function split() {
           const trimmedRange = range.trim();
           if (trimmedRange.includes('-')) {
             const [start, end] = trimmedRange.split('-').map(Number);
-            if (
-              isNaN(start) ||
-              isNaN(end) ||
-              start < 1 ||
-              end > totalPages ||
-              start > end
-            )
+            if (isNaN(start) || isNaN(end) || start < 1 || end > totalPages || start > end)
               continue;
             for (let i = start; i <= end; i++) indicesToExtract.push(i - 1);
           } else {
@@ -217,9 +235,7 @@ export async function split() {
         break;
 
       case 'even-odd':
-        const choiceElement = document.querySelector(
-          'input[name="even-odd-choice"]:checked'
-        );
+        const choiceElement = document.querySelector('input[name="even-odd-choice"]:checked');
         if (!choiceElement) throw new Error('Please select even or odd pages.');
         // @ts-expect-error TS(2339) FIXME: Property 'value' does not exist on type 'Element'.
         const choice = choiceElement.value;
@@ -232,9 +248,7 @@ export async function split() {
         indicesToExtract = Array.from({ length: totalPages }, (_, i) => i);
         break;
       case 'visual':
-        indicesToExtract = Array.from(
-          document.querySelectorAll('.page-thumbnail-wrapper.selected')
-        )
+        indicesToExtract = Array.from(document.querySelectorAll('.page-thumbnail-wrapper.selected'))
           // @ts-expect-error TS(2339) FIXME: Property 'dataset' does not exist on type 'Element... Remove this comment to see the full error message
           .map((el) => parseInt(el.dataset.pageIndex));
         break;
@@ -242,20 +256,21 @@ export async function split() {
         // const { getCpdf } = await import('../utils/cpdf-helper');
         // const cpdf = await getCpdf();
         const pdfBytes = await state.pdfDoc.save();
-        // @ts-ignore - cpdf is loaded externally
+        // @ts-expect-error - cpdf is loaded externally
         const pdf = cpdf.fromMemory(new Uint8Array(pdfBytes), '');
 
-        // @ts-ignore - cpdf is loaded externally
+        // @ts-expect-error - cpdf is loaded externally
         cpdf.startGetBookmarkInfo(pdf);
-        // @ts-ignore - cpdf is loaded externally
+        // @ts-expect-error - cpdf is loaded externally
         const bookmarkCount = cpdf.numberBookmarks();
-        const bookmarkLevel = (document.getElementById('bookmark-level') as HTMLSelectElement)?.value;
+        const bookmarkLevel = (document.getElementById('bookmark-level') as HTMLSelectElement)
+          ?.value;
 
         const splitPages: number[] = [];
         for (let i = 0; i < bookmarkCount; i++) {
-          // @ts-ignore - cpdf is loaded externally
+          // @ts-expect-error - cpdf is loaded externally
           const level = cpdf.getBookmarkLevel(i);
-          // @ts-ignore - cpdf is loaded externally
+          // @ts-expect-error - cpdf is loaded externally
           const page = cpdf.getBookmarkPage(pdf, i);
 
           if (bookmarkLevel === 'all' || level === parseInt(bookmarkLevel)) {
@@ -264,9 +279,9 @@ export async function split() {
             }
           }
         }
-        // @ts-ignore - cpdf is loaded externally
+        // @ts-expect-error - cpdf is loaded externally
         cpdf.endGetBookmarkInfo();
-        // @ts-ignore - cpdf is loaded externally
+        // @ts-expect-error - cpdf is loaded externally
         cpdf.deletePdf(pdf);
 
         if (splitPages.length === 0) {
@@ -281,7 +296,10 @@ export async function split() {
           const endPage = i < splitPages.length - 1 ? splitPages[i + 1] - 1 : totalPages - 1;
 
           const newPdf = await PDFLibDocument.create();
-          const pageIndices = Array.from({ length: endPage - startPage + 1 }, (_, idx) => startPage + idx);
+          const pageIndices = Array.from(
+            { length: endPage - startPage + 1 },
+            (_, idx) => startPage + idx
+          );
           const copiedPages = await newPdf.copyPages(state.pdfDoc, pageIndices);
           copiedPages.forEach((page: any) => newPdf.addPage(page));
           const pdfBytes2 = await newPdf.save();
@@ -294,7 +312,9 @@ export async function split() {
         return;
 
       case 'n-times':
-        const nValue = parseInt((document.getElementById('split-n-value') as HTMLInputElement)?.value || '5');
+        const nValue = parseInt(
+          (document.getElementById('split-n-value') as HTMLInputElement)?.value || '5'
+        );
         if (nValue < 1) throw new Error('N must be at least 1.');
 
         const zip2 = new JSZip();
@@ -303,7 +323,10 @@ export async function split() {
         for (let i = 0; i < numSplits; i++) {
           const startPage = i * nValue;
           const endPage = Math.min(startPage + nValue - 1, totalPages - 1);
-          const pageIndices = Array.from({ length: endPage - startPage + 1 }, (_, idx) => startPage + idx);
+          const pageIndices = Array.from(
+            { length: endPage - startPage + 1 },
+            (_, idx) => startPage + idx
+          );
 
           const newPdf = await PDFLibDocument.create();
           const copiedPages = await newPdf.copyPages(state.pdfDoc, pageIndices);
@@ -323,17 +346,12 @@ export async function split() {
       throw new Error('No pages were selected for splitting.');
     }
 
-    if (
-      splitMode === 'all' ||
-      (['range', 'visual'].includes(splitMode) && downloadAsZip)
-    ) {
+    if (splitMode === 'all' || (['range', 'visual'].includes(splitMode) && downloadAsZip)) {
       showLoader('Creating ZIP file...');
       const zip = new JSZip();
       for (const index of uniqueIndices) {
         const newPdf = await PDFLibDocument.create();
-        const [copiedPage] = await newPdf.copyPages(state.pdfDoc, [
-          index as number,
-        ]);
+        const [copiedPage] = await newPdf.copyPages(state.pdfDoc, [index as number]);
         newPdf.addPage(copiedPage);
         const pdfBytes = await newPdf.save();
         // @ts-expect-error TS(2365) FIXME: Operator '+' cannot be applied to types 'unknown' ... Remove this comment to see the full error message
@@ -343,10 +361,7 @@ export async function split() {
       downloadFile(zipBlob, 'split-pages.zip');
     } else {
       const newPdf = await PDFLibDocument.create();
-      const copiedPages = await newPdf.copyPages(
-        state.pdfDoc,
-        uniqueIndices as number[]
-      );
+      const copiedPages = await newPdf.copyPages(state.pdfDoc, uniqueIndices as number[]);
       copiedPages.forEach((page: any) => newPdf.addPage(page));
       const pdfBytes = await newPdf.save();
       downloadFile(
@@ -360,10 +375,7 @@ export async function split() {
     }
   } catch (e) {
     console.error(e);
-    showAlert(
-      'Error',
-      e.message || 'Failed to split PDF. Please check your selection.'
-    );
+    showAlert('Error', e.message || 'Failed to split PDF. Please check your selection.');
   } finally {
     hideLoader();
   }

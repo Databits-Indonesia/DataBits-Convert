@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -12,22 +12,26 @@
       href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined"
       rel="stylesheet"
     />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css"
+    />
     <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
     <script>
       tailwind.config = {
-        darkMode: "class",
+        darkMode: 'class',
         theme: {
           extend: {
             colors: {
-              primary: "#111827", // A very dark gray, almost black
-              "background-light": "#ffffff",
-              "background-dark": "#121212",
+              primary: '#111827', // A very dark gray, almost black
+              'background-light': '#ffffff',
+              'background-dark': '#121212',
             },
             fontFamily: {
-              display: ["Inter", "sans-serif"],
+              display: ['Inter', 'sans-serif'],
             },
             borderRadius: {
-              DEFAULT: "0.5rem", // 8px
+              DEFAULT: '0.5rem', // 8px
             },
           },
         },
@@ -35,7 +39,7 @@
     </script>
     <style>
       .icon {
-        font-family: "Material Icons Outlined";
+        font-family: 'Material Icons Outlined';
         font-weight: normal;
         font-style: normal;
         font-size: 24px;
@@ -46,8 +50,8 @@
         white-space: nowrap;
         word-wrap: normal;
         direction: ltr;
-        font-feature-settings: "liga";
-        -webkit-font-feature-settings: "liga";
+        font-feature-settings: 'liga';
+        -webkit-font-feature-settings: 'liga';
         -webkit-font-smoothing: antialiased;
       }
       /* Custom scrollbar for better aesthetics */
@@ -64,33 +68,63 @@
       .dark ::-webkit-scrollbar-thumb {
         background-color: #475569;
       }
+
+      /* Cropper.js custom styles */
+      #cropper-container {
+        max-width: 100%;
+        min-height: 500px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      #cropper-container img {
+        max-width: 100%;
+        height: auto;
+        display: block;
+      }
+
+      .cropper-container {
+        width: 100% !important;
+        height: auto !important;
+      }
+
+      .cropper-canvas {
+        max-width: 100% !important;
+      }
+
+      .cropper-crop-box {
+        border: 2px solid #3b82f6 !important;
+      }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "pdfjs-dist/": "https://aistudiocdn.com/pdfjs-dist@^5.4.449/",
-    "pdfjs-dist": "https://aistudiocdn.com/pdfjs-dist@^5.4.449",
-    "jszip": "https://aistudiocdn.com/jszip@^3.10.1",
-    "pdf-lib": "https://aistudiocdn.com/pdf-lib@^1.17.1",
-    "tesseract.js": "https://aistudiocdn.com/tesseract.js@^6.0.1",
-    "lucide": "https://aistudiocdn.com/lucide@^0.555.0",
-    "heic2any": "https://aistudiocdn.com/heic2any@^0.0.4",
-    "utif": "https://aistudiocdn.com/utif@^3.1.0",
-    "sortablejs": "https://aistudiocdn.com/sortablejs@^1.15.6",
-    "cropperjs": "https://aistudiocdn.com/cropperjs@^2.1.0",
-    "vitest": "https://aistudiocdn.com/vitest@^4.0.15",
-    "tiff": "https://aistudiocdn.com/tiff@^7.1.2",
-    "@neslinesli93/qpdf-wasm": "https://aistudiocdn.com/@neslinesli93/qpdf-wasm@^0.3.0"
-  }
-}
-</script>
-<link rel="stylesheet" href="/index.css">
-</head>
-  <body class="bg-background-light dark:bg-background-dark font-display text-gray-700 dark:text-gray-300 antialiased selection:bg-primary selection:text-white">
+    <script type="importmap">
+      {
+        "imports": {
+          "react/": "https://aistudiocdn.com/react@^19.2.0/",
+          "react": "https://aistudiocdn.com/react@^19.2.0",
+          "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+          "pdfjs-dist/": "https://aistudiocdn.com/pdfjs-dist@^5.4.449/",
+          "pdfjs-dist": "https://aistudiocdn.com/pdfjs-dist@^5.4.449",
+          "jszip": "https://aistudiocdn.com/jszip@^3.10.1",
+          "pdf-lib": "https://aistudiocdn.com/pdf-lib@^1.17.1",
+          "tesseract.js": "https://aistudiocdn.com/tesseract.js@^6.0.1",
+          "lucide": "https://aistudiocdn.com/lucide@^0.555.0",
+          "heic2any": "https://aistudiocdn.com/heic2any@^0.0.4",
+          "utif": "https://aistudiocdn.com/utif@^3.1.0",
+          "sortablejs": "https://aistudiocdn.com/sortablejs@^1.15.6",
+          "cropperjs": "https://aistudiocdn.com/cropperjs@^2.1.0",
+          "vitest": "https://aistudiocdn.com/vitest@^4.0.15",
+          "tiff": "https://aistudiocdn.com/tiff@^7.1.2",
+          "@neslinesli93/qpdf-wasm": "https://aistudiocdn.com/@neslinesli93/qpdf-wasm@^0.3.0"
+        }
+      }
+    </script>
+    <link rel="stylesheet" href="/index.css" />
+  </head>
+  <body
+    class="bg-background-light dark:bg-background-dark font-display text-gray-700 dark:text-gray-300 antialiased selection:bg-primary selection:text-white"
+  >
     <div id="root"></div>
-  <script type="module" src="/index.tsx"></script>
-</body>
+    <script type="module" src="/index.tsx"></script>
+  </body>
 </html>

@@ -1,15 +1,13 @@
 import { showLoader, hideLoader, showAlert } from '../ui';
-import {
-  downloadFile,
-  readFileAsArrayBuffer,
-  formatBytes,
-  getPDFDocument,
-} from '../utils/helpers';
+import { downloadFile, readFileAsArrayBuffer, formatBytes, getPDFDocument } from '../utils/helpers';
 import { state } from '../state';
 import * as pdfjsLib from 'pdfjs-dist';
 import { PDFDocument, PDFName, PDFDict, PDFStream, PDFNumber } from 'pdf-lib';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
 
 function dataUrlToBytes(dataUrl: any) {
   const base64 = dataUrl.split(',')[1];
@@ -71,9 +69,7 @@ async function performSmartCompression(arrayBuffer: any, settings: any) {
             : 0;
         const bitsPerComponent =
           stream.dict.get(PDFName.of('BitsPerComponent')) instanceof PDFNumber
-            ? (
-              stream.dict.get(PDFName.of('BitsPerComponent')) as PDFNumber
-            ).asNumber()
+            ? (stream.dict.get(PDFName.of('BitsPerComponent')) as PDFNumber).asNumber()
             : 8;
 
         if (width > 0 && height > 0) {
@@ -104,9 +100,7 @@ async function performSmartCompression(arrayBuffer: any, settings: any) {
           canvas.height = Math.floor(newHeight);
 
           const img = new Image();
-          const imageUrl = URL.createObjectURL(
-            new Blob([new Uint8Array(imageBytes)])
-          );
+          const imageUrl = URL.createObjectURL(new Blob([new Uint8Array(imageBytes)]));
 
           await new Promise((resolve, reject) => {
             img.onload = resolve;
@@ -137,10 +131,7 @@ async function performSmartCompression(arrayBuffer: any, settings: any) {
 
           if (settings.tryWebP) {
             try {
-              const webpDataUrl = canvas.toDataURL(
-                'image/webp',
-                settings.quality
-              );
+              const webpDataUrl = canvas.toDataURL('image/webp', settings.quality);
               const webpBytes = dataUrlToBytes(webpDataUrl);
               if (webpBytes.length < bestSize) {
                 bestBytes = webpBytes;
@@ -161,10 +152,7 @@ async function performSmartCompression(arrayBuffer: any, settings: any) {
             stream.dict.set(PDFName.of('BitsPerComponent'), PDFNumber.of(8));
 
             if (settings.grayscale) {
-              stream.dict.set(
-                PDFName.of('ColorSpace'),
-                PDFName.of('DeviceGray')
-              );
+              stream.dict.set(PDFName.of('ColorSpace'), PDFName.of('DeviceGray'));
             }
           }
           URL.revokeObjectURL(imageUrl);
@@ -196,8 +184,7 @@ async function performLegacyCompression(arrayBuffer: any, settings: any) {
     canvas.height = viewport.height;
     canvas.width = viewport.width;
 
-    await page.render({ canvasContext: context, viewport, canvas: canvas })
-      .promise;
+    await page.render({ canvasContext: context, viewport, canvas: canvas }).promise;
 
     const jpegBlob = await new Promise((resolve) =>
       canvas.toBlob(resolve, 'image/jpeg', settings.quality)
@@ -216,11 +203,16 @@ async function performLegacyCompression(arrayBuffer: any, settings: any) {
   return await newPdfDoc.save();
 }
 
+export function setupCompressTool() {
+  // Show the compress tool container
+  document.getElementById('compress-tool-container')?.classList.remove('hidden');
+}
+
 export async function compress() {
   // @ts-expect-error TS(2339) FIXME: Property 'value' does not exist on type 'HTMLEleme... Remove this comment to see the full error message
-  const level = document.getElementById('compression-level').value;
+  const level = document.getElementById('compression-level')?.value || 'balanced';
   // @ts-expect-error TS(2339) FIXME: Property 'value' does not exist on type 'HTMLEleme... Remove this comment to see the full error message
-  const algorithm = document.getElementById('compression-algorithm').value;
+  const algorithm = document.getElementById('compression-algorithm')?.value || 'auto';
 
   const settings = {
     balanced: {
@@ -292,10 +284,7 @@ export async function compress() {
         usedMethod = 'Photon';
       } else {
         showLoader('Running Automatic (Vector first)...');
-        const vectorResultBytes = await performSmartCompression(
-          arrayBuffer,
-          smartSettings
-        );
+        const vectorResultBytes = await performSmartCompression(arrayBuffer, smartSettings);
 
         if (vectorResultBytes.length < originalFile.size) {
           resultBytes = vectorResultBytes;
@@ -303,10 +292,7 @@ export async function compress() {
         } else {
           showAlert('Vector failed to reduce size. Trying Photon...', 'info');
           showLoader('Running Automatic (Photon fallback)...');
-          resultBytes = await performLegacyCompression(
-            arrayBuffer,
-            legacySettings
-          );
+          resultBytes = await performLegacyCompression(arrayBuffer, legacySettings);
           usedMethod = 'Photon (Automatic)';
         }
       }
@@ -314,29 +300,25 @@ export async function compress() {
       const originalSize = formatBytes(originalFile.size);
       const compressedSize = formatBytes(resultBytes.length);
       const savings = originalFile.size - resultBytes.length;
-      const savingsPercent =
-        savings > 0 ? ((savings / originalFile.size) * 100).toFixed(1) : 0;
+      const savingsPercent = savings > 0 ? ((savings / originalFile.size) * 100).toFixed(1) : 0;
 
       if (savings > 0) {
         showAlert(
           'Compression Complete',
           `Method: **${usedMethod}**. ` +
-          `File size reduced from ${originalSize} to ${compressedSize} (Saved ${savingsPercent}%).`
+            `File size reduced from ${originalSize} to ${compressedSize} (Saved ${savingsPercent}%).`
         );
       } else {
         showAlert(
           'Compression Finished',
           `Method: **${usedMethod}**. ` +
-          `Could not reduce file size. Original: ${originalSize}, New: ${compressedSize}.`,
+            `Could not reduce file size. Original: ${originalSize}, New: ${compressedSize}.`,
           // @ts-ignore - showAlert third parameter
           'warning'
         );
       }
 
-      downloadFile(
-        new Blob([resultBytes], { type: 'application/pdf' }),
-        'compressed-final.pdf'
-      );
+      downloadFile(new Blob([resultBytes], { type: 'application/pdf' }), 'compressed-final.pdf');
     } else {
       showLoader('Compressing multiple PDFs...');
       const JSZip = (await import('jszip')).default;
@@ -356,13 +338,11 @@ export async function compress() {
         } else if (algorithm === 'photon') {
           resultBytes = await performLegacyCompression(arrayBuffer, legacySettings);
         } else {
-          const vectorResultBytes = await performSmartCompression(
-            arrayBuffer,
-            smartSettings
-          );
-          resultBytes = vectorResultBytes.length < file.size
-            ? vectorResultBytes
-            : await performLegacyCompression(arrayBuffer, legacySettings);
+          const vectorResultBytes = await performSmartCompression(arrayBuffer, smartSettings);
+          resultBytes =
+            vectorResultBytes.length < file.size
+              ? vectorResultBytes
+              : await performLegacyCompression(arrayBuffer, legacySettings);
         }
 
         totalCompressedSize += resultBytes.length;
@@ -373,33 +353,27 @@ export async function compress() {
       const zipBlob = await zip.generateAsync({ type: 'blob' });
       const totalSavings = totalOriginalSize - totalCompressedSize;
       const totalSavingsPercent =
-        totalSavings > 0
-          ? ((totalSavings / totalOriginalSize) * 100).toFixed(1)
-          : 0;
+        totalSavings > 0 ? ((totalSavings / totalOriginalSize) * 100).toFixed(1) : 0;
 
       if (totalSavings > 0) {
         showAlert(
           'Compression Complete',
           `Compressed ${state.files.length} PDF(s). ` +
-          `Total size reduced from ${formatBytes(totalOriginalSize)} to ${formatBytes(totalCompressedSize)} (Saved ${totalSavingsPercent}%).`
+            `Total size reduced from ${formatBytes(totalOriginalSize)} to ${formatBytes(totalCompressedSize)} (Saved ${totalSavingsPercent}%).`
         );
       } else {
         showAlert(
           'Compression Finished',
           `Compressed ${state.files.length} PDF(s). ` +
-          `Total size: ${formatBytes(totalCompressedSize)}.`
+            `Total size: ${formatBytes(totalCompressedSize)}.`
         );
       }
 
       downloadFile(zipBlob, 'compressed-pdfs.zip');
     }
   } catch (e) {
-    showAlert(
-      'Error',
-      `An error occurred during compression. Error: ${e.message}`
-    );
+    showAlert('Error', `An error occurred during compression. Error: ${e.message}`);
   } finally {
     hideLoader();
   }
 }
-

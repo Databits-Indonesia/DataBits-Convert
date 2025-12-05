@@ -18,7 +18,7 @@ function getWorker() {
 }
 
 let allAttachments: Array<{ index: number; name: string; page: number; data: Uint8Array }> = [];
-let attachmentsToRemove: Set<number> = new Set();
+const attachmentsToRemove: Set<number> = new Set();
 
 export async function setupEditAttachmentsTool() {
   const optionsDiv = document.getElementById('edit-attachments-options');
@@ -45,7 +45,7 @@ async function loadAttachmentsList() {
     const message = {
       command: 'get-attachments',
       fileBuffer: fileBuffer,
-      fileName: file.name
+      fileName: file.name,
     };
 
     const w = getWorker();
@@ -64,15 +64,15 @@ async function loadAttachmentsList() {
 
 function setupWorkerListeners() {
   if (!worker) return;
-  
+
   worker.onmessage = (e) => {
     const data = e.data;
 
     if (data.status === 'success' && data.attachments !== undefined) {
       const attachments = data.attachments;
-      allAttachments = attachments.map(att => ({
+      allAttachments = attachments.map((att) => ({
         ...att,
-        data: new Uint8Array(att.data)
+        data: new Uint8Array(att.data),
       }));
 
       displayAttachments(attachments);
@@ -125,10 +125,12 @@ function displayAttachments(attachments) {
   removeAllBtn.onclick = () => {
     if (allAttachments.length === 0) return;
 
-    const allSelected = allAttachments.every(attachment => attachmentsToRemove.has(attachment.index));
+    const allSelected = allAttachments.every((attachment) =>
+      attachmentsToRemove.has(attachment.index)
+    );
 
     if (allSelected) {
-      allAttachments.forEach(attachment => {
+      allAttachments.forEach((attachment) => {
         attachmentsToRemove.delete(attachment.index);
         const element = document.querySelector(`[data-attachment-index="${attachment.index}"]`);
         if (element) {
@@ -142,7 +144,7 @@ function displayAttachments(attachments) {
       });
       removeAllBtn.textContent = 'Remove All Attachments';
     } else {
-      allAttachments.forEach(attachment => {
+      allAttachments.forEach((attachment) => {
         attachmentsToRemove.add(attachment.index);
         const element = document.querySelector(`[data-attachment-index="${attachment.index}"]`);
         if (element) {
@@ -163,7 +165,8 @@ function displayAttachments(attachments) {
 
   for (const attachment of attachments) {
     const attachmentDiv = document.createElement('div');
-    attachmentDiv.className = 'flex items-center justify-between p-3 bg-gray-800 rounded-lg border border-gray-700';
+    attachmentDiv.className =
+      'flex items-center justify-between p-3 bg-gray-800 rounded-lg border border-gray-700';
     attachmentDiv.dataset.attachmentIndex = attachment.index.toString();
 
     const infoDiv = document.createElement('div');
@@ -202,7 +205,9 @@ function displayAttachments(attachments) {
         removeBtn.classList.add('bg-gray-600');
         removeBtn.classList.remove('bg-red-600');
       }
-      const allSelected = allAttachments.every(attachment => attachmentsToRemove.has(attachment.index));
+      const allSelected = allAttachments.every((attachment) =>
+        attachmentsToRemove.has(attachment.index)
+      );
       removeAllBtn.textContent = allSelected ? 'Deselect All' : 'Remove All Attachments';
     };
 
@@ -228,7 +233,7 @@ export async function editAttachments() {
       command: 'edit-attachments',
       fileBuffer: fileBuffer,
       fileName: file.name,
-      attachmentsToRemove: Array.from(attachmentsToRemove)
+      attachmentsToRemove: Array.from(attachmentsToRemove),
     };
 
     const w = getWorker();

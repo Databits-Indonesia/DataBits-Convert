@@ -6,7 +6,20 @@
 import { PDFDocument } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
+
+// Common page sizes in points (72 dpi)
+const STANDARD_SIZES = {
+  A4: { width: 595.28, height: 841.89 },
+  Letter: { width: 612, height: 792 },
+  Legal: { width: 612, height: 1008 },
+  Tabloid: { width: 792, height: 1224 },
+  A3: { width: 841.89, height: 1190.55 },
+  A5: { width: 419.53, height: 595.28 },
+};
 
 /**
  * Read a file as an ArrayBuffer
@@ -24,7 +37,11 @@ export async function readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
  * Get a PDF.js document from array buffer
  */
 export function getPDFDocument(options: { data: ArrayBuffer | Uint8Array }) {
-  return pdfjsLib.getDocument(options);
+  return pdfjsLib.getDocument({
+    ...options,
+    // Ensure OpenJPEG wasm is resolvable in PDF.js v5+
+    wasmUrl: '/pdfjs-viewer/wasm/',
+  });
 }
 
 /**
@@ -56,11 +73,104 @@ export function formatBytes(bytes: number, decimals = 2): string {
 }
 
 /**
+ * Convert page size to a standard name if it matches known sizes (within tolerance)
+ */
+export function getStandardPageName(width: number, height: number): string {
+  const tolerance = 1; // points
+  for (const [name, size] of Object.entries(STANDARD_SIZES)) {
+    const matchesNormal =
+      Math.abs(width - size.width) < tolerance && Math.abs(height - size.height) < tolerance;
+    const matchesRotated =
+      Math.abs(width - size.height) < tolerance && Math.abs(height - size.width) < tolerance;
+    if (matchesNormal || matchesRotated) {
+      return name;
+    }
+  }
+  return 'Custom';
+}
+
+/**
+ * Convert points to another unit (in, mm, px, pt)
+ */
+export function convertPoints(points: number, unit: 'in' | 'mm' | 'px' | 'pt') {
+  switch (unit) {
+    case 'in':
+      return (points / 72).toFixed(2);
+    case 'mm':
+      return ((points / 72) * 25.4).toFixed(2);
+    case 'px':
+      return (points * (96 / 72)).toFixed(2); // assuming 96 DPI
+    default:
+      return points.toFixed(2);
+  }
+}
+
+/**
+ * Hex to RGB (0-1 range) converter
+ */
+export function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result
+    ? {
+        r: parseInt(result[1], 16) / 255,
+        g: parseInt(result[2], 16) / 255,
+        b: parseInt(result[3], 16) / 255,
+      }
+    : { r: 0, g: 0, b: 0 };
+}
+
+/**
+ * Parse page range strings like "1-3,5" into zero-based page indices
+ */
+export function parsePageRanges(rangeString: string, totalPages: number): number[] {
+  if (!rangeString || rangeString.trim() === '') {
+    return Array.from({ length: totalPages }, (_, i) => i);
+  }
+
+  const indices = new Set<number>();
+  const parts = rangeString.split(',');
+
+  for (const part of parts) {
+    const trimmedPart = part.trim();
+    if (!trimmedPart) continue;
+
+    if (trimmedPart.includes('-')) {
+      const [startStr, endStr] = trimmedPart.split('-');
+      const start = Number(startStr);
+      const end = Number(endStr);
+      if (
+        Number.isNaN(start) ||
+        Number.isNaN(end) ||
+        start < 1 ||
+        end > totalPages ||
+        start > end
+      ) {
+        continue;
+      }
+      for (let i = start; i <= end; i++) {
+        indices.add(i - 1);
+      }
+    } else {
+      const pageNum = Number(trimmedPart);
+      if (Number.isNaN(pageNum) || pageNum < 1 || pageNum > totalPages) {
+        continue;
+      }
+      indices.add(pageNum - 1);
+    }
+  }
+
+  return Array.from(indices).sort((a, b) => a - b);
+}
+
+/**
  * Create a PDF document from pages
  */
-export async function createPdfFromPages(pageIndices: number[], sourcePdf: PDFDocument): Promise<PDFDocument> {
+export async function createPdfFromPages(
+  pageIndices: number[],
+  sourcePdf: PDFDocument
+): Promise<PDFDocument> {
   const newPdf = await PDFDocument.create();
   const copiedPages = await newPdf.copyPages(sourcePdf, pageIndices);
-  copiedPages.forEach((page: any) => newPdf.addPage(page));
+  copiedPages.forEach((page) => newPdf.addPage(page));
   return newPdf;
 }
