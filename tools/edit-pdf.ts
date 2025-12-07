@@ -1,7 +1,28 @@
 import { showLoader, hideLoader, showAlert } from '../ui';
 import { state } from '../state';
 
-let embedPDFInstance: any = null;
+// Declare global type for EmbedPDF
+declare global {
+  interface Window {
+    EmbedPDF?: {
+      init: (config: {
+        type: string;
+        target: HTMLElement;
+        src: string;
+        toolbar?: {
+          download?: boolean;
+          print?: boolean;
+          zoom?: boolean;
+          search?: boolean;
+          pageNav?: boolean;
+          fullscreen?: boolean;
+        };
+      }) => unknown;
+    };
+  }
+}
+
+let embedPDFInstance: unknown = null;
 
 export async function setupEditPDFTool() {
   const optionsDiv = document.getElementById('edit-pdf-options');
@@ -33,12 +54,13 @@ async function loadPDFViewer() {
     viewerDiv.style.width = '100%';
     viewerContainer.appendChild(viewerDiv);
 
-    // Dynamically import EmbedPDF
-    const EmbedPDFModule = await import('https://snippet.embedpdf.com/embedpdf.js');
-    const EmbedPDF = EmbedPDFModule.default;
+    // Wait for EmbedPDF to be available
+    if (!window.EmbedPDF) {
+      throw new Error('EmbedPDF library is not loaded');
+    }
 
     // Initialize EmbedPDF
-    embedPDFInstance = EmbedPDF.init({
+    embedPDFInstance = window.EmbedPDF.init({
       type: 'container',
       target: viewerDiv,
       src: fileURL,
