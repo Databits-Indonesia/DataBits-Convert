@@ -425,7 +425,7 @@ const App: React.FC = () => {
             allowMultiple={selectedTool === 'merge' || selectedTool === 'image-to-pdf'}
           />
 
-          {selectedFile && !isConverting && !isConverted && (
+          {selectedFile && !isConverting && !isConverted && !selectedTool && (
             <div className="mt-8 animate-fade-in-up">
               <button
                 onClick={startConversion}
