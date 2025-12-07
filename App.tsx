@@ -152,6 +152,7 @@ const App: React.FC = () => {
         setCloudAccessToken(accessToken);
         setCloudProvider(provider);
         setShowCloudPicker(true);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
         console.error('OAuth error:', error);
         alert(
@@ -163,6 +164,7 @@ const App: React.FC = () => {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleCloudFileSelect = async (cloudFile: any) => {
     try {
       setShowCloudPicker(false);
@@ -186,6 +188,7 @@ const App: React.FC = () => {
         name: cloudFile.name,
         size: blob.size,
       });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error('Error downloading cloud file:', error);
       alert(`Failed to download file: ${error.message}`);
