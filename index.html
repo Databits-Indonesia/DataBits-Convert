@@ -16,10 +16,6 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css"
     />
-    <script type="module">
-      import EmbedPDF from 'https://snippet.embedpdf.com/embedpdf.js';
-      window.EmbedPDF = EmbedPDF;
-    </script>
     <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
     <script>
       tailwind.config = {
@@ -122,6 +118,10 @@
           "@neslinesli93/qpdf-wasm": "https://aistudiocdn.com/@neslinesli93/qpdf-wasm@^0.3.0"
         }
       }
+    </script>
+    <script type="module">
+      import EmbedPDF from 'https://snippet.embedpdf.com/embedpdf.js';
+      window.EmbedPDF = EmbedPDF;
     </script>
     <link rel="stylesheet" href="/index.css" />
   </head>
