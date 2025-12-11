@@ -11,6 +11,18 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),
-    }
-  }
+    },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'pdf-lib': ['pdf-lib'],
+          pdfjs: ['pdfjs-dist'],
+          vendor: ['react', 'react-dom'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 2000, // Or increase the limit
+  },
 });
