@@ -13,6 +13,7 @@ export default defineConfig({
       '@': path.resolve(__dirname, '.'),
     },
   },
+  base: './',
   build: {
     rollupOptions: {
       output: {
