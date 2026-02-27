@@ -15,6 +15,12 @@ dist
 dist-ssr
 build
 *.local
+.next
+out
+
+# Next.js
+next-env.d.ts
+.vercel
 
 # Environment variables
 .env
@@ -49,5 +55,4 @@ Thumbs.db
 *.temp
 .cache
 
-.vercel
 .env*.local

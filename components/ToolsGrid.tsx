@@ -1,5 +1,5 @@
-import React from "react";
-import { Tool } from "../types";
+import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { Tool } from '../types';
 
 interface ToolsGridProps {
   tools: Tool[];
@@ -7,15 +7,78 @@ interface ToolsGridProps {
 }
 
 const ToolsGrid: React.FC<ToolsGridProps> = ({ tools, onSelect }) => {
+  const [query, setQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Add keyboard shortcut for search
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const filteredTools = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return tools;
+    return tools.filter((tool) =>
+      [tool.name, tool.description, tool.id].some((value) =>
+        value.toLowerCase().includes(normalized)
+      )
+    );
+  }, [query, tools]);
+
   return (
     <div className="mt-20 w-full max-w-6xl mx-auto">
       <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Popular PDF Tools</h2>
-        <p className="mt-2 text-gray-600 dark:text-gray-400">Everything you need to manage your PDF files</p>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Get Started with Tools</h2>
+        <p className="mt-2 text-gray-600 dark:text-gray-400">
+          Find the right tool and jump straight to upload or editing.
+        </p>
       </div>
-      
+
+      <div className="mb-8 flex flex-col items-center gap-4">
+        <div className="w-full max-w-xl">
+          <label className="sr-only" htmlFor="tool-search">
+            Search tools
+          </label>
+          <div className="relative">
+            <span className="icon absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+              search
+            </span>
+            <input
+              ref={searchInputRef}
+              id="tool-search"
+              type="search"
+              placeholder="Search tools... (Cmd+K / Ctrl+K)"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              className="w-full rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-12 py-3 text-sm text-gray-800 dark:text-gray-200 shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                aria-label="Clear search"
+              >
+                <span className="icon">close</span>
+              </button>
+            )}
+          </div>
+        </div>
+        <p className="text-xs text-gray-500 dark:text-gray-500">
+          Showing {filteredTools.length} of {tools.length} tools
+        </p>
+      </div>
+
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        {tools.map((tool) => (
+        {filteredTools.map((tool) => (
           <button
             key={tool.id}
             onClick={() => onSelect(tool.id)}
@@ -24,11 +87,21 @@ const ToolsGrid: React.FC<ToolsGridProps> = ({ tools, onSelect }) => {
             <div className="p-3 rounded-full bg-gray-50 dark:bg-gray-700 text-primary dark:text-white mb-3 group-hover:bg-primary group-hover:text-white transition-colors">
               <span className="icon text-3xl">{tool.icon}</span>
             </div>
-            <h3 className="font-semibold text-gray-900 dark:text-white text-sm mb-1">{tool.name}</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{tool.description}</p>
+            <h3 className="font-semibold text-gray-900 dark:text-white text-sm mb-1">
+              {tool.name}
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
+              {tool.description}
+            </p>
           </button>
         ))}
       </div>
+
+      {filteredTools.length === 0 && (
+        <div className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
+          No tools match your search. Try a different keyword.
+        </div>
+      )}
     </div>
   );
 };

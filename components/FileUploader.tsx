@@ -16,6 +16,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
 
   const validateFile = (file: File) => {
     if (acceptType === 'pdf') {
@@ -66,24 +67,24 @@ const FileUploader: React.FC<FileUploaderProps> = ({
       setIsDragging(false);
 
       if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-        if (allowMultiple) {
-          // Handle multiple files (for merge or image-to-pdf)
-          const files = Array.from(e.dataTransfer.files) as File[];
-          const validFiles = files.filter((f: File) => validateFile(f));
-          if (validFiles.length > 0) {
-            // For multiple files, pass all files to parent
+        const files = Array.from(e.dataTransfer.files) as File[];
+        const validFiles = files.filter((f: File) => validateFile(f));
+
+        if (validFiles.length > 0) {
+          if (allowMultiple) {
+            const newFiles = [...uploadedFiles, ...validFiles];
+            setUploadedFiles(newFiles);
             onFileSelect(
               {
                 file: validFiles[0],
-                name: `${validFiles.length} file${validFiles.length > 1 ? 's' : ''} selected`,
-                size: validFiles.reduce((sum, f) => sum + f.size, 0),
+                name: `${newFiles.length} file${newFiles.length > 1 ? 's' : ''} selected`,
+                size: newFiles.reduce((sum, f) => sum + f.size, 0),
               },
-              validFiles
+              newFiles
             );
-          }
-        } else {
-          const file = e.dataTransfer.files[0];
-          if (validateFile(file)) {
+          } else {
+            const file = validFiles[0];
+            setUploadedFiles([file]);
             onFileSelect({
               file: file,
               name: file.name,
@@ -93,29 +94,30 @@ const FileUploader: React.FC<FileUploaderProps> = ({
         }
       }
     },
-    [onFileSelect, allowMultiple, acceptType]
+    [onFileSelect, allowMultiple, uploadedFiles]
   );
 
   const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files.length > 0) {
-        if (allowMultiple) {
-          // Handle multiple files (for merge or image-to-pdf)
-          const files = Array.from(e.target.files) as File[];
-          const validFiles = files.filter((f: File) => validateFile(f));
-          if (validFiles.length > 0) {
+        const files = Array.from(e.target.files) as File[];
+        const validFiles = files.filter((f: File) => validateFile(f));
+
+        if (validFiles.length > 0) {
+          if (allowMultiple) {
+            const newFiles = [...uploadedFiles, ...validFiles];
+            setUploadedFiles(newFiles);
             onFileSelect(
               {
                 file: validFiles[0],
-                name: `${validFiles.length} file${validFiles.length > 1 ? 's' : ''} selected`,
-                size: validFiles.reduce((sum, f) => sum + f.size, 0),
+                name: `${newFiles.length} file${newFiles.length > 1 ? 's' : ''} selected`,
+                size: newFiles.reduce((sum, f) => sum + f.size, 0),
               },
-              validFiles
+              newFiles
             );
-          }
-        } else {
-          const file = e.target.files[0];
-          if (validateFile(file)) {
+          } else {
+            const file = validFiles[0];
+            setUploadedFiles([file]);
             onFileSelect({
               file: file,
               name: file.name,
@@ -124,74 +126,172 @@ const FileUploader: React.FC<FileUploaderProps> = ({
           }
         }
       }
+      // Reset input value to allow re-selecting the same file
+      e.target.value = '';
     },
-    [onFileSelect, allowMultiple, acceptType]
+    [onFileSelect, allowMultiple, uploadedFiles]
   );
 
+  const handleRemoveFile = (index: number) => {
+    const newFiles = uploadedFiles.filter((_, i) => i !== index);
+    setUploadedFiles(newFiles);
+
+    if (newFiles.length > 0) {
+      onFileSelect(
+        {
+          file: newFiles[0],
+          name: `${newFiles.length} file${newFiles.length > 1 ? 's' : ''} selected`,
+          size: newFiles.reduce((sum, f) => sum + f.size, 0),
+        },
+        newFiles
+      );
+    }
+  };
+
+  const handleClearAll = () => {
+    setUploadedFiles([]);
+    setError(null);
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  };
+
+  const triggerFileInput = () => {
+    document.getElementById('file-input-hidden')?.click();
+  };
+
   return (
-    <div className="mt-10">
-      <div
-        className={`relative w-full border-2 border-dashed rounded-lg p-8 sm:p-12 flex flex-col items-center justify-center text-center transition-colors ${
-          error
-            ? 'border-red-500 bg-red-50 dark:bg-red-900/10'
-            : isDragging
-              ? 'border-primary bg-blue-50 dark:bg-gray-800 dark:border-blue-500'
-              : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
-        }`}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-      >
-        <span
-          className={`icon text-5xl mb-4 transition-colors ${
+    <div className="mt-10 max-w-4xl mx-auto">
+      {uploadedFiles.length === 0 ? (
+        // Before upload state - show upload area
+        <div
+          className={`relative w-full border-2 border-dashed rounded-lg p-12 sm:p-16 flex flex-col items-center justify-center text-center transition-colors ${
             error
-              ? 'text-red-500'
+              ? 'border-red-500 bg-red-50 dark:bg-red-900/10'
               : isDragging
-                ? 'text-primary dark:text-blue-500'
-                : 'text-gray-400 dark:text-gray-500'
+                ? 'border-primary bg-blue-50 dark:bg-blue-50'
+                : 'border-gray-300 dark:border-gray-300 bg-white dark:bg-white hover:border-gray-400 dark:hover:border-gray-400'
           }`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
         >
-          {error ? 'error_outline' : selectedFile ? 'check_circle' : 'upload_file'}
-        </span>
+          <span
+            className={`icon text-6xl mb-4 transition-colors ${
+              error
+                ? 'text-red-500'
+                : isDragging
+                  ? 'text-primary dark:text-blue-500'
+                  : 'text-gray-400 dark:text-gray-500'
+            }`}
+          >
+            {error ? 'error_outline' : 'cloud_upload'}
+          </span>
 
-        {error ? (
-          <>
-            <p className="text-xl font-medium text-red-600 dark:text-red-400">Upload Failed</p>
-            <p className="text-red-500 dark:text-red-300 mt-2">{error}</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">Click to try again</p>
-          </>
-        ) : selectedFile ? (
-          <>
-            <p className="text-xl font-medium text-gray-800 dark:text-gray-200">
-              {selectedFile.name}
-            </p>
-            <p className="text-gray-500 dark:text-gray-400 mt-2">
-              {(selectedFile.size / 1024).toFixed(2)} KB
-            </p>
-            <p className="text-sm text-primary mt-2">Click to replace</p>
-          </>
-        ) : (
-          <>
-            <p className="text-xl font-medium text-gray-800 dark:text-gray-200">
-              Drag your file here!
-            </p>
-            <p className="text-gray-500 dark:text-gray-400 mt-2">or click to browse</p>
-          </>
-        )}
+          {error ? (
+            <>
+              <p className="text-xl font-medium text-red-600 dark:text-red-400">Upload Failed</p>
+              <p className="text-red-500 dark:text-red-300 mt-2">{error}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">Click to try again</p>
+            </>
+          ) : (
+            <>
+              <p className="text-lg font-medium text-gray-700 dark:text-gray-700">
+                Click to select, or drag and drop here
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
+                You can select, drag or paste up to {allowMultiple ? '20' : '1'} file
+                {allowMultiple ? 's' : ''}
+              </p>
+            </>
+          )}
 
-        <input
-          aria-label="Upload file"
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-          type="file"
-          accept={
-            acceptType === 'pdf'
-              ? 'application/pdf,.pdf'
-              : 'image/*,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg'
-          }
-          multiple={allowMultiple}
-          onChange={handleFileInput}
-        />
-      </div>
+          <input
+            id="file-input-hidden"
+            aria-label="Upload file"
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            type="file"
+            accept={
+              acceptType === 'pdf'
+                ? 'application/pdf,.pdf'
+                : 'image/*,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg'
+            }
+            multiple={allowMultiple}
+            onChange={handleFileInput}
+          />
+        </div>
+      ) : (
+        // After upload state - show file list
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={triggerFileInput}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg font-medium transition-colors"
+            >
+              <span className="icon text-xl">add</span>
+              Add More Files
+            </button>
+            <button
+              type="button"
+              onClick={handleClearAll}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
+            >
+              <span className="icon text-xl">delete_outline</span>
+              Clear All
+            </button>
+          </div>
+
+          <div className="bg-white dark:bg-white rounded-lg border border-gray-300 dark:border-gray-300">
+            {uploadedFiles.map((file, index) => (
+              <div
+                key={`${file.name}-${index}`}
+                className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-200 last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <span className="icon text-2xl text-red-500 flex-shrink-0">
+                    {acceptType === 'pdf' ? 'picture_as_pdf' : 'image'}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-900 truncate">
+                      {file.name}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                      {formatFileSize(file.size)}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveFile(index)}
+                  className="ml-3 p-2 hover:bg-gray-200 dark:hover:bg-gray-200 rounded-lg transition-colors flex-shrink-0"
+                  aria-label="Remove file"
+                >
+                  <span className="icon text-xl text-gray-500 hover:text-red-500">close</span>
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Hidden input for "Add More Files" button */}
+          <input
+            id="file-input-hidden"
+            aria-label="Upload file"
+            className="hidden"
+            type="file"
+            accept={
+              acceptType === 'pdf'
+                ? 'application/pdf,.pdf'
+                : 'image/*,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg'
+            }
+            multiple={allowMultiple}
+            onChange={handleFileInput}
+          />
+        </div>
+      )}
     </div>
   );
 };

@@ -2,7 +2,7 @@ import { PDFDocument } from 'pdf-lib';
 import { showLoader, hideLoader, showAlert } from '../ui';
 import { readFileAsArrayBuffer, getPDFDocument } from '../utils/helpers';
 import { state, setPdfDoc } from '../state';
-import type { PDFDocumentProxy } from 'pdfjs-dist';
+import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf';
 
 const signState = {
   currentPage: 1,

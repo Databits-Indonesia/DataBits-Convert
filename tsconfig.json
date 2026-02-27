@@ -23,9 +23,8 @@
         "./*"
       ]
     },
-    "allowImportingTsExtensions": true,
     "noEmit": true,
-    
+    "incremental": true,
     /* Strict Type-Checking Options */
     "strict": false,
     "noUnusedLocals": false,
@@ -35,11 +34,21 @@
     "forceConsistentCasingInFileNames": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
-    "strictNullChecks": false
+    "strictNullChecks": false,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
   },
   "include": [
     "**/*.ts",
-    "**/*.tsx"
+    "**/*.tsx",
+    "./dist/types/**/*.ts",
+    "./dist/dev/types/**/*.ts",
+    "./next-env.d.ts",
+    "dist/types/**/*.ts",
+    "dist/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

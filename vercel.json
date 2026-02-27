@@ -3,13 +3,7 @@
   "outputDirectory": "dist",
   "devCommand": "npm run dev",
   "installCommand": "npm install",
-  "framework": "vite",
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ],
+  "framework": "nextjs",
   "headers": [
     {
       "source": "/(.*)",
@@ -33,7 +27,7 @@
       ]
     },
     {
-      "source": "/assets/(.*)",
+      "source": "/_next/static/(.*)",
       "headers": [
         {
           "key": "Cache-Control",

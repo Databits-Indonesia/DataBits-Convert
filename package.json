@@ -2,12 +2,13 @@
   "name": "databits-convert",
   "private": true,
   "version": "1.0.0",
+  "packageManager": "pnpm@10.30.3",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "lint": "eslint . --ext .ts,.tsx --report-unused-disable-directives --max-warnings 0",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,json,md}\"",
@@ -16,9 +17,12 @@
   "dependencies": {
     "@neslinesli93/qpdf-wasm": "^0.3.0",
     "cropperjs": "^2.1.0",
+    "docx": "^9.0.2",
     "heic2any": "^0.0.4",
     "jszip": "^3.10.1",
     "lucide": "^0.555.0",
+    "mupdf": "^1.27.0",
+    "next": "^16.1.6",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^5.4.449",
     "react": "^19.2.0",
@@ -29,24 +33,26 @@
     "utif": "^3.1.0"
   },
   "devDependencies": {
+    "@tailwindcss/forms": "^0.5.9",
+    "@tailwindcss/typography": "^0.5.15",
     "@types/node": "^22.14.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@types/sortablejs": "^1.15.9",
-    "@typescript-eslint/eslint-plugin": "^7.18.0",
-    "@typescript-eslint/parser": "^7.18.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "eslint": "^8.57.1",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "^16.1.6",
     "eslint-plugin-react": "^7.37.5",
-    "eslint-plugin-react-hooks": "^4.6.2",
-    "eslint-plugin-react-refresh": "^0.4.24",
-    "prettier": "^3.7.4",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0",
-    "vitest": "^4.0.15"
+    "eslint-plugin-react-hooks": "^7.0.0",
+    "postcss": "^8.4.49",
+    "prettier": "^3.8.0",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.8.0"
   },
   "engines": {
     "node": ">=20.0.0",
-    "npm": ">=10.0.0"
+    "pnpm": ">=10.0.0"
   }
 }

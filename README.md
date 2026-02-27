@@ -4,7 +4,7 @@
 
 # DataBits Convert
 
-A powerful, client-side PDF and image conversion tool built with React, TypeScript, and Vite.
+A powerful, client-side PDF and image conversion tool built with React, TypeScript, and Next.js.
 
 ## ✨ Features
 
@@ -41,9 +41,9 @@ A powerful, client-side PDF and image conversion tool built with React, TypeScri
 ## 📦 Available Scripts
 
 ```bash
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run preview      # Preview production build
+npm run dev          # Start Next.js development server
+npm run build        # Build for production (static export)
+npm run start        # Start Next.js production server
 npm run lint         # Run ESLint
 npm run lint:fix     # Fix ESLint errors
 npm run format       # Format code with Prettier
@@ -67,6 +67,7 @@ The app works fully without OAuth configuration - users can still upload files l
 
 ## 📚 Documentation
 
+- [Migration Guide](MIGRATION.md) - Vite to Next.js migration details
 - [Deployment Guide](DEPLOYMENT.md) - How to deploy to various platforms
 - [Contributing Guide](CONTRIBUTING.md) - How to contribute to the project
 - [OAuth Setup](OAUTH_SETUP.md) - Configure cloud storage integrations
@@ -74,13 +75,13 @@ The app works fully without OAuth configuration - users can still upload files l
 
 ## 🛠️ Tech Stack
 
+- **Next.js 15** - React framework with App Router (Static Export mode)
 - **React 19** - UI framework
 - **TypeScript** - Type safety
-- **Vite** - Build tool
+- **TailwindCSS** - Styling framework
 - **PDF.js** - PDF rendering
 - **pdf-lib** - PDF manipulation
 - **Tesseract.js** - OCR functionality
-- **TailwindCSS** - Styling (via index.css)
 
 ## 📄 License
 

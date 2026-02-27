@@ -4,10 +4,13 @@ import { state } from '../state';
 import { renderPagesProgressively, cleanupLazyRendering } from '../utils/render-utils';
 
 import { createIcons, icons } from 'lucide';
-import * as pdfjsLib from 'pdfjs-dist';
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
 import Sortable from 'sortablejs';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/legacy/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
 
 interface MergeState {
   pdfDocs: Record<string, any>;
@@ -80,9 +83,7 @@ function initializePageThumbnailsSortable() {
 }
 
 function generateFileHash() {
-  return (state.files as File[])
-    .map((f) => `${f.name}-${f.size}-${f.lastModified}`)
-    .join('|');
+  return (state.files as File[]).map((f) => `${f.name}-${f.size}-${f.lastModified}`).join('|');
 }
 
 async function renderPageMergeThumbnails() {
@@ -141,8 +142,7 @@ async function renderPageMergeThumbnails() {
       imgContainer.append(img, pageNumDiv);
 
       const fileNamePara = document.createElement('p');
-      fileNamePara.className =
-        'text-xs text-gray-400 truncate w-full text-center';
+      fileNamePara.className = 'text-xs text-gray-400 truncate w-full text-center';
       const fullTitle = fileName ? `${fileName} (page ${pageNumber})` : `Page ${pageNumber}`;
       fileNamePara.title = fullTitle;
       fileNamePara.textContent = fileName
@@ -164,25 +164,18 @@ async function renderPageMergeThumbnails() {
       };
 
       // Render pages progressively with lazy loading
-      await renderPagesProgressively(
-        pdfjsDoc,
-        container,
-        createWrapperWithFileName,
-        {
-          batchSize: 8,
-          useLazyLoading: true,
-          lazyLoadMargin: '300px',
-          onProgress: (current, total) => {
-            currentPageNumber++;
-            showLoader(
-              `Rendering page previews...`
-            );
-          },
-          onBatchComplete: () => {
-            createIcons({ icons });
-          }
-        }
-      );
+      await renderPagesProgressively(pdfjsDoc, container, createWrapperWithFileName, {
+        batchSize: 8,
+        useLazyLoading: true,
+        lazyLoadMargin: '300px',
+        onProgress: (current, total) => {
+          currentPageNumber++;
+          showLoader(`Rendering page previews...`);
+        },
+        onBatchComplete: () => {
+          createIcons({ icons });
+        },
+      });
     }
 
     mergeState.cachedThumbnails = true;
@@ -203,10 +196,10 @@ export async function merge() {
   try {
     // Import pdf-lib dynamically
     const { PDFDocument } = await import('pdf-lib');
-    
+
     // Create a new PDF document for the merged result
     const mergedPdf = await PDFDocument.create();
-    
+
     if (mergeState.activeMode === 'file') {
       // File Mode: merge entire files in order
       const fileList = document.getElementById('file-list');
@@ -231,7 +224,7 @@ export async function merge() {
         if (!pdfBytes) continue;
 
         const pdfDoc = await PDFDocument.load(pdfBytes);
-        
+
         if (rangeString) {
           // Parse range like "1-3,5,7-9"
           const pages = parsePageRange(rangeString, pdfDoc.getPageCount());
@@ -276,10 +269,9 @@ export async function merge() {
     const mergedPdfBytes = await mergedPdf.save();
     const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
     downloadFile(blob, 'merged.pdf');
-    
+
     hideLoader();
     showAlert('Success', 'PDFs merged successfully!');
-
   } catch (e: any) {
     console.error('Merge error:', e);
     hideLoader();
@@ -293,13 +285,13 @@ export async function merge() {
 // Helper function to parse page ranges like "1-3,5,7-9"
 function parsePageRange(rangeString: string, totalPages: number): number[] {
   const pages = new Set<number>();
-  const parts = rangeString.split(',').map(s => s.trim());
-  
+  const parts = rangeString.split(',').map((s) => s.trim());
+
   for (const part of parts) {
     if (part.includes('-')) {
-      const [start, end] = part.split('-').map(s => parseInt(s.trim()));
+      const [start, end] = part.split('-').map((s) => parseInt(s.trim()));
       if (isNaN(start) || isNaN(end)) continue;
-      
+
       for (let i = Math.max(1, start); i <= Math.min(totalPages, end); i++) {
         pages.add(i - 1); // Convert to 0-based index
       }
@@ -310,7 +302,7 @@ function parsePageRange(rangeString: string, totalPages: number): number[] {
       }
     }
   }
-  
+
   return Array.from(pages).sort((a, b) => a - b);
 }
 

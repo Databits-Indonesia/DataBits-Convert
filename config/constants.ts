@@ -10,7 +10,16 @@ export const APP_CONFIG = {
   version: '1.0.0',
   description: 'Online converter for your documents',
   maxFileSize: 50 * 1024 * 1024, // 50MB
-  supportedImageFormats: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/svg+xml', 'image/heic', 'image/tiff'],
+  supportedImageFormats: [
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/bmp',
+    'image/svg+xml',
+    'image/heic',
+    'image/tiff',
+  ],
   supportedPdfFormat: 'application/pdf',
 } as const;
 
@@ -22,15 +31,61 @@ export const INPUT_OPTIONS: InputOption[] = [
 ] as const;
 
 export const POPULAR_TOOLS: Tool[] = [
-  { id: 'merge', name: 'Merge PDF', icon: 'call_merge', description: 'Combine multiple PDFs into one file.' },
-  { id: 'split', name: 'Split PDF', icon: 'call_split', description: 'Extract a range of pages into a new PDF.' },
-  { id: 'compress', name: 'Compress PDF', icon: 'compress', description: 'Reduce the file size of your PDF.' },
-  { id: 'edit', name: 'PDF Editor', icon: 'edit', description: 'Annotate, highlight, and add comments.' },
-  { id: 'image-to-pdf', name: 'Image to PDF', icon: 'image', description: 'Convert images to PDF.' },
+  {
+    id: 'merge',
+    name: 'Merge PDF',
+    icon: 'call_merge',
+    description: 'Combine multiple PDFs into one file.',
+  },
+  {
+    id: 'split',
+    name: 'Split PDF',
+    icon: 'call_split',
+    description: 'Extract a range of pages into a new PDF.',
+  },
+  {
+    id: 'compress',
+    name: 'Compress PDF',
+    icon: 'compress',
+    description: 'Reduce the file size of your PDF.',
+  },
+  {
+    id: 'pdf-to-word',
+    name: 'PDF to Word',
+    icon: 'description',
+    description: 'Convert PDF to Word document.',
+  },
+  {
+    id: 'edit',
+    name: 'PDF Editor',
+    icon: 'edit',
+    description: 'Annotate, highlight, and add comments.',
+  },
+  {
+    id: 'image-to-pdf',
+    name: 'Image to PDF',
+    icon: 'image',
+    description: 'Convert images to PDF.',
+  },
   { id: 'sign', name: 'Sign PDF', icon: 'draw', description: 'Add your signature to a PDF.' },
-  { id: 'crop', name: 'Crop PDF', icon: 'crop', description: 'Trim the margins of your PDF pages.' },
-  { id: 'extract', name: 'Extract Pages', icon: 'file_upload', description: 'Save specific pages as new files.' },
-  { id: 'organize', name: 'Organize PDF', icon: 'library_books', description: 'Sort, reorder, and delete pages.' },
+  {
+    id: 'crop',
+    name: 'Crop PDF',
+    icon: 'crop',
+    description: 'Trim the margins of your PDF pages.',
+  },
+  {
+    id: 'extract',
+    name: 'Extract Pages',
+    icon: 'file_upload',
+    description: 'Save specific pages as new files.',
+  },
+  {
+    id: 'organize',
+    name: 'Organize PDF',
+    icon: 'library_books',
+    description: 'Sort, reorder, and delete pages.',
+  },
   { id: 'delete', name: 'Delete Pages', icon: 'delete', description: 'Remove unwanted pages.' },
 ] as const;
 

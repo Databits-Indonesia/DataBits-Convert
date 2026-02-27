@@ -1,11 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import FileUploader from './components/FileUploader';
 import ExtensionSelector from './components/ExtensionSelector';
-import DownloadSection from './components/DownloadSection';
-import ActionButtons from './components/ActionButtons';
-import ToolsGrid from './components/ToolsGrid';
 import CloudFilePicker from './components/CloudFilePicker';
 import { FileState } from './types';
 import { merge, setupMergeTool } from './tools/merge';
@@ -18,6 +16,7 @@ import { organize, setupOrganizeTool } from './tools/organize';
 import { deletePages, setupDeletePagesTool } from './tools/delete-pages';
 import { imageToPdf } from './tools/image-to-pdf';
 import { setupEditPDFTool } from './tools/edit-pdf';
+import { pdfToWord, setupPdfToWordTool } from './tools/pdf-to-word';
 import { state, setFiles } from './state';
 import {
   initiateOAuth,
@@ -28,7 +27,12 @@ import {
 import { isOAuthConfigured } from './config/oauth.config';
 import { INPUT_OPTIONS, POPULAR_TOOLS } from './config/constants';
 
-const App: React.FC = () => {
+interface AppProps {
+  initialTool?: string;
+}
+
+const App: React.FC<AppProps> = ({ initialTool }) => {
+  const router = useRouter();
   const [selectedFile, setSelectedFile] = useState<FileState | null>(null);
   const [selectedSource, setSelectedSource] = useState<string>('');
   const [isConverted, setIsConverted] = useState<boolean>(true); // Default true to show the full UI as per mockup initially
@@ -42,6 +46,26 @@ const App: React.FC = () => {
   const [cloudAccessToken, setCloudAccessToken] = useState<string>('');
   const [selectedTool, setSelectedTool] = useState<string | null>(null);
   const [showUploadForTool, setShowUploadForTool] = useState<boolean>(false);
+
+  const TOOL_CONTAINER_MAP: Record<string, string> = {
+    merge: 'merge-options',
+    split: 'split-tool-container',
+    compress: 'compress-tool-container',
+    'pdf-to-word': 'pdf-to-word-container',
+    delete: 'delete-pages-tool-container',
+    extract: 'extract-pages-tool-container',
+    sign: 'signature-editor',
+    crop: 'cropper-tool-container',
+    'image-to-pdf': 'image-to-pdf-container',
+    organize: 'organize-tool-container',
+    edit: 'edit-pdf-options',
+  };
+
+  const scrollToElement = (id: string) => {
+    const element = document.getElementById(id);
+    if (!element) return;
+    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   // Effect to simulate progress when conversion starts
   useEffect(() => {
@@ -72,6 +96,16 @@ const App: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [progress, isConverting]);
+
+  useEffect(() => {
+    if (!initialTool) return;
+    const isValidTool = POPULAR_TOOLS.some((tool) => tool.id === initialTool);
+    if (!isValidTool) return;
+    setSelectedTool(initialTool);
+    setShowUploadForTool(true);
+    setIsConverted(false);
+    requestAnimationFrame(() => scrollToElement('upload-section'));
+  }, [initialTool]);
 
   const handleFileSelect = async (file: FileState, allFiles?: File[]) => {
     setSelectedFile(file);
@@ -201,6 +235,7 @@ const App: React.FC = () => {
       'merge-options',
       'split-tool-container',
       'compress-tool-container',
+      'pdf-to-word-container',
       'delete-pages-tool-container',
       'extract-pages-tool-container',
       'signature-editor',
@@ -223,8 +258,10 @@ const App: React.FC = () => {
     setIsConverted(false);
     setSelectedFile(null);
 
+    router.push(`/tools/${id}`);
+
     // Scroll to upload section
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    requestAnimationFrame(() => scrollToElement('upload-section'));
   };
 
   const executeToolAfterUpload = async (id: string) => {
@@ -238,6 +275,9 @@ const App: React.FC = () => {
           break;
         case 'compress':
           setupCompressTool();
+          break;
+        case 'pdf-to-word':
+          await setupPdfToWordTool();
           break;
         case 'sign':
           await setupSignTool();
@@ -265,6 +305,11 @@ const App: React.FC = () => {
           alert(
             `Tool "${POPULAR_TOOLS.find((t) => t.id === id)?.name}" selected. (Demo functionality)`
           );
+      }
+
+      const toolContainerId = TOOL_CONTAINER_MAP[id];
+      if (toolContainerId) {
+        requestAnimationFrame(() => scrollToElement(toolContainerId));
       }
     } catch (error) {
       console.error(`Error executing tool ${id}:`, error);
@@ -407,26 +452,39 @@ const App: React.FC = () => {
       <Header />
 
       <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="max-w-2xl mx-auto text-center">
+        <div id="upload-section" className="max-w-2xl mx-auto text-center">
           <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 dark:text-white">
-            {showUploadForTool && selectedTool
-              ? `Upload PDF for ${POPULAR_TOOLS.find((t) => t.id === selectedTool)?.name}`
+            {selectedTool
+              ? `${POPULAR_TOOLS.find((t) => t.id === selectedTool)?.name}`
               : 'Online Converter for your documents'}
           </h1>
           <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">
-            {showUploadForTool && selectedTool
-              ? `Please upload your PDF file(s) to use the ${POPULAR_TOOLS.find((t) => t.id === selectedTool)?.name} tool`
+            {selectedTool
+              ? `Upload your file(s) to use the ${POPULAR_TOOLS.find((t) => t.id === selectedTool)?.name} tool`
               : 'More faster as you can see'}
           </p>
 
-          <FileUploader
-            onFileSelect={handleFileSelect}
-            selectedFile={selectedFile}
-            acceptType={
-              showUploadForTool && selectedTool && selectedTool !== 'image-to-pdf' ? 'pdf' : 'image'
-            }
-            allowMultiple={selectedTool === 'merge' || selectedTool === 'image-to-pdf'}
-          />
+          {selectedTool && (
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={() => router.push('/')}
+                className="inline-flex items-center justify-center rounded-full border border-gray-300 dark:border-gray-700 px-5 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-primary hover:text-primary dark:hover:text-primary transition-colors"
+              >
+                <span className="icon mr-2">arrow_back</span>
+                Back to tools
+              </button>
+            </div>
+          )}
+
+          {selectedTool && (
+            <FileUploader
+              onFileSelect={handleFileSelect}
+              selectedFile={selectedFile}
+              acceptType={selectedTool !== 'image-to-pdf' ? 'pdf' : 'image'}
+              allowMultiple={selectedTool === 'merge' || selectedTool === 'image-to-pdf'}
+            />
+          )}
 
           {selectedFile && !isConverting && !isConverted && !selectedTool && (
             <div className="mt-8 animate-fade-in-up">
@@ -440,13 +498,15 @@ const App: React.FC = () => {
             </div>
           )}
 
-          <ExtensionSelector
-            options={INPUT_OPTIONS}
-            selectedOption={selectedSource}
-            onSelect={handleSourceSelect}
-          />
+          {selectedTool && (
+            <ExtensionSelector
+              options={INPUT_OPTIONS}
+              selectedOption={selectedSource}
+              onSelect={handleSourceSelect}
+            />
+          )}
 
-          {selectedSource === 'url' && (
+          {selectedTool && selectedSource === 'url' && (
             <div className="mt-6 flex flex-col items-center gap-3 animate-fade-in-up">
               <div className="w-full max-w-md flex flex-col sm:flex-row gap-2">
                 <input
@@ -488,19 +548,6 @@ const App: React.FC = () => {
                 Please wait while we process your document
               </p>
             </div>
-          )}
-
-          {isConverted && !isConverting && !selectedTool && (
-            <>
-              <DownloadSection
-                onDownload={handleDownload}
-                fileName={selectedFile ? `converted_${selectedFile.name}` : ''}
-              />
-              <ActionButtons
-                onConvertOther={resetAll}
-                onConvertDiff={() => setIsConverted(false)}
-              />
-            </>
           )}
         </div>
 
@@ -1089,6 +1136,81 @@ const App: React.FC = () => {
           </div>
         </div>
 
+        {/* PDF to Word Tool UI */}
+        <div id="pdf-to-word-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Convert PDF to Word
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Convert your PDF document to an editable Word file (DOCX)
+              </p>
+            </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Conversion Info:</p>
+                  <p>
+                    Text content will be extracted from your PDF and converted to an editable Word
+                    document. The original formatting and layout may vary based on the PDF
+                    structure.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready to convert`
+                    : 'PDF file uploaded above will be converted'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-yellow-600 dark:text-yellow-400 mr-3">💡</span>
+                <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <p className="font-medium mb-1">Tips:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>Text-based PDFs work best for conversion</li>
+                    <li>Scanned PDFs (images) may require OCR for accurate text extraction</li>
+                    <li>Complex layouts may need manual adjustment in Word</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Convert Button */}
+            <div className="flex justify-center">
+              <button
+                id="pdf-to-word-process-btn"
+                onClick={() => pdfToWord()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={state.files.length === 0}
+              >
+                Convert to Word
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Image to PDF Tool UI */}
         <div id="image-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
@@ -1237,8 +1359,6 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
-
-        <ToolsGrid tools={POPULAR_TOOLS} onSelect={handleToolSelect} />
       </main>
 
       <Footer />

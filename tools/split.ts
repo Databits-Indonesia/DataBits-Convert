@@ -1,6 +1,6 @@
 import { showLoader, hideLoader, showAlert } from '../ui';
 import { createIcons, icons } from 'lucide';
-import * as pdfjsLib from 'pdfjs-dist';
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
 import { downloadFile, getPDFDocument } from '../utils/helpers';
 import { state } from '../state';
 // import { renderPagesProgressively, cleanupLazyRendering } from '../utils/render-utils';
@@ -9,7 +9,7 @@ import JSZip from 'jszip';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
+  'pdfjs-dist/legacy/build/pdf.worker.min.mjs',
   import.meta.url
 ).toString();
 
