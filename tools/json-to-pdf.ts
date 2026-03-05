@@ -4,12 +4,12 @@ import {
   formatBytes,
   readFileAsArrayBuffer,
 } from '../utils/helpers';
-import { initializeGlobalShortcuts } from '../utils/shortcuts-init.js';
-import { isCpdfAvailable } from '../utils/cpdf-helper.js';
+import { initializeGlobalShortcuts } from '../utils/shortcuts-init';
+import { isCpdfAvailable } from '../utils/cpdf-helper';
 import {
   showWasmRequiredDialog,
   WasmProvider,
-} from '../utils/wasm-provider.js';
+} from '../utils/wasm-provider';
 
 const worker = new Worker(
   import.meta.env.BASE_URL + 'workers/json-to-pdf.worker.js'

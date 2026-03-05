@@ -8,8 +8,8 @@ import {
 import { state } from '../state.js';
 import { PDFDocument } from 'pdf-lib';
 import { createIcons, icons } from 'lucide';
-import { showWasmRequiredDialog } from '../utils/wasm-provider.js';
-import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader.js';
+import { showWasmRequiredDialog } from '../utils/wasm-provider';
+import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';
 import * as pdfjsLib from 'pdfjs-dist';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(

@@ -4,10 +4,10 @@
  */
 
 import { PDFDocument } from 'pdf-lib';
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
+import * as pdfjsLib from 'pdfjs-dist';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/legacy/build/pdf.worker.min.mjs',
+  'pdfjs-dist/build/pdf.worker.min.mjs',
   import.meta.url
 ).toString();
 
@@ -52,10 +52,11 @@ export function downloadFile(blob: Blob, filename: string) {
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
+  link.style.display = 'none';
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /**
@@ -173,4 +174,105 @@ export async function createPdfFromPages(
   const copiedPages = await newPdf.copyPages(sourcePdf, pageIndices);
   copiedPages.forEach((page) => newPdf.addPage(page));
   return newPdf;
+}
+
+let qpdfInitPromise: Promise<any> | null = null;
+
+export async function initializeQpdf(): Promise<any> {
+  if (qpdfInitPromise) {
+    return qpdfInitPromise;
+  }
+
+  qpdfInitPromise = (async () => {
+    const qpdfModule: any = await import('@neslinesli93/qpdf-wasm');
+    const factory = qpdfModule?.default ?? qpdfModule?.QPDF ?? qpdfModule;
+
+    if (typeof factory === 'function') {
+      return await factory();
+    }
+
+    return factory;
+  })();
+
+  return qpdfInitPromise;
+}
+
+/**
+ * Escape HTML special characters to prevent XSS attacks
+ */
+export function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Convert Uint8Array to base64 string
+ */
+export function uint8ArrayToBase64(buffer: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < buffer.byteLength; i++) {
+    binary += String.fromCharCode(buffer[i]);
+  }
+  return btoa(binary);
+}
+
+/**
+ * Basic HTML sanitization for email content
+ * Removes potentially dangerous tags and attributes
+ */
+export function sanitizeEmailHtml(html: string): string {
+  // Remove script tags and content
+  let sanitized = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+
+  // Remove event handlers
+  sanitized = sanitized.replace(/\s*on\w+\s*=\s*["'][^"']*["']/gi, '');
+  sanitized = sanitized.replace(/\s*on\w+\s*=\s*[^\s>]*/gi, '');
+
+  // Remove iframe, object, embed, form tags
+  sanitized = sanitized.replace(
+    /<(iframe|object|embed|form|input|button|textarea)\b[^>]*>[\s\S]*?<\/\1>/gi,
+    ''
+  );
+  sanitized = sanitized.replace(
+    /<(iframe|object|embed|form|input|button|textarea)\b[^>]*\/?>/gi,
+    ''
+  );
+
+  // Remove style tags but keep style attributes for safe presentation
+  sanitized = sanitized.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+
+  // Remove potentially dangerous protocols in href/src
+  sanitized = sanitized.replace(
+    /\s*(href|src|data)\s*=\s*["']?\s*(javascript|data|vbscript):/gi,
+    ' $1="javascript:void(0)"'
+  );
+
+  return sanitized;
+}
+
+/**
+ * Parse and format raw date strings from emails (RFC 2822 format)
+ */
+export function formatRawDate(rawDate: string): string {
+  try {
+    const date = new Date(rawDate);
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+    }
+  } catch (e) {
+    // If parsing fails, return the raw string escaped
+  }
+  return escapeHtml(rawDate);
 }

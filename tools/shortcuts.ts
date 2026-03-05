@@ -1,4 +1,9 @@
-import { categories } from '../config/tools.js';
+import { POPULAR_TOOLS, TOOL_CATEGORIES } from '../config/constants';
+
+const categories = TOOL_CATEGORIES.map((category) => ({
+    ...category,
+    tools: POPULAR_TOOLS.filter((tool) => tool.category === category.id),
+}));
 
 export class ShortcutsManager {
     private static STORAGE_KEY = 'bentopdf_shortcuts';

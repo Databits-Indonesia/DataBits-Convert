@@ -7,7 +7,7 @@ import {
 } from '../utils/helpers.js';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument } from 'pdf-lib';
-import { applyGreyscale } from '../utils/image-effects.js';
+import { applyGreyscale } from '../utils/image-effects';
 import * as pdfjsLib from 'pdfjs-dist';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(

@@ -7,7 +7,7 @@ import {
 } from '../utils/helpers.js';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument } from 'pdf-lib';
-import { applyColorAdjustments } from '../utils/image-effects.js';
+import { applyColorAdjustments } from '../utils/image-effects';
 import * as pdfjsLib from 'pdfjs-dist';
 import type { AdjustColorsSettings } from '../types/adjust-colors-type.js';
 

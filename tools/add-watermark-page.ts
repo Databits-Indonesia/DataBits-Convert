@@ -11,7 +11,7 @@ import {
   addTextWatermark,
   addImageWatermark,
   parsePageRange,
-} from '../utils/pdf-operations.js';
+} from '../utils/pdf-operations';
 import { AddWatermarkState, PageWatermarkConfig } from '@/types';
 import * as pdfjsLib from 'pdfjs-dist';
 

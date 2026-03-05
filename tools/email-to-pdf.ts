@@ -6,15 +6,12 @@ import {
   uint8ArrayToBase64,
   sanitizeEmailHtml,
   formatRawDate,
-} from '../utils/helpers.js';
+} from '../utils/helpers';
 import type { EmailAttachment, ParsedEmail, EmailRenderOptions } from '@/types';
 
 export type { EmailAttachment, ParsedEmail, EmailRenderOptions };
 
-function formatAddress(
-  name: string | undefined,
-  email: string | undefined
-): string {
+function formatAddress(name: string | undefined, email: string | undefined): string {
   if (name && email) {
     return `${name} (${email})`;
   }
@@ -26,16 +23,11 @@ export async function parseEmlFile(file: File): Promise<ParsedEmail> {
   const parser = new PostalMime();
   const email = await parser.parse(arrayBuffer);
 
-  const from =
-    formatAddress(email.from?.name, email.from?.address) || 'Unknown Sender';
+  const from = formatAddress(email.from?.name, email.from?.address) || 'Unknown Sender';
 
-  const to = (email.to || [])
-    .map((addr) => formatAddress(addr.name, addr.address))
-    .filter(Boolean);
+  const to = (email.to || []).map((addr) => formatAddress(addr.name, addr.address)).filter(Boolean);
 
-  const cc = (email.cc || [])
-    .map((addr) => formatAddress(addr.name, addr.address))
-    .filter(Boolean);
+  const cc = (email.cc || []).map((addr) => formatAddress(addr.name, addr.address)).filter(Boolean);
 
   const bcc = (email.bcc || [])
     .map((addr) => formatAddress(addr.name, addr.address))
@@ -59,9 +51,7 @@ export async function parseEmlFile(file: File): Promise<ParsedEmail> {
       size,
       contentType: att.mimeType || 'application/octet-stream',
       content,
-      contentId: att.contentId
-        ? att.contentId.replace(/^<|>$/g, '')
-        : undefined,
+      contentId: att.contentId ? att.contentId.replace(/^<|>$/g, '') : undefined,
     };
   };
 
@@ -73,9 +63,7 @@ export async function parseEmlFile(file: File): Promise<ParsedEmail> {
   // Preserve original date string from headers
   let rawDateString = '';
   if (email.headers) {
-    const dateHeader = email.headers.find(
-      (h) => h.key.toLowerCase() === 'date'
-    );
+    const dateHeader = email.headers.find((h) => h.key.toLowerCase() === 'date');
     if (dateHeader) {
       rawDateString = dateHeader.value as string;
     }
@@ -115,8 +103,7 @@ export async function parseMsgFile(file: File): Promise<ParsedEmail> {
   const msgReader = new MsgReader(arrayBuffer);
   const msgData = msgReader.getFileData();
 
-  const from =
-    formatAddress(msgData.senderName, msgData.senderEmail) || 'Unknown Sender';
+  const from = formatAddress(msgData.senderName, msgData.senderEmail) || 'Unknown Sender';
 
   const to: string[] = [];
   const cc: string[] = [];
@@ -138,17 +125,13 @@ export async function parseMsgFile(file: File): Promise<ParsedEmail> {
     }
   }
 
-  const attachments: EmailAttachment[] = (msgData.attachments || []).map(
-    (att: any) => ({
-      filename: att.fileName || att.name || 'unnamed',
-      size: att.content?.length || 0,
-      contentType: att.mimeType || 'application/octet-stream',
-      content: att.content ? new Uint8Array(att.content) : undefined,
-      contentId: att.pidContentId
-        ? att.pidContentId.replace(/^<|>$/g, '')
-        : undefined,
-    })
-  );
+  const attachments: EmailAttachment[] = (msgData.attachments || []).map((att: any) => ({
+    filename: att.fileName || att.name || 'unnamed',
+    size: att.content?.length || 0,
+    contentType: att.mimeType || 'application/octet-stream',
+    content: att.content ? new Uint8Array(att.content) : undefined,
+    contentId: att.pidContentId ? att.pidContentId.replace(/^<|>$/g, '') : undefined,
+  }));
 
   let date: Date | null = null;
   let rawDateString = '';
@@ -177,10 +160,7 @@ export async function parseMsgFile(file: File): Promise<ParsedEmail> {
 /**
  * Replace CID references in HTML with base64 data URIs
  */
-function processInlineImages(
-  html: string,
-  attachments: EmailAttachment[]
-): string {
+function processInlineImages(html: string, attachments: EmailAttachment[]): string {
   if (!html) return html;
 
   // Create a map of contentIds to attachments
@@ -201,10 +181,7 @@ function processInlineImages(
   });
 }
 
-export function renderEmailToHtml(
-  email: ParsedEmail,
-  options: EmailRenderOptions = {}
-): string {
+export function renderEmailToHtml(email: ParsedEmail, options: EmailRenderOptions = {}): string {
   const { includeCcBcc = true, includeAttachments = true } = options;
 
   let processedHtml = '';

@@ -8,8 +8,8 @@ import {
 import { state } from '../state.js';
 import { createIcons, icons } from 'lucide';
 import { isWasmAvailable, getWasmBaseUrl } from '../config/wasm-cdn-config.js';
-import { showWasmRequiredDialog } from '../utils/wasm-provider.js';
-import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader.js';
+import { showWasmRequiredDialog } from '../utils/wasm-provider';
+import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';
 
 document.addEventListener('DOMContentLoaded', () => {
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
@@ -21,19 +21,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const addMoreBtn = document.getElementById('add-more-btn');
   const clearFilesBtn = document.getElementById('clear-files-btn');
   const backBtn = document.getElementById('back-to-tools');
-  const includeImagesCheckbox = document.getElementById(
-    'include-images'
-  ) as HTMLInputElement;
+  const includeImagesCheckbox = document.getElementById('include-images') as HTMLInputElement;
 
   if (backBtn) {
     backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
+      window.location.href = import.meta.env?.BASE_URL || '/';
     });
   }
 
   const updateUI = async () => {
-    if (!fileDisplayArea || !convertOptions || !processBtn || !fileControls)
-      return;
+    if (!fileDisplayArea || !convertOptions || !processBtn || !fileControls) return;
 
     if (state.files.length > 0) {
       fileDisplayArea.innerHTML = '';
@@ -41,8 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
       for (let index = 0; index < state.files.length; index++) {
         const file = state.files[index];
         const fileDiv = document.createElement('div');
-        fileDiv.className =
-          'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+        fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
 
         const infoContainer = document.createElement('div');
         infoContainer.className = 'flex flex-col overflow-hidden';
@@ -58,8 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
         infoContainer.append(nameSpan, metaSpan);
 
         const removeBtn = document.createElement('button');
-        removeBtn.className =
-          'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
+        removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
         removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
         removeBtn.onclick = () => {
           state.files = state.files.filter((_: File, i: number) => i !== index);
@@ -132,9 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         for (let i = 0; i < state.files.length; i++) {
           const file = state.files[i];
-          showLoader(
-            `Converting ${i + 1}/${state.files.length}: ${file.name}...`
-          );
+          showLoader(`Converting ${i + 1}/${state.files.length}: ${file.name}...`);
 
           const markdown = await pymupdf.pdfToMarkdown(file, { includeImages });
           const baseName = file.name.replace(/\.pdf$/i, '');
@@ -156,18 +149,14 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (e: any) {
       hideLoader();
-      showAlert(
-        'Error',
-        `An error occurred during conversion. Error: ${e.message}`
-      );
+      showAlert('Error', `An error occurred during conversion. Error: ${e.message}`);
     }
   };
 
   const handleFileSelect = (files: FileList | null) => {
     if (files && files.length > 0) {
       const pdfFiles = Array.from(files).filter(
-        (f) =>
-          f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
+        (f) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
       );
       state.files = [...state.files, ...pdfFiles];
       updateUI();

@@ -1,15 +1,8 @@
 import { createIcons, icons } from 'lucide';
 import { showAlert, showLoader, hideLoader } from '../ui.js';
-import {
-  downloadFile,
-  readFileAsArrayBuffer,
-  formatBytes,
-} from '../utils/helpers.js';
+import { downloadFile, readFileAsArrayBuffer, formatBytes } from '../utils/helpers.js';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
-import {
-  getSelectedQuality,
-  compressImageBytes,
-} from '../utils/image-compress.js';
+import { getSelectedQuality, compressImageBytes } from '../utils/image-compress';
 
 let files: File[] = [];
 
@@ -75,7 +68,7 @@ function initializePage() {
   }
 
   document.getElementById('back-to-tools')?.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL;
+    window.location.href = import.meta.env?.BASE_URL || '/';
   });
 }
 
@@ -88,15 +81,11 @@ function handleFileUpload(e: Event) {
 
 function handleFiles(newFiles: FileList) {
   const validFiles = Array.from(newFiles).filter(
-    (file) =>
-      file.type === 'image/png' || file.name.toLowerCase().endsWith('.png')
+    (file) => file.type === 'image/png' || file.name.toLowerCase().endsWith('.png')
   );
 
   if (validFiles.length < newFiles.length) {
-    showAlert(
-      'Invalid Files',
-      'Some files were skipped. Only PNG images are allowed.'
-    );
+    showAlert('Invalid Files', 'Some files were skipped. Only PNG images are allowed.');
   }
 
   if (validFiles.length > 0) {
@@ -125,8 +114,7 @@ function updateUI() {
 
     files.forEach((file, index) => {
       const fileDiv = document.createElement('div');
-      fileDiv.className =
-        'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+      fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
 
       const infoContainer = document.createElement('div');
       infoContainer.className = 'flex items-center gap-2 overflow-hidden';
@@ -142,8 +130,7 @@ function updateUI() {
       infoContainer.append(nameSpan, sizeSpan);
 
       const removeBtn = document.createElement('button');
-      removeBtn.className =
-        'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
+      removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
       removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
       removeBtn.onclick = () => {
         files = files.filter((_, i) => i !== index);
@@ -189,11 +176,7 @@ function sanitizeImageAsJpeg(imageBytes: any) {
 
     img.onerror = () => {
       URL.revokeObjectURL(imageUrl);
-      reject(
-        new Error(
-          'The provided file could not be loaded as an image. It may be corrupted.'
-        )
-      );
+      reject(new Error('The provided file could not be loaded as an image. It may be corrupted.'));
     };
 
     img.src = imageUrl;

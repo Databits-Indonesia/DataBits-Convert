@@ -8,7 +8,7 @@ import {
   parsePageRanges,
 } from '../utils/helpers.js';
 import { PDFDocument } from 'pdf-lib';
-import { deletePdfPages } from '../utils/pdf-operations.js';
+import { deletePdfPages } from '../utils/pdf-operations';
 import * as pdfjsLib from 'pdfjs-dist';
 import { DeletePagesState } from '@/types';
 

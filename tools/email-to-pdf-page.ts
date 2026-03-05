@@ -4,8 +4,8 @@ import { state } from '../state.js';
 import { createIcons, icons } from 'lucide';
 import { parseEmailFile, renderEmailToHtml } from './email-to-pdf.js';
 import { isWasmAvailable, getWasmBaseUrl } from '../config/wasm-cdn-config.js';
-import { showWasmRequiredDialog } from '../utils/wasm-provider.js';
-import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader.js';
+import { showWasmRequiredDialog } from '../utils/wasm-provider';
+import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';
 
 const EXTENSIONS = ['.eml', '.msg'];
 const TOOL_NAME = 'Email';

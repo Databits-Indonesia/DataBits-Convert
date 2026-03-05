@@ -17,11 +17,11 @@ import {
   PDFButton,
   PDFSignature,
 } from 'pdf-lib';
-import { initializeGlobalShortcuts } from '../utils/shortcuts-init.js';
-import { downloadFile, hexToRgb, getPDFDocument } from '../utils/helpers.js';
+import { initializeGlobalShortcuts } from '../utils/shortcuts-init';
+import { downloadFile, hexToRgb, getPDFDocument } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import * as pdfjsLib from 'pdfjs-dist';
-import * as bwipjs from 'bwip-js/browser';
+import * as bwipjs from '@bwip-js/browser';
 import 'pdfjs-dist/web/pdf_viewer.css';
 
 // Initialize PDF.js worker
@@ -64,64 +64,34 @@ let startTop = 0;
 let selectedToolType: string | null = null;
 
 const canvas = document.getElementById('pdfCanvas') as HTMLDivElement;
-const propertiesPanel = document.getElementById(
-  'propertiesPanel'
-) as HTMLDivElement;
-const fieldCountDisplay = document.getElementById(
-  'fieldCount'
-) as HTMLSpanElement;
+const propertiesPanel = document.getElementById('propertiesPanel') as HTMLDivElement;
+const fieldCountDisplay = document.getElementById('fieldCount') as HTMLSpanElement;
 const uploadArea = document.getElementById('upload-area') as HTMLDivElement;
-const toolContainer = document.getElementById(
-  'tool-container'
-) as HTMLDivElement;
+const toolContainer = document.getElementById('tool-container') as HTMLDivElement;
 const dropZone = document.getElementById('dropZone') as HTMLDivElement;
-const pdfFileInput = document.getElementById(
-  'pdfFileInput'
-) as HTMLInputElement;
+const pdfFileInput = document.getElementById('pdfFileInput') as HTMLInputElement;
 const blankPdfBtn = document.getElementById('blankPdfBtn') as HTMLButtonElement;
-const pdfUploadInput = document.getElementById(
-  'pdfUploadInput'
-) as HTMLInputElement;
-const pageSizeSelector = document.getElementById(
-  'pageSizeSelector'
-) as HTMLDivElement;
-const pageSizeSelect = document.getElementById(
-  'pageSizeSelect'
-) as HTMLSelectElement;
-const customDimensionsInput = document.getElementById(
-  'customDimensionsInput'
-) as HTMLDivElement;
+const pdfUploadInput = document.getElementById('pdfUploadInput') as HTMLInputElement;
+const pageSizeSelector = document.getElementById('pageSizeSelector') as HTMLDivElement;
+const pageSizeSelect = document.getElementById('pageSizeSelect') as HTMLSelectElement;
+const customDimensionsInput = document.getElementById('customDimensionsInput') as HTMLDivElement;
 const customWidth = document.getElementById('customWidth') as HTMLInputElement;
-const customHeight = document.getElementById(
-  'customHeight'
-) as HTMLInputElement;
-const confirmBlankBtn = document.getElementById(
-  'confirmBlankBtn'
-) as HTMLButtonElement;
-const pageIndicator = document.getElementById(
-  'pageIndicator'
-) as HTMLSpanElement;
+const customHeight = document.getElementById('customHeight') as HTMLInputElement;
+const confirmBlankBtn = document.getElementById('confirmBlankBtn') as HTMLButtonElement;
+const pageIndicator = document.getElementById('pageIndicator') as HTMLSpanElement;
 const prevPageBtn = document.getElementById('prevPageBtn') as HTMLButtonElement;
 const nextPageBtn = document.getElementById('nextPageBtn') as HTMLButtonElement;
 const addPageBtn = document.getElementById('addPageBtn') as HTMLButtonElement;
 const resetBtn = document.getElementById('resetBtn') as HTMLButtonElement;
 const downloadBtn = document.getElementById('downloadBtn') as HTMLButtonElement;
-const backToToolsBtn = document.getElementById(
-  'back-to-tools'
-) as HTMLButtonElement | null;
-const gotoPageInput = document.getElementById(
-  'gotoPageInput'
-) as HTMLInputElement;
+const backToToolsBtn = document.getElementById('back-to-tools') as HTMLButtonElement | null;
+const gotoPageInput = document.getElementById('gotoPageInput') as HTMLInputElement;
 const gotoPageBtn = document.getElementById('gotoPageBtn') as HTMLButtonElement;
 
 const gridVInput = document.getElementById('gridVInput') as HTMLInputElement;
 const gridHInput = document.getElementById('gridHInput') as HTMLInputElement;
-const toggleGridBtn = document.getElementById(
-  'toggleGridBtn'
-) as HTMLButtonElement;
-const enableGridCheckbox = document.getElementById(
-  'enableGridCheckbox'
-) as HTMLInputElement;
+const toggleGridBtn = document.getElementById('toggleGridBtn') as HTMLButtonElement;
+const enableGridCheckbox = document.getElementById('enableGridCheckbox') as HTMLInputElement;
 let gridV = 2;
 let gridH = 2;
 let gridAlwaysVisible = false;
@@ -211,8 +181,7 @@ function renderGrid() {
     const stepX = canvas.offsetWidth / gridV;
     for (let i = 0; i <= gridV; i++) {
       const line = document.createElement('div');
-      line.className =
-        'absolute top-0 bottom-0 border-l-2 border-indigo-500 opacity-60';
+      line.className = 'absolute top-0 bottom-0 border-l-2 border-indigo-500 opacity-60';
       line.style.left = i * stepX + 'px';
       gridContainer.appendChild(line);
     }
@@ -222,8 +191,7 @@ function renderGrid() {
     const stepY = canvas.offsetHeight / gridH;
     for (let i = 0; i <= gridH; i++) {
       const line = document.createElement('div');
-      line.className =
-        'absolute left-0 right-0 border-t-2 border-indigo-500 opacity-60';
+      line.className = 'absolute left-0 right-0 border-t-2 border-indigo-500 opacity-60';
       line.style.top = i * stepY + 'px';
       gridContainer.appendChild(line);
     }
@@ -284,9 +252,7 @@ toolItems.forEach((item) => {
     } else {
       // Deselect previous tool
       if (selectedToolType) {
-        toolItems.forEach((t) =>
-          t.classList.remove('ring-2', 'ring-indigo-400', 'bg-indigo-600')
-        );
+        toolItems.forEach((t) => t.classList.remove('ring-2', 'ring-indigo-400', 'bg-indigo-600'));
       }
       // Select new tool
       selectedToolType = type;
@@ -392,18 +358,8 @@ function createField(type: FormField['type'], x: number, y: number): void {
     type: type,
     x: Math.max(0, Math.min(x, 816 - 150)),
     y: Math.max(0, Math.min(y, 1056 - 30)),
-    width:
-      type === 'checkbox' || type === 'radio'
-        ? 30
-        : type === 'barcode'
-          ? 150
-          : 150,
-    height:
-      type === 'checkbox' || type === 'radio'
-        ? 30
-        : type === 'barcode'
-          ? 150
-          : 30,
+    width: type === 'checkbox' || type === 'radio' ? 30 : type === 'barcode' ? 150 : 150,
+    height: type === 'checkbox' || type === 'radio' ? 30 : type === 'barcode' ? 150 : 30,
     name: `${type.charAt(0).toUpperCase() + type.slice(1)}_${fieldCounter}`,
     defaultValue: '',
     fontSize: 12,
@@ -421,12 +377,7 @@ function createField(type: FormField['type'], x: number, y: number): void {
     checked: type === 'radio' || type === 'checkbox' ? false : undefined,
     exportValue: type === 'radio' || type === 'checkbox' ? 'Yes' : undefined,
     groupName: type === 'radio' ? 'RadioGroup1' : undefined,
-    label:
-      type === 'button'
-        ? 'Button'
-        : type === 'image'
-          ? 'Click to Upload Image'
-          : undefined,
+    label: type === 'button' ? 'Button' : type === 'image' ? 'Click to Upload Image' : undefined,
     action: type === 'button' ? 'none' : undefined,
     jsScript: type === 'button' ? 'app.alert("Hello World!");' : undefined,
     visibilityAction: type === 'button' ? 'toggle' : undefined,
@@ -487,8 +438,7 @@ function renderField(field: FormField): void {
     'field-content w-full h-full flex items-center justify-center overflow-hidden';
 
   if (field.type === 'text') {
-    contentEl.className =
-      'field-text w-full h-full flex items-center px-2 text-sm overflow-hidden';
+    contentEl.className = 'field-text w-full h-full flex items-center px-2 text-sm overflow-hidden';
     contentEl.style.fontSize = field.fontSize + 'px';
     contentEl.style.textAlign = field.alignment;
     contentEl.style.justifyContent =
@@ -523,17 +473,12 @@ function renderField(field: FormField): void {
       ? '<div class="w-3/4 h-3/4 bg-black rounded-full"></div>'
       : '';
   } else if (field.type === 'dropdown') {
-    contentEl.className =
-      'w-full h-full flex items-center px-2 text-sm text-black';
+    contentEl.className = 'w-full h-full flex items-center px-2 text-sm text-black';
     contentEl.style.backgroundColor = '#e6f0ff'; // Light blue background like Firefox
 
     // Show selected option or first option or placeholder
     let displayText = 'Select...';
-    if (
-      field.defaultValue &&
-      field.options &&
-      field.options.includes(field.defaultValue)
-    ) {
+    if (field.defaultValue && field.options && field.options.includes(field.defaultValue)) {
       displayText = field.defaultValue;
     } else if (field.options && field.options.length > 0) {
       displayText = field.options[0];
@@ -556,9 +501,7 @@ function renderField(field: FormField): void {
         optEl.textContent = opt;
 
         // Highlight selected option (defaultValue) or first one if no selection
-        const isSelected = field.defaultValue
-          ? field.defaultValue === opt
-          : index === 0;
+        const isSelected = field.defaultValue ? field.defaultValue === opt : index === 0;
 
         if (isSelected) {
           optEl.className += ' bg-blue-600 text-white';
@@ -580,8 +523,7 @@ function renderField(field: FormField): void {
     contentEl.style.color = field.textColor || '#000000';
     contentEl.textContent = field.label || 'Button';
   } else if (field.type === 'signature') {
-    contentEl.className =
-      'w-full h-full flex items-center justify-center bg-gray-50 text-gray-400';
+    contentEl.className = 'w-full h-full flex items-center justify-center bg-gray-50 text-gray-400';
     contentEl.innerHTML =
       '<div class="flex flex-col items-center"><i data-lucide="pen-tool" class="w-6 h-6 mb-1"></i><span class="text-[10px]">Sign Here</span></div>';
     setTimeout(() => (window as any).lucide?.createIcons(), 0);
@@ -596,8 +538,7 @@ function renderField(field: FormField): void {
     contentEl.innerHTML = `<div class="flex flex-col items-center text-center p-1"><i data-lucide="image" class="w-6 h-6 mb-1"></i><span class="text-[10px] leading-tight">${field.label || 'Click to Upload Image'}</span></div>`;
     setTimeout(() => (window as any).lucide?.createIcons(), 0);
   } else if (field.type === 'barcode') {
-    contentEl.className =
-      'w-full h-full flex items-center justify-center bg-white';
+    contentEl.className = 'w-full h-full flex items-center justify-center bg-white';
     if (field.barcodeValue) {
       try {
         const offscreen = document.createElement('canvas');
@@ -605,9 +546,7 @@ function renderField(field: FormField): void {
           bcid: field.barcodeFormat || 'qrcode',
           text: field.barcodeValue,
           scale: 2,
-          includetext:
-            field.barcodeFormat !== 'qrcode' &&
-            field.barcodeFormat !== 'datamatrix',
+          includetext: field.barcodeFormat !== 'qrcode' && field.barcodeFormat !== 'datamatrix',
         });
         const img = document.createElement('img');
         img.src = offscreen.toDataURL('image/png');
@@ -752,10 +691,7 @@ document.addEventListener('mousemove', (e) => {
     let newY = e.clientY - rect.top - offsetY;
 
     newX = Math.max(0, Math.min(newX, rect.width - draggedElement.offsetWidth));
-    newY = Math.max(
-      0,
-      Math.min(newY, rect.height - draggedElement.offsetHeight)
-    );
+    newY = Math.max(0, Math.min(newY, rect.height - draggedElement.offsetHeight));
 
     draggedElement.style.left = newX + 'px';
     draggedElement.style.top = newY + 'px';
@@ -790,9 +726,7 @@ document.addEventListener('mousemove', (e) => {
     }
 
     if (fieldWrapper) {
-      const container = fieldWrapper.querySelector(
-        '.field-container'
-      ) as HTMLElement;
+      const container = fieldWrapper.querySelector('.field-container') as HTMLElement;
       fieldWrapper.style.width = resizeField.width + 'px';
       fieldWrapper.style.left = resizeField.x + 'px';
       fieldWrapper.style.top = resizeField.y + 'px';
@@ -847,9 +781,7 @@ document.addEventListener(
       }
 
       if (fieldWrapper) {
-        const container = fieldWrapper.querySelector(
-          '.field-container'
-        ) as HTMLElement;
+        const container = fieldWrapper.querySelector('.field-container') as HTMLElement;
         fieldWrapper.style.width = resizeField.width + 'px';
         fieldWrapper.style.left = resizeField.x + 'px';
         fieldWrapper.style.top = resizeField.y + 'px';
@@ -857,9 +789,7 @@ document.addEventListener(
           container.style.height = resizeField.height + 'px';
         }
         if (resizeField.combCells > 0) {
-          const textEl = fieldWrapper.querySelector(
-            '.field-text'
-          ) as HTMLElement;
+          const textEl = fieldWrapper.querySelector('.field-text') as HTMLElement;
           if (textEl) {
             textEl.style.letterSpacing = `calc(${resizeField.width / resizeField.combCells}px - 1ch)`;
             textEl.style.paddingLeft = `calc((${resizeField.width / resizeField.combCells}px - 1ch) / 2)`;
@@ -882,9 +812,7 @@ function selectField(field: FormField): void {
   selectedField = field;
   const fieldWrapper = document.getElementById(field.id);
   if (fieldWrapper) {
-    const container = fieldWrapper.querySelector(
-      '.field-container'
-    ) as HTMLElement;
+    const container = fieldWrapper.querySelector('.field-container') as HTMLElement;
     const label = fieldWrapper.querySelector('.field-label') as HTMLElement;
     const handles = fieldWrapper.querySelectorAll('.resize-handle');
 
@@ -895,11 +823,7 @@ function selectField(field: FormField): void {
         'group-hover:border-dashed',
         'group-hover:border-indigo-300'
       );
-      container.classList.add(
-        'border-dashed',
-        'border-indigo-500',
-        'bg-indigo-50'
-      );
+      container.classList.add('border-dashed', 'border-indigo-500', 'bg-indigo-50');
     }
 
     if (label) {
@@ -919,19 +843,13 @@ function deselectAll(): void {
   if (selectedField) {
     const fieldWrapper = document.getElementById(selectedField.id);
     if (fieldWrapper) {
-      const container = fieldWrapper.querySelector(
-        '.field-container'
-      ) as HTMLElement;
+      const container = fieldWrapper.querySelector('.field-container') as HTMLElement;
       const label = fieldWrapper.querySelector('.field-label') as HTMLElement;
       const handles = fieldWrapper.querySelectorAll('.resize-handle');
 
       if (container) {
         // Revert to default/hover state
-        container.classList.remove(
-          'border-dashed',
-          'border-indigo-500',
-          'bg-indigo-50'
-        );
+        container.classList.remove('border-dashed', 'border-indigo-500', 'bg-indigo-50');
         container.classList.add(
           'border-indigo-200',
           'group-hover:border-dashed',
@@ -1203,15 +1121,11 @@ function showProperties(field: FormField): void {
             .join('')}
           ${Array.from(
             new Set(
-              fields
-                .filter((f) => f.type === 'radio' && f.id !== field.id)
-                .map((f) => f.name)
+              fields.filter((f) => f.type === 'radio' && f.id !== field.id).map((f) => f.name)
             )
           )
             .map((name) =>
-              !existingRadioGroups.has(name)
-                ? `<option value="${name}">${name}</option>`
-                : ''
+              !existingRadioGroups.has(name) ? `<option value="${name}">${name}</option>` : ''
             )
             .join('')}
         </select>
@@ -1250,15 +1164,9 @@ function showProperties(field: FormField): void {
   // Common listeners
   const propName = document.getElementById('propName') as HTMLInputElement;
   const nameError = document.getElementById('nameError') as HTMLDivElement;
-  const propTooltip = document.getElementById(
-    'propTooltip'
-  ) as HTMLInputElement;
-  const propRequired = document.getElementById(
-    'propRequired'
-  ) as HTMLInputElement;
-  const propReadOnly = document.getElementById(
-    'propReadOnly'
-  ) as HTMLInputElement;
+  const propTooltip = document.getElementById('propTooltip') as HTMLInputElement;
+  const propRequired = document.getElementById('propRequired') as HTMLInputElement;
+  const propReadOnly = document.getElementById('propReadOnly') as HTMLInputElement;
   const deleteBtn = document.getElementById('deleteBtn') as HTMLButtonElement;
 
   const validateName = (newName: string): boolean => {
@@ -1275,9 +1183,7 @@ function showProperties(field: FormField): void {
       return true;
     }
 
-    const isDuplicateInFields = fields.some(
-      (f) => f.id !== field.id && f.name === newName
-    );
+    const isDuplicateInFields = fields.some((f) => f.id !== field.id && f.name === newName);
     const isDuplicateInPdf = existingFieldNames.has(newName);
 
     if (isDuplicateInFields || isDuplicateInPdf) {
@@ -1318,9 +1224,7 @@ function showProperties(field: FormField): void {
   });
 
   if (field.type === 'radio') {
-    const existingGroupsSelect = document.getElementById(
-      'existingGroups'
-    ) as HTMLSelectElement;
+    const existingGroupsSelect = document.getElementById('existingGroups') as HTMLSelectElement;
     if (existingGroupsSelect) {
       existingGroupsSelect.addEventListener('change', (e) => {
         const selectedGroup = (e.target as HTMLSelectElement).value;
@@ -1332,9 +1236,7 @@ function showProperties(field: FormField): void {
           // Update field label
           const fieldWrapper = document.getElementById(field.id);
           if (fieldWrapper) {
-            const label = fieldWrapper.querySelector(
-              '.field-label'
-            ) as HTMLElement;
+            const label = fieldWrapper.querySelector('.field-label') as HTMLElement;
             if (label) label.textContent = field.name;
           }
         }
@@ -1350,12 +1252,8 @@ function showProperties(field: FormField): void {
     field.readOnly = (e.target as HTMLInputElement).checked;
   });
 
-  const propBorderColor = document.getElementById(
-    'propBorderColor'
-  ) as HTMLInputElement;
-  const propHideBorder = document.getElementById(
-    'propHideBorder'
-  ) as HTMLInputElement;
+  const propBorderColor = document.getElementById('propBorderColor') as HTMLInputElement;
+  const propHideBorder = document.getElementById('propHideBorder') as HTMLInputElement;
 
   propBorderColor.addEventListener('input', (e) => {
     field.borderColor = (e.target as HTMLInputElement).value;
@@ -1372,19 +1270,11 @@ function showProperties(field: FormField): void {
   // Specific listeners
   if (field.type === 'text') {
     const propValue = document.getElementById('propValue') as HTMLInputElement;
-    const propMaxLength = document.getElementById(
-      'propMaxLength'
-    ) as HTMLInputElement;
+    const propMaxLength = document.getElementById('propMaxLength') as HTMLInputElement;
     const propComb = document.getElementById('propComb') as HTMLInputElement;
-    const propFontSize = document.getElementById(
-      'propFontSize'
-    ) as HTMLInputElement;
-    const propTextColor = document.getElementById(
-      'propTextColor'
-    ) as HTMLInputElement;
-    const propAlignment = document.getElementById(
-      'propAlignment'
-    ) as HTMLSelectElement;
+    const propFontSize = document.getElementById('propFontSize') as HTMLInputElement;
+    const propTextColor = document.getElementById('propTextColor') as HTMLInputElement;
+    const propAlignment = document.getElementById('propAlignment') as HTMLSelectElement;
 
     propValue.addEventListener('input', (e) => {
       field.defaultValue = (e.target as HTMLInputElement).value;
@@ -1405,9 +1295,7 @@ function showProperties(field: FormField): void {
           propValue.value = field.defaultValue;
           const fieldWrapper = document.getElementById(field.id);
           if (fieldWrapper) {
-            const textEl = fieldWrapper.querySelector(
-              '.field-text'
-            ) as HTMLElement;
+            const textEl = fieldWrapper.querySelector('.field-text') as HTMLElement;
             if (textEl) textEl.textContent = field.defaultValue;
           }
         }
@@ -1488,10 +1376,7 @@ function showProperties(field: FormField): void {
     });
 
     propAlignment.addEventListener('change', (e) => {
-      field.alignment = (e.target as HTMLSelectElement).value as
-        | 'left'
-        | 'center'
-        | 'right';
+      field.alignment = (e.target as HTMLSelectElement).value as 'left' | 'center' | 'right';
       const fieldWrapper = document.getElementById(field.id);
       if (fieldWrapper) {
         const textEl = fieldWrapper.querySelector('.field-text') as HTMLElement;
@@ -1507,9 +1392,7 @@ function showProperties(field: FormField): void {
       }
     });
 
-    const propMultilineBtn = document.getElementById(
-      'propMultilineBtn'
-    ) as HTMLButtonElement;
+    const propMultilineBtn = document.getElementById('propMultilineBtn') as HTMLButtonElement;
     if (propMultilineBtn) {
       propMultilineBtn.addEventListener('click', () => {
         field.multiline = !field.multiline;
@@ -1531,9 +1414,7 @@ function showProperties(field: FormField): void {
         // Update Canvas UI
         const fieldWrapper = document.getElementById(field.id);
         if (fieldWrapper) {
-          const textEl = fieldWrapper.querySelector(
-            '.field-text'
-          ) as HTMLElement;
+          const textEl = fieldWrapper.querySelector('.field-text') as HTMLElement;
           if (textEl) {
             if (field.multiline) {
               textEl.style.whiteSpace = 'pre-wrap';
@@ -1549,9 +1430,7 @@ function showProperties(field: FormField): void {
       });
     }
   } else if (field.type === 'checkbox' || field.type === 'radio') {
-    const propCheckedBtn = document.getElementById(
-      'propCheckedBtn'
-    ) as HTMLButtonElement;
+    const propCheckedBtn = document.getElementById('propCheckedBtn') as HTMLButtonElement;
 
     propCheckedBtn.addEventListener('click', () => {
       field.checked = !field.checked;
@@ -1573,9 +1452,7 @@ function showProperties(field: FormField): void {
       // Update Canvas UI
       const fieldWrapper = document.getElementById(field.id);
       if (fieldWrapper) {
-        const contentEl = fieldWrapper.querySelector(
-          '.field-content'
-        ) as HTMLElement;
+        const contentEl = fieldWrapper.querySelector('.field-content') as HTMLElement;
         if (contentEl) {
           if (field.type === 'checkbox') {
             contentEl.innerHTML = field.checked
@@ -1591,12 +1468,8 @@ function showProperties(field: FormField): void {
     });
 
     if (field.type === 'radio') {
-      const propGroupName = document.getElementById(
-        'propGroupName'
-      ) as HTMLInputElement;
-      const propExportValue = document.getElementById(
-        'propExportValue'
-      ) as HTMLInputElement;
+      const propGroupName = document.getElementById('propGroupName') as HTMLInputElement;
+      const propExportValue = document.getElementById('propExportValue') as HTMLInputElement;
 
       propGroupName.addEventListener('input', (e) => {
         field.groupName = (e.target as HTMLInputElement).value;
@@ -1606,9 +1479,7 @@ function showProperties(field: FormField): void {
       });
     }
   } else if (field.type === 'dropdown' || field.type === 'optionlist') {
-    const propOptions = document.getElementById(
-      'propOptions'
-    ) as HTMLTextAreaElement;
+    const propOptions = document.getElementById('propOptions') as HTMLTextAreaElement;
     propOptions.addEventListener('input', (e) => {
       // We split by newline OR comma for the actual options array
       const val = (e.target as HTMLTextAreaElement).value;
@@ -1617,9 +1488,7 @@ function showProperties(field: FormField): void {
         .map((s) => s.trim())
         .filter((s) => s.length > 0);
 
-      const propSelectedOption = document.getElementById(
-        'propSelectedOption'
-      ) as HTMLSelectElement;
+      const propSelectedOption = document.getElementById('propSelectedOption') as HTMLSelectElement;
       if (propSelectedOption) {
         const currentVal = field.defaultValue;
         propSelectedOption.innerHTML =
@@ -1631,11 +1500,7 @@ function showProperties(field: FormField): void {
             )
             .join('');
 
-        if (
-          currentVal &&
-          field.options &&
-          !field.options.includes(currentVal)
-        ) {
+        if (currentVal && field.options && !field.options.includes(currentVal)) {
           field.defaultValue = '';
           propSelectedOption.value = '';
         }
@@ -1644,9 +1509,7 @@ function showProperties(field: FormField): void {
       renderField(field);
     });
 
-    const propSelectedOption = document.getElementById(
-      'propSelectedOption'
-    ) as HTMLSelectElement;
+    const propSelectedOption = document.getElementById('propSelectedOption') as HTMLSelectElement;
     propSelectedOption.addEventListener('change', (e) => {
       field.defaultValue = (e.target as HTMLSelectElement).value;
 
@@ -1659,22 +1522,14 @@ function showProperties(field: FormField): void {
       field.label = (e.target as HTMLInputElement).value;
       const fieldWrapper = document.getElementById(field.id);
       if (fieldWrapper) {
-        const contentEl = fieldWrapper.querySelector(
-          '.field-content'
-        ) as HTMLElement;
+        const contentEl = fieldWrapper.querySelector('.field-content') as HTMLElement;
         if (contentEl) contentEl.textContent = field.label || 'Button';
       }
     });
 
-    const propAction = document.getElementById(
-      'propAction'
-    ) as HTMLSelectElement;
-    const propUrlContainer = document.getElementById(
-      'propUrlContainer'
-    ) as HTMLDivElement;
-    const propJsContainer = document.getElementById(
-      'propJsContainer'
-    ) as HTMLDivElement;
+    const propAction = document.getElementById('propAction') as HTMLSelectElement;
+    const propUrlContainer = document.getElementById('propUrlContainer') as HTMLDivElement;
+    const propJsContainer = document.getElementById('propJsContainer') as HTMLDivElement;
     const propShowHideContainer = document.getElementById(
       'propShowHideContainer'
     ) as HTMLDivElement;
@@ -1696,25 +1551,19 @@ function showProperties(field: FormField): void {
       }
     });
 
-    const propActionUrl = document.getElementById(
-      'propActionUrl'
-    ) as HTMLInputElement;
+    const propActionUrl = document.getElementById('propActionUrl') as HTMLInputElement;
     propActionUrl.addEventListener('input', (e) => {
       field.actionUrl = (e.target as HTMLInputElement).value;
     });
 
-    const propJsScript = document.getElementById(
-      'propJsScript'
-    ) as HTMLTextAreaElement;
+    const propJsScript = document.getElementById('propJsScript') as HTMLTextAreaElement;
     if (propJsScript) {
       propJsScript.addEventListener('input', (e) => {
         field.jsScript = (e.target as HTMLTextAreaElement).value;
       });
     }
 
-    const propTargetField = document.getElementById(
-      'propTargetField'
-    ) as HTMLSelectElement;
+    const propTargetField = document.getElementById('propTargetField') as HTMLSelectElement;
     if (propTargetField) {
       propTargetField.addEventListener('change', (e) => {
         field.targetFieldName = (e.target as HTMLSelectElement).value;
@@ -1732,18 +1581,12 @@ function showProperties(field: FormField): void {
   } else if (field.type === 'signature') {
     // No specific listeners for signature fields yet
   } else if (field.type === 'date') {
-    const propDateFormat = document.getElementById(
-      'propDateFormat'
-    ) as HTMLSelectElement;
+    const propDateFormat = document.getElementById('propDateFormat') as HTMLSelectElement;
     const customFormatContainer = document.getElementById(
       'customFormatContainer'
     ) as HTMLDivElement;
-    const propCustomFormat = document.getElementById(
-      'propCustomFormat'
-    ) as HTMLInputElement;
-    const dateFormatExample = document.getElementById(
-      'dateFormatExample'
-    ) as HTMLSpanElement;
+    const propCustomFormat = document.getElementById('propCustomFormat') as HTMLInputElement;
+    const dateFormatExample = document.getElementById('dateFormatExample') as HTMLSpanElement;
 
     const formatDateExample = (format: string): string => {
       const now = new Date();
@@ -1806,9 +1649,7 @@ function showProperties(field: FormField): void {
 
     const updateExample = () => {
       if (dateFormatExample) {
-        dateFormatExample.textContent = formatDateExample(
-          field.dateFormat || 'mm/dd/yyyy'
-        );
+        dateFormatExample.textContent = formatDateExample(field.dateFormat || 'mm/dd/yyyy');
       }
     };
 
@@ -1829,9 +1670,7 @@ function showProperties(field: FormField): void {
         updateExample();
         const fieldWrapper = document.getElementById(field.id);
         if (fieldWrapper) {
-          const textSpan = fieldWrapper.querySelector(
-            '.date-format-text'
-          ) as HTMLElement;
+          const textSpan = fieldWrapper.querySelector('.date-format-text') as HTMLElement;
           if (textSpan) {
             textSpan.textContent = field.dateFormat;
           }
@@ -1846,9 +1685,7 @@ function showProperties(field: FormField): void {
         updateExample();
         const fieldWrapper = document.getElementById(field.id);
         if (fieldWrapper) {
-          const textSpan = fieldWrapper.querySelector(
-            '.date-format-text'
-          ) as HTMLElement;
+          const textSpan = fieldWrapper.querySelector('.date-format-text') as HTMLElement;
           if (textSpan) {
             textSpan.textContent = field.dateFormat;
           }
@@ -1862,12 +1699,8 @@ function showProperties(field: FormField): void {
       renderField(field);
     });
   } else if (field.type === 'barcode') {
-    const propBarcodeFormat = document.getElementById(
-      'propBarcodeFormat'
-    ) as HTMLSelectElement;
-    const propBarcodeValue = document.getElementById(
-      'propBarcodeValue'
-    ) as HTMLInputElement;
+    const propBarcodeFormat = document.getElementById('propBarcodeFormat') as HTMLSelectElement;
+    const propBarcodeValue = document.getElementById('propBarcodeValue') as HTMLInputElement;
 
     const barcodeSampleValues: Record<string, string> = {
       qrcode: 'https://example.com',
@@ -1890,9 +1723,7 @@ function showProperties(field: FormField): void {
     };
 
     const hintEl = document.getElementById('barcodeFormatHint');
-    if (hintEl)
-      hintEl.textContent =
-        barcodeFormatHints[field.barcodeFormat || 'qrcode'] || '';
+    if (hintEl) hintEl.textContent = barcodeFormatHints[field.barcodeFormat || 'qrcode'] || '';
 
     if (propBarcodeFormat) {
       propBarcodeFormat.addEventListener('change', (e) => {
@@ -1981,9 +1812,7 @@ downloadBtn.addEventListener('click', async () => {
   });
 
   if (conflictsWithPdf.length > 0) {
-    const conflictList = [...new Set(conflictsWithPdf)]
-      .map((name) => `"${name}"`)
-      .join(', ');
+    const conflictList = [...new Set(conflictsWithPdf)].map((name) => `"${name}"`).join(', ');
     showModal(
       'Field Name Conflict',
       `The following field names already exist in the uploaded PDF: ${conflictList}. Please rename these fields before downloading.`,
@@ -2198,14 +2027,11 @@ downloadBtn.addEventListener('click', async () => {
         if (field.options) dropdown.setOptions(field.options);
         if (field.defaultValue && field.options?.includes(field.defaultValue))
           dropdown.select(field.defaultValue);
-        else if (field.options && field.options.length > 0)
-          dropdown.select(field.options[0]);
+        else if (field.options && field.options.length > 0) dropdown.select(field.options[0]);
 
         const rgbColor = hexToRgb(field.textColor);
         dropdown.acroField.setFontSize(field.fontSize);
-        dropdown.acroField.setDefaultAppearance(
-          `0 0 0 rg /Helv ${field.fontSize} Tf`
-        );
+        dropdown.acroField.setDefaultAppearance(`0 0 0 rg /Helv ${field.fontSize} Tf`);
 
         if (field.required) dropdown.enableRequired();
         if (field.readOnly) dropdown.enableReadOnly();
@@ -2229,14 +2055,11 @@ downloadBtn.addEventListener('click', async () => {
         if (field.options) optionList.setOptions(field.options);
         if (field.defaultValue && field.options?.includes(field.defaultValue))
           optionList.select(field.defaultValue);
-        else if (field.options && field.options.length > 0)
-          optionList.select(field.options[0]);
+        else if (field.options && field.options.length > 0) optionList.select(field.options[0]);
 
         const rgbColor = hexToRgb(field.textColor);
         optionList.acroField.setFontSize(field.fontSize);
-        optionList.acroField.setDefaultAppearance(
-          `0 0 0 rg /Helv ${field.fontSize} Tf`
-        );
+        optionList.acroField.setDefaultAppearance(`0 0 0 rg /Helv ${field.fontSize} Tf`);
 
         if (field.required) optionList.enableRequired();
         if (field.readOnly) optionList.enableReadOnly();
@@ -2469,22 +2292,15 @@ downloadBtn.addEventListener('click', async () => {
               bcid: field.barcodeFormat || 'qrcode',
               text: field.barcodeValue,
               scale: 3,
-              includetext:
-                field.barcodeFormat !== 'qrcode' &&
-                field.barcodeFormat !== 'datamatrix',
+              includetext: field.barcodeFormat !== 'qrcode' && field.barcodeFormat !== 'datamatrix',
             });
             const dataUrl = offscreen.toDataURL('image/png');
             const base64 = dataUrl.split(',')[1];
-            const pngBytes = Uint8Array.from(atob(base64), (c) =>
-              c.charCodeAt(0)
-            );
+            const pngBytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
             const pngImage = await pdfDoc.embedPng(pngBytes);
             pdfPage.drawImage(pngImage, { x, y, width, height });
           } catch (e) {
-            console.warn(
-              `Failed to generate barcode for field "${field.name}":`,
-              e
-            );
+            console.warn(`Failed to generate barcode for field "${field.name}":`, e);
           }
         }
       }
@@ -2511,13 +2327,9 @@ downloadBtn.addEventListener('click', async () => {
     const errorMessage = (error as Error).message;
 
     // Check if it's a duplicate field name error
-    if (
-      errorMessage.includes('A field already exists with the specified name')
-    ) {
+    if (errorMessage.includes('A field already exists with the specified name')) {
       // Extract the field name from the error message
-      const match = errorMessage.match(
-        /A field already exists with the specified name: "(.+?)"/
-      );
+      const match = errorMessage.match(/A field already exists with the specified name: "(.+?)"/);
       const fieldName = match ? match[1] : 'unknown';
 
       if (existingRadioGroups.has(fieldName)) {
@@ -2719,8 +2531,7 @@ async function renderCanvas(): Promise<void> {
               if (app.pdfViewer && app.pdfViewer.pagesCount > 0) {
                 clearInterval(checkRender);
 
-                const pageContainer =
-                  viewerWindow.document.querySelector('.page');
+                const pageContainer = viewerWindow.document.querySelector('.page');
                 if (pageContainer) {
                   const initialRect = pageContainer.getBoundingClientRect();
 
@@ -2772,9 +2583,7 @@ async function renderCanvas(): Promise<void> {
                     if (pendingFieldExtraction && uploadedPdfDoc) {
                       pendingFieldExtraction = false;
                       extractExistingFields(uploadedPdfDoc);
-                      extractedFieldNames.forEach((name) =>
-                        existingFieldNames.delete(name)
-                      );
+                      extractedFieldNames.forEach((name) => existingFieldNames.delete(name));
 
                       try {
                         const form = uploadedPdfDoc.getForm();
@@ -2940,9 +2749,7 @@ function extractExistingFields(pdfDoc: PDFDocument): void {
           const { height: pageHeight } = page.getSize();
 
           const canvasX = rect.x * pdfViewerScale + pdfViewerOffset.x;
-          const canvasY =
-            (pageHeight - rect.y - rect.height) * pdfViewerScale +
-            pdfViewerOffset.y;
+          const canvasY = (pageHeight - rect.y - rect.height) * pdfViewerScale + pdfViewerOffset.y;
           const canvasWidth = rect.width * pdfViewerScale;
           const canvasHeight = rect.height * pdfViewerScale;
 
@@ -3007,9 +2814,7 @@ function extractExistingFields(pdfDoc: PDFDocument): void {
       const { height: pageHeight } = page.getSize();
 
       const canvasX = rect.x * pdfViewerScale + pdfViewerOffset.x;
-      const canvasY =
-        (pageHeight - rect.y - rect.height) * pdfViewerScale +
-        pdfViewerOffset.y;
+      const canvasY = (pageHeight - rect.y - rect.height) * pdfViewerScale + pdfViewerOffset.y;
       const canvasWidth = rect.width * pdfViewerScale;
       const canvasHeight = rect.height * pdfViewerScale;
 
@@ -3064,10 +2869,8 @@ function extractExistingFields(pdfDoc: PDFDocument): void {
         } catch {}
         try {
           const alignment = pdfField.getAlignment();
-          if (alignment === TextAlignment.Center)
-            formField.alignment = 'center';
-          else if (alignment === TextAlignment.Right)
-            formField.alignment = 'right';
+          if (alignment === TextAlignment.Center) formField.alignment = 'center';
+          else if (alignment === TextAlignment.Right) formField.alignment = 'right';
           else formField.alignment = 'left';
         } catch {}
       } else if (pdfField instanceof PDFCheckBox) {
@@ -3100,9 +2903,7 @@ function extractExistingFields(pdfDoc: PDFDocument): void {
       extractedFieldNames.add(name);
     }
 
-    console.log(
-      `Extracted ${extractedFieldNames.size} existing fields for editing`
-    );
+    console.log(`Extracted ${extractedFieldNames.size} existing fields for editing`);
   } catch (e) {
     console.warn('Error extracting existing fields:', e);
   }
@@ -3180,11 +2981,7 @@ async function handlePdfUpload(file: File) {
     setTimeout(() => createIcons({ icons }), 100);
   } catch (error) {
     console.error('Error loading PDF:', error);
-    showModal(
-      'Error',
-      'Error loading PDF file. Please try again with a valid PDF.',
-      'error'
-    );
+    showModal('Error', 'Error loading PDF file. Please try again with a valid PDF.', 'error');
   }
 }
 
@@ -3208,9 +3005,7 @@ addPageBtn.addEventListener('click', () => {
 
 resetBtn.addEventListener('click', () => {
   if (fields.length > 0 || pages.length > 0) {
-    if (
-      confirm('Are you sure you want to reset? All your work will be lost.')
-    ) {
+    if (confirm('Are you sure you want to reset? All your work will be lost.')) {
       resetToInitial();
     }
   } else {
@@ -3233,8 +3028,7 @@ function showModal(
   onClose?: () => void,
   buttonText: string = 'Close'
 ) {
-  if (!errorModal || !errorModalTitle || !errorModalMessage || !errorModalClose)
-    return;
+  if (!errorModal || !errorModalTitle || !errorModalMessage || !errorModalClose) return;
 
   errorModalTitle.textContent = title;
   errorModalMessage.textContent = message;

@@ -2,7 +2,7 @@ import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { downloadFile, formatBytes, getPDFDocument } from '../utils/helpers.js';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument as PDFLibDocument, degrees } from 'pdf-lib';
-import { renderPagesProgressively, cleanupLazyRendering } from '../utils/render-utils.js';
+import { renderPagesProgressively, cleanupLazyRendering } from '../utils/render-utils';
 import * as pdfjsLib from 'pdfjs-dist';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();

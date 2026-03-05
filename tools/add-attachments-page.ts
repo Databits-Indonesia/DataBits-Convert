@@ -3,15 +3,10 @@ import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
-import { isCpdfAvailable } from '../utils/cpdf-helper.js';
-import {
-  showWasmRequiredDialog,
-  WasmProvider,
-} from '../utils/wasm-provider.js';
+import { isCpdfAvailable } from '../utils/cpdf-helper';
+import { showWasmRequiredDialog, WasmProvider } from '../utils/wasm-provider';
 
-const worker = new Worker(
-  import.meta.env.BASE_URL + 'workers/add-attachments.worker.js'
-);
+const worker = new Worker(import.meta.env.BASE_URL + 'workers/add-attachments.worker.js');
 
 const pageState: AddAttachmentState = {
   file: null,
@@ -33,14 +28,10 @@ function resetState() {
   const attachmentFileList = document.getElementById('attachment-file-list');
   if (attachmentFileList) attachmentFileList.innerHTML = '';
 
-  const attachmentInput = document.getElementById(
-    'attachment-files-input'
-  ) as HTMLInputElement;
+  const attachmentInput = document.getElementById('attachment-files-input') as HTMLInputElement;
   if (attachmentInput) attachmentInput.value = '';
 
-  const attachmentLevelOptions = document.getElementById(
-    'attachment-level-options'
-  );
+  const attachmentLevelOptions = document.getElementById('attachment-level-options');
   if (attachmentLevelOptions) attachmentLevelOptions.classList.add('hidden');
 
   const pageRangeWrapper = document.getElementById('page-range-wrapper');
@@ -64,8 +55,7 @@ worker.onmessage = function (e) {
   if (data.status === 'success' && data.modifiedPDF !== undefined) {
     hideLoader();
 
-    const originalName =
-      pageState.file?.name.replace(/\.pdf$/i, '') || 'document';
+    const originalName = pageState.file?.name.replace(/\.pdf$/i, '') || 'document';
     downloadFile(
       new Blob([new Uint8Array(data.modifiedPDF)], { type: 'application/pdf' }),
       `${originalName}_with_attachments.pdf`
@@ -101,8 +91,7 @@ async function updateUI() {
 
   if (pageState.file) {
     const fileDiv = document.createElement('div');
-    fileDiv.className =
-      'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+    fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
 
     const infoContainer = document.createElement('div');
     infoContainer.className = 'flex flex-col overflow-hidden';
@@ -159,9 +148,7 @@ async function updateUI() {
 
 function updateAttachmentList() {
   const attachmentFileList = document.getElementById('attachment-file-list');
-  const attachmentLevelOptions = document.getElementById(
-    'attachment-level-options'
-  );
+  const attachmentLevelOptions = document.getElementById('attachment-level-options');
   const processBtn = document.getElementById('process-btn');
 
   if (!attachmentFileList) return;
@@ -170,8 +157,7 @@ function updateAttachmentList() {
 
   pageState.attachments.forEach(function (file) {
     const div = document.createElement('div');
-    div.className =
-      'flex justify-between items-center p-2 bg-gray-800 rounded-md text-white';
+    div.className = 'flex justify-between items-center p-2 bg-gray-800 rounded-md text-white';
 
     const nameSpan = document.createElement('span');
     nameSpan.className = 'truncate text-sm';
@@ -186,8 +172,7 @@ function updateAttachmentList() {
   });
 
   if (pageState.attachments.length > 0) {
-    if (attachmentLevelOptions)
-      attachmentLevelOptions.classList.remove('hidden');
+    if (attachmentLevelOptions) attachmentLevelOptions.classList.remove('hidden');
     if (processBtn) processBtn.classList.remove('hidden');
   } else {
     if (attachmentLevelOptions) attachmentLevelOptions.classList.add('hidden');
@@ -213,25 +198,17 @@ async function addAttachments() {
   }
 
   const attachmentLevel =
-    (
-      document.querySelector(
-        'input[name="attachment-level"]:checked'
-      ) as HTMLInputElement
-    )?.value || 'document';
+    (document.querySelector('input[name="attachment-level"]:checked') as HTMLInputElement)?.value ||
+    'document';
 
   let pageRange: string = '';
 
   if (attachmentLevel === 'page') {
-    const pageRangeInput = document.getElementById(
-      'attachment-page-range'
-    ) as HTMLInputElement;
+    const pageRangeInput = document.getElementById('attachment-page-range') as HTMLInputElement;
     pageRange = pageRangeInput?.value?.trim() || '';
 
     if (!pageRange) {
-      showAlert(
-        'Error',
-        'Please specify a page range for page-level attachments.'
-      );
+      showAlert('Error', 'Please specify a page range for page-level attachments.');
       return;
     }
   }
@@ -246,9 +223,7 @@ async function addAttachments() {
 
     for (let i = 0; i < pageState.attachments.length; i++) {
       const file = pageState.attachments[i];
-      showLoader(
-        `Reading ${file.name} (${i + 1}/${pageState.attachments.length})...`
-      );
+      showLoader(`Reading ${file.name} (${i + 1}/${pageState.attachments.length})...`);
 
       const fileBuffer = await file.arrayBuffer();
       attachmentBuffers.push(fileBuffer);
@@ -279,10 +254,7 @@ async function addAttachments() {
 function handleFileSelect(files: FileList | null) {
   if (files && files.length > 0) {
     const file = files[0];
-    if (
-      file.type === 'application/pdf' ||
-      file.name.toLowerCase().endsWith('.pdf')
-    ) {
+    if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
       pageState.file = file;
       updateUI();
     }
@@ -299,9 +271,7 @@ function handleAttachmentSelect(files: FileList | null) {
 document.addEventListener('DOMContentLoaded', function () {
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   const dropZone = document.getElementById('drop-zone');
-  const attachmentInput = document.getElementById(
-    'attachment-files-input'
-  ) as HTMLInputElement;
+  const attachmentInput = document.getElementById('attachment-files-input') as HTMLInputElement;
   const attachmentDropZone = document.getElementById('attachment-drop-zone');
   const processBtn = document.getElementById('process-btn');
   const backBtn = document.getElementById('back-to-tools');
@@ -334,10 +304,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const files = e.dataTransfer?.files;
       if (files && files.length > 0) {
         const pdfFiles = Array.from(files).filter(function (f) {
-          return (
-            f.type === 'application/pdf' ||
-            f.name.toLowerCase().endsWith('.pdf')
-          );
+          return f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf');
         });
         if (pdfFiles.length > 0) {
           const dataTransfer = new DataTransfer();
@@ -381,9 +348,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  const attachmentLevelRadios = document.querySelectorAll(
-    'input[name="attachment-level"]'
-  );
+  const attachmentLevelRadios = document.querySelectorAll('input[name="attachment-level"]');
   attachmentLevelRadios.forEach(function (radio) {
     radio.addEventListener('change', function (e) {
       const value = (e.target as HTMLInputElement).value;

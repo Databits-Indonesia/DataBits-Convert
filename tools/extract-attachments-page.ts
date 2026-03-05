@@ -2,15 +2,10 @@ import { showAlert } from '../ui.js';
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { createIcons, icons } from 'lucide';
 import JSZip from 'jszip';
-import { isCpdfAvailable } from '../utils/cpdf-helper.js';
-import {
-  showWasmRequiredDialog,
-  WasmProvider,
-} from '../utils/wasm-provider.js';
+import { isCpdfAvailable } from '../utils/cpdf-helper';
+import { showWasmRequiredDialog, WasmProvider } from '../utils/wasm-provider';
 
-const worker = new Worker(
-  import.meta.env.BASE_URL + 'workers/extract-attachments.worker.js'
-);
+const worker = new Worker(import.meta.env.BASE_URL + 'workers/extract-attachments.worker.js');
 
 interface ExtractState {
   files: File[];
@@ -42,13 +37,8 @@ function resetState() {
   }
 }
 
-function showStatus(
-  message: string,
-  type: 'success' | 'error' | 'info' = 'info'
-) {
-  const statusMessage = document.getElementById(
-    'status-message'
-  ) as HTMLElement;
+function showStatus(message: string, type: 'success' | 'error' | 'info' = 'info') {
+  const statusMessage = document.getElementById('status-message') as HTMLElement;
   if (!statusMessage) return;
 
   statusMessage.textContent = message;
@@ -73,10 +63,7 @@ worker.onmessage = function (e) {
     const attachments = e.data.attachments;
 
     if (attachments.length === 0) {
-      showAlert(
-        'No Attachments',
-        'The PDF file(s) do not contain any attachments to extract.'
-      );
+      showAlert('No Attachments', 'The PDF file(s) do not contain any attachments to extract.');
       resetState();
       return;
     }
@@ -92,10 +79,7 @@ worker.onmessage = function (e) {
     zip.generateAsync({ type: 'blob' }).then(function (zipBlob) {
       downloadFile(zipBlob, 'extracted-attachments.zip');
 
-      showAlert(
-        'Success',
-        `${attachments.length} attachment(s) extracted successfully!`
-      );
+      showAlert('Success', `${attachments.length} attachment(s) extracted successfully!`);
 
       showStatus(
         `Extraction completed! ${attachments.length} attachment(s) in zip file (${formatBytes(totalSize)}). Download started.`,
@@ -109,10 +93,7 @@ worker.onmessage = function (e) {
     console.error('Worker Error:', errorMessage);
 
     if (errorMessage.includes('No attachments were found')) {
-      showAlert(
-        'No Attachments',
-        'The PDF file(s) do not contain any attachments to extract.'
-      );
+      showAlert('No Attachments', 'The PDF file(s) do not contain any attachments to extract.');
       resetState();
     } else {
       showStatus(`Error: ${errorMessage}`, 'error');
@@ -141,8 +122,7 @@ async function updateUI() {
 
   if (pageState.files.length > 0) {
     const summaryDiv = document.createElement('div');
-    summaryDiv.className =
-      'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+    summaryDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
 
     const infoContainer = document.createElement('div');
     infoContainer.className = 'flex flex-col overflow-hidden';
@@ -207,10 +187,7 @@ async function extractAttachments() {
       fileNames.push(file.name);
     }
 
-    showStatus(
-      `Extracting attachments from ${pageState.files.length} file(s)...`,
-      'info'
-    );
+    showStatus(`Extracting attachments from ${pageState.files.length} file(s)...`, 'info');
 
     const message = {
       command: 'extract-attachments',
@@ -240,9 +217,7 @@ async function extractAttachments() {
 function handleFileSelect(files: FileList | null) {
   if (files && files.length > 0) {
     const pdfFiles = Array.from(files).filter(function (f) {
-      return (
-        f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
-      );
+      return f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf');
     });
     if (pdfFiles.length > 0) {
       pageState.files = pdfFiles;

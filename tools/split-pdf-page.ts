@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
 import { createIcons, icons } from 'lucide';
 import * as pdfjsLib from 'pdfjs-dist';
 import {
@@ -6,15 +6,12 @@ import {
   getPDFDocument,
   readFileAsArrayBuffer,
   formatBytes,
-} from '../utils/helpers.js';
-import { state } from '../state.js';
-import {
-  renderPagesProgressively,
-  cleanupLazyRendering,
-} from '../utils/render-utils.js';
-import { initPagePreview } from '../utils/page-preview.js';
-import { isCpdfAvailable } from '../utils/cpdf-helper.js';
-import { showWasmRequiredDialog } from '../utils/wasm-provider.js';
+} from '../utils/helpers';
+import { state } from '../state';
+import { renderPagesProgressively, cleanupLazyRendering } from '../utils/render-utils';
+import { initPagePreview } from '../utils/page-preview';
+import { isCpdfAvailable } from '../utils/cpdf-helper';
+import { showWasmRequiredDialog } from '../utils/wasm-provider';
 import JSZip from 'jszip';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
 
@@ -35,9 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const backBtn = document.getElementById('back-to-tools');
 
   // Split Mode Elements
-  const splitModeSelect = document.getElementById(
-    'split-mode'
-  ) as HTMLSelectElement;
+  const splitModeSelect = document.getElementById('split-mode') as HTMLSelectElement;
   const rangePanel = document.getElementById('range-panel');
   const visualPanel = document.getElementById('visual-select-panel');
   const evenOddPanel = document.getElementById('even-odd-panel');
@@ -49,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (backBtn) {
     backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
+      window.location.href = '/';
     });
   }
 
@@ -59,8 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (fileDisplayArea) {
         fileDisplayArea.innerHTML = '';
         const fileDiv = document.createElement('div');
-        fileDiv.className =
-          'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+        fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
 
         const infoContainer = document.createElement('div');
         infoContainer.className = 'flex flex-col overflow-hidden';
@@ -77,8 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Add remove button
         const removeBtn = document.createElement('button');
-        removeBtn.className =
-          'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
+        removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
         removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
         removeBtn.onclick = () => {
           state.files = [];
@@ -94,9 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
           if (!state.pdfDoc) {
             showLoader('Loading PDF...');
-            const arrayBuffer = (await readFileAsArrayBuffer(
-              file
-            )) as ArrayBuffer;
+            const arrayBuffer = (await readFileAsArrayBuffer(file)) as ArrayBuffer;
             state.pdfDoc = await PDFLibDocument.load(arrayBuffer);
             hideLoader();
           }
@@ -138,9 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // If pdfDoc is not loaded yet (e.g. page refresh), try to load it from the first file
         if (state.files.length > 0) {
           const file = state.files[0];
-          const arrayBuffer = (await readFileAsArrayBuffer(
-            file
-          )) as ArrayBuffer;
+          const arrayBuffer = (await readFileAsArrayBuffer(file)) as ArrayBuffer;
           state.pdfDoc = await PDFLibDocument.load(arrayBuffer);
         } else {
           throw new Error('No PDF document loaded');
@@ -227,25 +216,19 @@ document.addEventListener('DOMContentLoaded', () => {
     state.pdfDoc = null;
 
     // Reset visual selection
-    document
-      .querySelectorAll('.page-thumbnail-wrapper.selected')
-      .forEach((el) => {
-        el.classList.remove('selected', 'border-indigo-500');
-        el.classList.add('border-transparent');
-      });
+    document.querySelectorAll('.page-thumbnail-wrapper.selected').forEach((el) => {
+      el.classList.remove('selected', 'border-indigo-500');
+      el.classList.add('border-transparent');
+    });
     visualSelectorRendered = false;
     const container = document.getElementById('page-selector-grid');
     if (container) container.innerHTML = '';
 
     // Reset inputs
-    const pageRangeInput = document.getElementById(
-      'page-range'
-    ) as HTMLInputElement;
+    const pageRangeInput = document.getElementById('page-range') as HTMLInputElement;
     if (pageRangeInput) pageRangeInput.value = '';
 
-    const nValueInput = document.getElementById(
-      'split-n-value'
-    ) as HTMLInputElement;
+    const nValueInput = document.getElementById('split-n-value') as HTMLInputElement;
     if (nValueInput) nValueInput.value = '5';
 
     // Reset radio buttons to default (range)
@@ -269,8 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const split = async () => {
     const splitMode = splitModeSelect.value;
     const downloadAsZip =
-      (document.getElementById('download-as-zip') as HTMLInputElement)
-        ?.checked || false;
+      (document.getElementById('download-as-zip') as HTMLInputElement)?.checked || false;
 
     showLoader('Splitting PDF...');
 
@@ -282,9 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       switch (splitMode) {
         case 'range':
-          const pageRangeInput = (
-            document.getElementById('page-range') as HTMLInputElement
-          ).value;
+          const pageRangeInput = (document.getElementById('page-range') as HTMLInputElement).value;
           if (!pageRangeInput) throw new Error('Choose a valid page range.');
           const ranges = pageRangeInput.split(',');
 
@@ -296,19 +276,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const groupIndices: number[] = [];
             if (trimmedRange.includes('-')) {
               const [start, end] = trimmedRange.split('-').map(Number);
-              if (
-                isNaN(start) ||
-                isNaN(end) ||
-                start < 1 ||
-                end > totalPages ||
-                start > end
-              )
+              if (isNaN(start) || isNaN(end) || start < 1 || end > totalPages || start > end)
                 continue;
               for (let i = start; i <= end; i++) groupIndices.push(i - 1);
             } else {
               const pageNum = Number(trimmedRange);
-              if (isNaN(pageNum) || pageNum < 1 || pageNum > totalPages)
-                continue;
+              if (isNaN(pageNum) || pageNum < 1 || pageNum > totalPages) continue;
               groupIndices.push(pageNum - 1);
             }
 
@@ -332,9 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
               const minPage = Math.min(...group) + 1;
               const maxPage = Math.max(...group) + 1;
               const filename =
-                minPage === maxPage
-                  ? `page-${minPage}.pdf`
-                  : `pages-${minPage}-${maxPage}.pdf`;
+                minPage === maxPage ? `page-${minPage}.pdf` : `pages-${minPage}-${maxPage}.pdf`;
               zip.file(filename, pdfBytes);
             }
 
@@ -344,11 +315,9 @@ document.addEventListener('DOMContentLoaded', () => {
             showAlert(
               'Success',
               `PDF split into ${rangeGroups.length} files successfully!`,
-              'success',
-              () => {
-                resetState();
-              }
+              'success'
             );
+            resetState();
             return;
           }
           break;
@@ -357,12 +326,10 @@ document.addEventListener('DOMContentLoaded', () => {
           const choiceElement = document.querySelector(
             'input[name="even-odd-choice"]:checked'
           ) as HTMLInputElement;
-          if (!choiceElement)
-            throw new Error('Please select even or odd pages.');
+          if (!choiceElement) throw new Error('Please select even or odd pages.');
           const choice = choiceElement.value;
           for (let i = 0; i < totalPages; i++) {
-            if (choice === 'even' && (i + 1) % 2 === 0)
-              indicesToExtract.push(i);
+            if (choice === 'even' && (i + 1) % 2 === 0) indicesToExtract.push(i);
             if (choice === 'odd' && (i + 1) % 2 !== 0) indicesToExtract.push(i);
           }
           break;
@@ -381,16 +348,15 @@ document.addEventListener('DOMContentLoaded', () => {
             hideLoader();
             return;
           }
-          const { getCpdf } = await import('../utils/cpdf-helper.js');
-          const cpdf = await getCpdf();
+          const { getCpdf } = await import('../utils/cpdf-helper');
+          const cpdf: any = await getCpdf();
           const pdfBytes = await state.pdfDoc.save();
           const pdf = cpdf.fromMemory(new Uint8Array(pdfBytes), '');
 
           cpdf.startGetBookmarkInfo(pdf);
           const bookmarkCount = cpdf.numberBookmarks();
-          const bookmarkLevel = (
-            document.getElementById('bookmark-level') as HTMLSelectElement
-          )?.value;
+          const bookmarkLevel = (document.getElementById('bookmark-level') as HTMLSelectElement)
+            ?.value;
 
           const splitPages: number[] = [];
           for (let i = 0; i < bookmarkCount; i++) {
@@ -415,20 +381,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
           for (let i = 0; i < splitPages.length; i++) {
             const startPage = i === 0 ? 0 : splitPages[i];
-            const endPage =
-              i < splitPages.length - 1
-                ? splitPages[i + 1] - 1
-                : totalPages - 1;
+            const endPage = i < splitPages.length - 1 ? splitPages[i + 1] - 1 : totalPages - 1;
 
             const newPdf = await PDFLibDocument.create();
             const pageIndices = Array.from(
               { length: endPage - startPage + 1 },
               (_, idx) => startPage + idx
             );
-            const copiedPages = await newPdf.copyPages(
-              state.pdfDoc,
-              pageIndices
-            );
+            const copiedPages = await newPdf.copyPages(state.pdfDoc, pageIndices);
             copiedPages.forEach((page: any) => newPdf.addPage(page));
             const pdfBytes2 = await newPdf.save();
             zip.file(`split-${i + 1}.pdf`, pdfBytes2);
@@ -437,15 +397,13 @@ document.addEventListener('DOMContentLoaded', () => {
           const zipBlob = await zip.generateAsync({ type: 'blob' });
           downloadFile(zipBlob, 'split-by-bookmarks.zip');
           hideLoader();
-          showAlert('Success', 'PDF split successfully!', 'success', () => {
-            resetState();
-          });
+          showAlert('Success', 'PDF split successfully!', 'success');
+          resetState();
           return;
 
         case 'n-times':
           const nValue = parseInt(
-            (document.getElementById('split-n-value') as HTMLInputElement)
-              ?.value || '5'
+            (document.getElementById('split-n-value') as HTMLInputElement)?.value || '5'
           );
           if (nValue < 1) throw new Error('N must be at least 1.');
 
@@ -461,10 +419,7 @@ document.addEventListener('DOMContentLoaded', () => {
             );
 
             const newPdf = await PDFLibDocument.create();
-            const copiedPages = await newPdf.copyPages(
-              state.pdfDoc,
-              pageIndices
-            );
+            const copiedPages = await newPdf.copyPages(state.pdfDoc, pageIndices);
             copiedPages.forEach((page: any) => newPdf.addPage(page));
             const pdfBytes3 = await newPdf.save();
             zip2.file(`split-${i + 1}.pdf`, pdfBytes3);
@@ -473,32 +428,22 @@ document.addEventListener('DOMContentLoaded', () => {
           const zipBlob2 = await zip2.generateAsync({ type: 'blob' });
           downloadFile(zipBlob2, 'split-n-times.zip');
           hideLoader();
-          showAlert('Success', 'PDF split successfully!', 'success', () => {
-            resetState();
-          });
+          showAlert('Success', 'PDF split successfully!', 'success');
+          resetState();
           return;
       }
 
       const uniqueIndices = [...new Set(indicesToExtract)];
-      if (
-        uniqueIndices.length === 0 &&
-        splitMode !== 'bookmarks' &&
-        splitMode !== 'n-times'
-      ) {
+      if (uniqueIndices.length === 0 && splitMode !== 'bookmarks' && splitMode !== 'n-times') {
         throw new Error('No pages were selected for splitting.');
       }
 
-      if (
-        splitMode === 'all' ||
-        (['range', 'visual'].includes(splitMode) && downloadAsZip)
-      ) {
+      if (splitMode === 'all' || (['range', 'visual'].includes(splitMode) && downloadAsZip)) {
         showLoader('Creating ZIP file...');
         const zip = new JSZip();
         for (const index of uniqueIndices) {
           const newPdf = await PDFLibDocument.create();
-          const [copiedPage] = await newPdf.copyPages(state.pdfDoc, [
-            index as number,
-          ]);
+          const [copiedPage] = await newPdf.copyPages(state.pdfDoc, [index as number]);
           newPdf.addPage(copiedPage);
           const pdfBytes = await newPdf.save();
           // @ts-ignore
@@ -508,10 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
         downloadFile(zipBlob, 'split-pages.zip');
       } else {
         const newPdf = await PDFLibDocument.create();
-        const copiedPages = await newPdf.copyPages(
-          state.pdfDoc,
-          uniqueIndices as number[]
-        );
+        const copiedPages = await newPdf.copyPages(state.pdfDoc, uniqueIndices as number[]);
         copiedPages.forEach((page: any) => newPdf.addPage(page));
         const pdfBytes = await newPdf.save();
         downloadFile(
@@ -524,15 +466,11 @@ document.addEventListener('DOMContentLoaded', () => {
         visualSelectorRendered = false;
       }
 
-      showAlert('Success', 'PDF split successfully!', 'success', () => {
-        resetState();
-      });
+      showAlert('Success', 'PDF split successfully!', 'success');
+      resetState();
     } catch (e: any) {
       console.error(e);
-      showAlert(
-        'Error',
-        e.message || 'Failed to split PDF. Please check your selection.'
-      );
+      showAlert('Error', e.message || 'Failed to split PDF. Please check your selection.');
     } finally {
       hideLoader();
     }
@@ -567,9 +505,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const files = e.dataTransfer?.files;
       if (files) {
         const pdfFiles = Array.from(files).filter(
-          (f) =>
-            f.type === 'application/pdf' ||
-            f.name.toLowerCase().endsWith('.pdf')
+          (f) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
         );
         if (pdfFiles.length > 0) {
           // Take only the first PDF
@@ -627,8 +563,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (!state.pdfDoc) return;
           const totalPages = state.pdfDoc.getPageCount();
           const nValue = parseInt(
-            (document.getElementById('split-n-value') as HTMLInputElement)
-              ?.value || '5'
+            (document.getElementById('split-n-value') as HTMLInputElement)?.value || '5'
           );
           const remainder = totalPages % nValue;
           if (remainder !== 0 && nTimesWarning) {
@@ -643,9 +578,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         updateWarning();
-        document
-          .getElementById('split-n-value')
-          ?.addEventListener('input', updateWarning);
+        document.getElementById('split-n-value')?.addEventListener('input', updateWarning);
       }
     });
   }

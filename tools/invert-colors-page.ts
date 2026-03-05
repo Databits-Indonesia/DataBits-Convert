@@ -2,7 +2,7 @@ import { createIcons, icons } from 'lucide';
 import { showAlert, showLoader, hideLoader } from '../ui.js';
 import { downloadFile, formatBytes, getPDFDocument } from '../utils/helpers.js';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
-import { applyInvertColors } from '../utils/image-effects.js';
+import { applyInvertColors } from '../utils/image-effects';
 import * as pdfjsLib from 'pdfjs-dist';
 import { InvertColorsState } from '@/types';
 

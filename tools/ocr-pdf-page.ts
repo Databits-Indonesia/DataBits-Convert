@@ -3,7 +3,7 @@ import { showAlert } from '../ui.js';
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { icons, createIcons } from 'lucide';
 import { OcrState } from '@/types';
-import { performOcr } from '../utils/ocr.js';
+import { performOcr } from '../utils/ocr';
 
 const pageState: OcrState = {
   file: null,

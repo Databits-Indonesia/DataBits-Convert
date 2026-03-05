@@ -3,8 +3,8 @@ import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { createIcons, icons } from 'lucide';
 import JSZip from 'jszip';
 import { isWasmAvailable, getWasmBaseUrl } from '../config/wasm-cdn-config.js';
-import { showWasmRequiredDialog } from '../utils/wasm-provider.js';
-import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader.js';
+import { showWasmRequiredDialog } from '../utils/wasm-provider';
+import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';
 
 let pymupdf: any = null;
 let files: File[] = [];
@@ -24,8 +24,7 @@ const updateUI = () => {
 
     files.forEach((file, index) => {
       const fileDiv = document.createElement('div');
-      fileDiv.className =
-        'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+      fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
 
       const infoContainer = document.createElement('div');
       infoContainer.className = 'flex flex-col overflow-hidden';
@@ -41,8 +40,7 @@ const updateUI = () => {
       infoContainer.append(nameSpan, metaSpan);
 
       const removeBtn = document.createElement('button');
-      removeBtn.className =
-        'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
+      removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
       removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
       removeBtn.onclick = () => {
         files = files.filter((_, i) => i !== index);
@@ -100,12 +98,7 @@ async function convert() {
         const svgContent = page.toSvg();
         const svgBlob = new Blob([svgContent], { type: 'image/svg+xml' });
         downloadFile(svgBlob, `${baseName}.svg`);
-        showAlert(
-          'Success',
-          'PDF converted to SVG successfully!',
-          'success',
-          () => resetState()
-        );
+        showAlert('Success', 'PDF converted to SVG successfully!', 'success', () => resetState());
       } else {
         const zip = new JSZip();
         for (let i = 0; i < pageCount; i++) {
@@ -117,12 +110,7 @@ async function convert() {
         showLoader('Creating ZIP file...');
         const zipBlob = await zip.generateAsync({ type: 'blob' });
         downloadFile(zipBlob, `${baseName}_svg.zip`);
-        showAlert(
-          'Success',
-          `Converted ${pageCount} pages to SVG!`,
-          'success',
-          () => resetState()
-        );
+        showAlert('Success', `Converted ${pageCount} pages to SVG!`, 'success', () => resetState());
       }
     } else {
       const zip = new JSZip();
@@ -136,15 +124,10 @@ async function convert() {
         const baseName = file.name.replace(/\.[^/.]+$/, '');
 
         for (let i = 0; i < pageCount; i++) {
-          showLoader(
-            `File ${f + 1}/${files.length}: Page ${i + 1}/${pageCount}`
-          );
+          showLoader(`File ${f + 1}/${files.length}: Page ${i + 1}/${pageCount}`);
           const page = doc.getPage(i);
           const svgContent = page.toSvg();
-          const fileName =
-            pageCount === 1
-              ? `${baseName}.svg`
-              : `${baseName}_page_${i + 1}.svg`;
+          const fileName = pageCount === 1 ? `${baseName}.svg` : `${baseName}_page_${i + 1}.svg`;
           zip.file(fileName, svgContent);
           totalPages++;
         }
@@ -179,15 +162,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (backBtn) {
     backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
+      window.location.href = import.meta.env?.BASE_URL || '/';
     });
   }
 
   const handleFileSelect = (newFiles: FileList | null, replace = false) => {
     if (!newFiles || newFiles.length === 0) return;
-    const validFiles = Array.from(newFiles).filter(
-      (file) => file.type === 'application/pdf'
-    );
+    const validFiles = Array.from(newFiles).filter((file) => file.type === 'application/pdf');
 
     if (validFiles.length === 0) {
       showAlert('Invalid Files', 'Please upload PDF files.');
@@ -204,10 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (fileInput && dropZone) {
     fileInput.addEventListener('change', (e) => {
-      handleFileSelect(
-        (e.target as HTMLInputElement).files,
-        files.length === 0
-      );
+      handleFileSelect((e.target as HTMLInputElement).files, files.length === 0);
     });
 
     dropZone.addEventListener('dragover', (e) => {
@@ -231,8 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  if (addMoreBtn)
-    addMoreBtn.addEventListener('click', () => fileInput?.click());
+  if (addMoreBtn) addMoreBtn.addEventListener('click', () => fileInput?.click());
   if (clearFilesBtn) clearFilesBtn.addEventListener('click', resetState);
   if (processBtn) processBtn.addEventListener('click', convert);
 });

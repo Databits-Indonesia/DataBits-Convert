@@ -1,7 +1,7 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile, getPDFDocument } from '../utils/helpers.js';
-import { state } from '../state.js';
-import { renderPagesProgressively, cleanupLazyRendering } from '../utils/render-utils.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile, getPDFDocument } from '../utils/helpers';
+import { state } from '../state';
+import { renderPagesProgressively, cleanupLazyRendering } from '../utils/render-utils';
 import Sortable from 'sortablejs';
 import { icons, createIcons } from 'lucide';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';

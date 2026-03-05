@@ -1,4 +1,4 @@
-import { MarkdownEditor } from '../utils/markdown-editor.js';
+import { MarkdownEditor } from '../utils/markdown-editor';
 
 document.addEventListener('DOMContentLoaded', () => {
     const container = document.getElementById('markdown-editor-container');

@@ -6,7 +6,7 @@ import {
   addPageNumbers as addPageNumbersToPdf,
   type PageNumberPosition,
   type PageNumberFormat,
-} from '../utils/pdf-operations.js';
+} from '../utils/pdf-operations';
 
 interface PageState {
   file: File | null;

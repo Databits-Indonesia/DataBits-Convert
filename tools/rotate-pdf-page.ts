@@ -5,8 +5,8 @@ import { PDFDocument as PDFLibDocument } from 'pdf-lib';
 import {
   renderPagesProgressively,
   cleanupLazyRendering,
-} from '../utils/render-utils.js';
-import { rotatePdfPages } from '../utils/pdf-operations.js';
+} from '../utils/render-utils';
+import { rotatePdfPages } from '../utils/pdf-operations';
 import * as pdfjsLib from 'pdfjs-dist';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(

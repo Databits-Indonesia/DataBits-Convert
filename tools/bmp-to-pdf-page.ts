@@ -1,5 +1,5 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile, formatBytes } from '../utils/helpers.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile, formatBytes } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
 
@@ -116,9 +116,8 @@ async function convert() {
             new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' }),
             'from_bmps.pdf'
         );
-        showAlert('Success', 'PDF created successfully!', 'success', () => {
-            resetState();
-        });
+        showAlert('Success', 'PDF created successfully!', 'success');
+        resetState();
     } catch (e) {
         console.error(e);
         showAlert(
@@ -140,7 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (backBtn) {
         backBtn.addEventListener('click', () => {
-            window.location.href = import.meta.env.BASE_URL;
+            window.location.href = '/';
         });
     }
 

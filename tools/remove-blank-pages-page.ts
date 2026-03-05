@@ -1,7 +1,7 @@
 import { PDFDocument } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 import { createIcons, icons } from 'lucide';
-import { initPagePreview } from '../utils/page-preview.js';
+import { initPagePreview } from '../utils/page-preview';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',

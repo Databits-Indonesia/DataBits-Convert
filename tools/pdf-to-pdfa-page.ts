@@ -8,8 +8,8 @@ import {
 import { state } from '../state.js';
 import { createIcons, icons } from 'lucide';
 import { convertFileToPdfA, type PdfALevel } from '../utils/ghostscript-loader';
-import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader.js';
-import { showWasmRequiredDialog } from '../utils/wasm-provider.js';
+import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';
+import { showWasmRequiredDialog } from '../utils/wasm-provider';
 
 document.addEventListener('DOMContentLoaded', () => {
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
@@ -21,19 +21,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const addMoreBtn = document.getElementById('add-more-btn');
   const clearFilesBtn = document.getElementById('clear-files-btn');
   const backBtn = document.getElementById('back-to-tools');
-  const pdfaLevelSelect = document.getElementById(
-    'pdfa-level'
-  ) as HTMLSelectElement;
+  const pdfaLevelSelect = document.getElementById('pdfa-level') as HTMLSelectElement;
 
   if (backBtn) {
     backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
+      window.location.href = import.meta.env?.BASE_URL || '/';
     });
   }
 
   const updateUI = async () => {
-    if (!fileDisplayArea || !optionsContainer || !processBtn || !fileControls)
-      return;
+    if (!fileDisplayArea || !optionsContainer || !processBtn || !fileControls) return;
 
     if (state.files.length > 0) {
       fileDisplayArea.innerHTML = '';
@@ -41,8 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
       for (let index = 0; index < state.files.length; index++) {
         const file = state.files[index];
         const fileDiv = document.createElement('div');
-        fileDiv.className =
-          'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+        fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
 
         const infoContainer = document.createElement('div');
         infoContainer.className = 'flex flex-col overflow-hidden';
@@ -58,8 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
         infoContainer.append(nameSpan, metaSpan);
 
         const removeBtn = document.createElement('button');
-        removeBtn.className =
-          'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
+        removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
         removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
         removeBtn.onclick = () => {
           state.files = state.files.filter((_, i) => i !== index);
@@ -112,9 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (state.files.length === 1) {
         const originalFile = state.files[0];
-        const preFlattenCheckbox = document.getElementById(
-          'pre-flatten'
-        ) as HTMLInputElement;
+        const preFlattenCheckbox = document.getElementById('pre-flatten') as HTMLInputElement;
         const shouldPreFlatten = preFlattenCheckbox?.checked || false;
 
         let fileToConvert = originalFile;
@@ -131,13 +124,10 @@ document.addEventListener('DOMContentLoaded', () => {
           const pymupdf = await loadPyMuPDF();
 
           // Rasterize PDF to images and back to PDF (300 DPI for quality)
-          const flattenedBlob = await (pymupdf as any).rasterizePdf(
-            originalFile,
-            {
-              dpi: 300,
-              format: 'png',
-            }
-          );
+          const flattenedBlob = await (pymupdf as any).rasterizePdf(originalFile, {
+            dpi: 300,
+            format: 'png',
+          });
 
           fileToConvert = new File([flattenedBlob], originalFile.name, {
             type: 'application/pdf',
@@ -146,10 +136,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         showLoader('Initializing Ghostscript...');
 
-        const convertedBlob = await convertFileToPdfA(
-          fileToConvert,
-          level,
-          (msg) => showLoader(msg)
+        const convertedBlob = await convertFileToPdfA(fileToConvert, level, (msg) =>
+          showLoader(msg)
         );
 
         const fileName = originalFile.name.replace(/\.pdf$/i, '') + '_pdfa.pdf';
@@ -171,13 +159,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         for (let i = 0; i < state.files.length; i++) {
           const file = state.files[i];
-          showLoader(
-            `Converting ${i + 1}/${state.files.length}: ${file.name}...`
-          );
+          showLoader(`Converting ${i + 1}/${state.files.length}: ${file.name}...`);
 
-          const convertedBlob = await convertFileToPdfA(file, level, (msg) =>
-            showLoader(msg)
-          );
+          const convertedBlob = await convertFileToPdfA(file, level, (msg) => showLoader(msg));
 
           const baseName = file.name.replace(/\.pdf$/i, '');
           const blobBuffer = await convertedBlob.arrayBuffer();
@@ -199,10 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (e: any) {
       hideLoader();
-      showAlert(
-        'Error',
-        `An error occurred during conversion. Error: ${e.message}`
-      );
+      showAlert('Error', `An error occurred during conversion. Error: ${e.message}`);
     }
   };
 
@@ -234,9 +215,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const files = e.dataTransfer?.files;
       if (files && files.length > 0) {
         const pdfFiles = Array.from(files).filter(
-          (f) =>
-            f.type === 'application/pdf' ||
-            f.name.toLowerCase().endsWith('.pdf')
+          (f) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
         );
         if (pdfFiles.length > 0) {
           const dataTransfer = new DataTransfer();

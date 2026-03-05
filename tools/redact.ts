@@ -1,6 +1,6 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile } from '../utils/helpers.js';
-import { state } from '../state.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile } from '../utils/helpers';
+import { state } from '../state';
 
 // @ts-expect-error TS(2339) FIXME: Property 'PDFLib' does not exist on type 'Window &... Remove this comment to see the full error message
 const { rgb } = window.PDFLib;
@@ -31,10 +31,7 @@ export async function redact(redactions: any, canvasScale: any) {
     });
 
     const redactedBytes = await state.pdfDoc.save();
-    downloadFile(
-      new Blob([redactedBytes], { type: 'application/pdf' }),
-      'redacted.pdf'
-    );
+    downloadFile(new Blob([redactedBytes], { type: 'application/pdf' }), 'redacted.pdf');
   } catch (e) {
     console.error(e);
     showAlert('Error', 'Failed to apply redactions.');

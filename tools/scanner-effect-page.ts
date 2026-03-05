@@ -7,7 +7,7 @@ import {
 } from '../utils/helpers.js';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument } from 'pdf-lib';
-import { applyScannerEffect } from '../utils/image-effects.js';
+import { applyScannerEffect } from '../utils/image-effects';
 import * as pdfjsLib from 'pdfjs-dist';
 import type { ScanSettings } from '../types/scanner-effect-type.js';
 

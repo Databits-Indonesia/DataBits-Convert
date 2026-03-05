@@ -4,61 +4,62 @@ import { FileState } from '../types';
 interface FileUploaderProps {
   onFileSelect: (file: FileState, allFiles?: File[]) => void;
   selectedFile: FileState | null;
-  acceptType?: 'image' | 'pdf' | 'docx';
+  accept?: string;
+  fileTypeLabel?: string;
   allowMultiple?: boolean;
 }
 
 const FileUploader: React.FC<FileUploaderProps> = ({
   onFileSelect,
   selectedFile,
-  acceptType = 'image',
+  accept = 'image/*,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg',
+  fileTypeLabel = 'file',
   allowMultiple = false,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
 
-  const validateFile = (file: File) => {
-    if (acceptType === 'pdf') {
-      // Check for PDF file types
-      const isValidPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
-      if (!isValidPdf) {
-        setError('Invalid file type. Please upload a PDF file.');
-        return false;
-      }
-    } else if (acceptType === 'docx') {
-      // Check for DOCX file types
-      const isValidDocx =
-        file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-        /\.docx?$/i.test(file.name);
-      if (!isValidDocx) {
-        setError('Invalid file type. Please upload a Word file (.docx or .doc).');
-        return false;
-      }
-    } else {
-      // Check for image file types
-      const validImageTypes = [
-        'image/jpeg',
-        'image/jpg',
-        'image/png',
-        'image/gif',
-        'image/webp',
-        'image/bmp',
-        'image/svg+xml',
-      ];
-      const isValidType =
-        validImageTypes.includes(file.type) || /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(file.name);
+  const matchesAccept = (file: File, acceptPattern: string): boolean => {
+    const normalizedName = file.name.toLowerCase();
+    const normalizedType = (file.type || '').toLowerCase();
+    const rules = acceptPattern
+      .split(',')
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean);
 
-      if (!isValidType) {
-        setError(
-          'Invalid file type. Please upload an image file (JPG, PNG, GIF, WebP, BMP, or SVG).'
-        );
-        return false;
+    if (rules.length === 0) return true;
+
+    return rules.some((rule) => {
+      if (rule.startsWith('.')) {
+        return normalizedName.endsWith(rule);
       }
+
+      if (rule.endsWith('/*')) {
+        const prefix = rule.slice(0, -1);
+        return normalizedType.startsWith(prefix);
+      }
+
+      return normalizedType === rule;
+    });
+  };
+
+  const validateFile = (file: File) => {
+    const isValidType = matchesAccept(file, accept);
+
+    if (!isValidType) {
+      setError(`Invalid file type. Please upload a valid ${fileTypeLabel}.`);
+      return false;
     }
+
     setError(null);
     return true;
   };
+
+  const isPdfOnly = accept
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .every((item) => item === '.pdf' || item === 'application/pdf');
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -223,13 +224,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({
             aria-label="Upload file"
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             type="file"
-            accept={
-              acceptType === 'pdf'
-                ? 'application/pdf,.pdf'
-                : acceptType === 'docx'
-                  ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,.doc'
-                  : 'image/*,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg'
-            }
+            accept={accept}
             multiple={allowMultiple}
             onChange={handleFileInput}
           />
@@ -264,7 +259,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({
               >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <span className="icon text-2xl text-red-500 flex-shrink-0">
-                    {acceptType === 'pdf' ? 'picture_as_pdf' : 'image'}
+                    {isPdfOnly ? 'picture_as_pdf' : 'image'}
                   </span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 dark:text-gray-900 truncate">
@@ -293,13 +288,7 @@ const FileUploader: React.FC<FileUploaderProps> = ({
             aria-label="Upload file"
             className="hidden"
             type="file"
-            accept={
-              acceptType === 'pdf'
-                ? 'application/pdf,.pdf'
-                : acceptType === 'docx'
-                  ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,.doc'
-                  : 'image/*,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg'
-            }
+            accept={accept}
             multiple={allowMultiple}
             onChange={handleFileInput}
           />

@@ -11,9 +11,9 @@ interface EnvConfig {
 
 export function validateEnvironment(): void {
   const env: EnvConfig = {
-    VITE_GOOGLE_CLIENT_ID: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-    VITE_ONEDRIVE_CLIENT_ID: import.meta.env.VITE_ONEDRIVE_CLIENT_ID,
-    VITE_DROPBOX_CLIENT_ID: import.meta.env.VITE_DROPBOX_CLIENT_ID,
+    VITE_GOOGLE_CLIENT_ID: import.meta.env?.VITE_GOOGLE_CLIENT_ID,
+    VITE_ONEDRIVE_CLIENT_ID: import.meta.env?.VITE_ONEDRIVE_CLIENT_ID,
+    VITE_DROPBOX_CLIENT_ID: import.meta.env?.VITE_DROPBOX_CLIENT_ID,
   };
 
   const warnings: string[] = [];
@@ -40,13 +40,13 @@ export function validateEnvironment(): void {
 }
 
 export function isDevelopment(): boolean {
-  return import.meta.env.DEV;
+  return import.meta.env?.DEV || false;
 }
 
 export function isProduction(): boolean {
-  return import.meta.env.PROD;
+  return import.meta.env?.PROD || false;
 }
 
 export function getAppVersion(): string {
-  return import.meta.env.VITE_APP_VERSION || '0.0.0';
+  return import.meta.env?.VITE_APP_VERSION || '0.0.0';
 }

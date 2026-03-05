@@ -1,6 +1,6 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile, readFileAsArrayBuffer, getPDFDocument } from '../utils/helpers.js';
-import { state } from '../state.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile, readFileAsArrayBuffer, getPDFDocument } from '../utils/helpers';
+import { state } from '../state';
 
 export async function pdfToMarkdown() {
   showLoader('Converting to Markdown...');
@@ -22,10 +22,7 @@ export async function pdfToMarkdown() {
     downloadFile(blob, file.name.replace(/\.pdf$/i, '.md'));
   } catch (e) {
     console.error(e);
-    showAlert(
-      'Conversion Error',
-      'Failed to convert PDF. It may be image-based or corrupted.'
-    );
+    showAlert('Conversion Error', 'Failed to convert PDF. It may be image-based or corrupted.');
   } finally {
     hideLoader();
   }

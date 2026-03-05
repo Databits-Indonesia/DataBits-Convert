@@ -1,5 +1,5 @@
 import { formatBytes, readFileAsArrayBuffer, getPDFDocument } from '../utils/helpers'
-import { initializeGlobalShortcuts } from '../utils/shortcuts-init.js'
+import { initializeGlobalShortcuts } from '../utils/shortcuts-init'
 import { createIcons, icons } from 'lucide'
 
 let selectedFile: File | null = null

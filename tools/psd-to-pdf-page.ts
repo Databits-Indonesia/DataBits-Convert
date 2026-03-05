@@ -3,8 +3,8 @@ import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { state } from '../state.js';
 import { createIcons, icons } from 'lucide';
 import { isWasmAvailable, getWasmBaseUrl } from '../config/wasm-cdn-config.js';
-import { showWasmRequiredDialog } from '../utils/wasm-provider.js';
-import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader.js';
+import { showWasmRequiredDialog } from '../utils/wasm-provider';
+import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';
 
 const ACCEPTED_EXTENSIONS = ['.psd'];
 const FILETYPE_NAME = 'PSD';
@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (backBtn) {
     backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
+      window.location.href = import.meta.env?.BASE_URL || '/';
     });
   }
 
@@ -41,8 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
       for (let index = 0; index < state.files.length; index++) {
         const file = state.files[index];
         const fileDiv = document.createElement('div');
-        fileDiv.className =
-          'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+        fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
         const infoContainer = document.createElement('div');
         infoContainer.className = 'flex flex-col overflow-hidden';
         const nameSpan = document.createElement('div');
@@ -53,8 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
         metaSpan.textContent = formatBytes(file.size);
         infoContainer.append(nameSpan, metaSpan);
         const removeBtn = document.createElement('button');
-        removeBtn.className =
-          'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
+        removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
         removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
         removeBtn.onclick = () => {
           state.files = state.files.filter((_, i) => i !== index);
@@ -80,10 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const convert = async () => {
     if (state.files.length === 0) {
-      showAlert(
-        'No Files',
-        `Please select at least one ${FILETYPE_NAME} file.`
-      );
+      showAlert('No Files', `Please select at least one ${FILETYPE_NAME} file.`);
       return;
     }
     try {
@@ -119,10 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
       hideLoader();
       const message = err instanceof Error ? err.message : 'Unknown error';
       console.error(`[${FILETYPE_NAME}ToPDF] Error:`, err);
-      showAlert(
-        'Error',
-        `An error occurred during conversion. Error: ${message}`
-      );
+      showAlert('Error', `An error occurred during conversion. Error: ${message}`);
     }
   };
 

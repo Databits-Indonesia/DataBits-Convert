@@ -2,7 +2,7 @@ import { showAlert } from '../ui.js';
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { icons, createIcons } from 'lucide';
 import { SanitizePdfState } from '@/types';
-import { sanitizePdf } from '../utils/sanitize.js';
+import { sanitizePdf } from '../utils/sanitize';
 
 const pageState: SanitizePdfState = {
   file: null,

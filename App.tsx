@@ -6,18 +6,31 @@ import FileUploader from './components/FileUploader';
 import ExtensionSelector from './components/ExtensionSelector';
 import CloudFilePicker from './components/CloudFilePicker';
 import { FileState } from './types';
-import { merge, setupMergeTool } from './tools/merge';
-import { split, setupSplitTool } from './tools/split';
-import { compress, setupCompressTool } from './tools/compress';
-import { applyAndSaveSignatures, setupSignTool } from './tools/sign-pdf';
-import { setupCropperTool } from './tools/cropper';
-import { extractPages, setupExtractPagesTool } from './tools/extract-pages';
-import { organize, setupOrganizeTool } from './tools/organize';
-import { deletePages, setupDeletePagesTool } from './tools/delete-pages';
-import { imageToPdf } from './tools/image-to-pdf';
-import { setupEditPDFTool } from './tools/edit-pdf';
-import { pdfToWord, setupPdfToWordTool } from './tools/pdf-to-word';
-import { wordToPdf, setupWordToPdfTool } from './tools/word-to-pdf';
+import {
+  merge,
+  setupMergeTool,
+  split,
+  setupSplitTool,
+  compress,
+  setupCompressTool,
+  applyAndSaveSignatures,
+  setupSignTool,
+  setupCropperTool,
+  extractPages,
+  setupExtractPagesTool,
+  organize,
+  setupOrganizeTool,
+  deletePages,
+  setupDeletePagesTool,
+  imageToPdf,
+  setupEditPDFTool,
+  pdfToWord,
+  setupPdfToWordTool,
+  wordToPdf,
+  setupWordToPdfTool,
+  powerpointToPdf,
+  setupPowerpointToPdfTool,
+} from './tools';
 import { state, setFiles } from './state';
 import {
   initiateOAuth,
@@ -183,6 +196,129 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
     'form-filler': 'form-filler-container',
   };
 
+  const PDF_ACCEPT = 'application/pdf,.pdf';
+  const TOOL_UPLOAD_ACCEPT_MAP: Record<string, { accept: string; label: string }> = {
+    'image-to-pdf': {
+      accept: 'image/*,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg,.heic,.tif,.tiff',
+      label: 'image file',
+    },
+    'word-to-pdf': {
+      accept:
+        'application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.doc,.docx',
+      label: 'Word document (.doc or .docx)',
+    },
+    'jpg-to-pdf': { accept: 'image/jpeg,.jpg,.jpeg', label: 'JPG image (.jpg or .jpeg)' },
+    'png-to-pdf': { accept: 'image/png,.png', label: 'PNG image (.png)' },
+    'bmp-to-pdf': { accept: 'image/bmp,.bmp', label: 'BMP image (.bmp)' },
+    'webp-to-pdf': { accept: 'image/webp,.webp', label: 'WebP image (.webp)' },
+    'heic-to-pdf': { accept: 'image/heic,.heic', label: 'HEIC image (.heic)' },
+    'svg-to-pdf': { accept: 'image/svg+xml,.svg', label: 'SVG file (.svg)' },
+    'tiff-to-pdf': { accept: 'image/tiff,.tif,.tiff', label: 'TIFF image (.tif or .tiff)' },
+    'email-to-pdf': {
+      accept: 'message/rfc822,application/vnd.ms-outlook,.eml,.msg',
+      label: 'email file (.eml or .msg)',
+    },
+    'txt-to-pdf': { accept: 'text/plain,.txt', label: 'text file (.txt)' },
+    'csv-to-pdf': { accept: 'text/csv,.csv', label: 'CSV file (.csv)' },
+    'json-to-pdf': { accept: 'application/json,text/json,.json', label: 'JSON file (.json)' },
+    'markdown-to-pdf': {
+      accept: 'text/markdown,text/plain,.md,.markdown',
+      label: 'Markdown file (.md or .markdown)',
+    },
+    'excel-to-pdf': {
+      accept:
+        'application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xls,.xlsx',
+      label: 'Excel file (.xls or .xlsx)',
+    },
+    'powerpoint-to-pdf': {
+      accept:
+        'application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,.ppt,.pptx,.odp',
+      label: 'PowerPoint file (.ppt, .pptx, or .odp)',
+    },
+    'epub-to-pdf': { accept: 'application/epub+zip,.epub', label: 'EPUB file (.epub)' },
+    'mobi-to-pdf': {
+      accept: 'application/x-mobipocket-ebook,.mobi',
+      label: 'MOBI file (.mobi)',
+    },
+    'cbz-to-pdf': {
+      accept: 'application/vnd.comicbook+zip,application/zip,.cbz',
+      label: 'CBZ file (.cbz)',
+    },
+    'fb2-to-pdf': { accept: 'application/xml,text/xml,.fb2', label: 'FB2 file (.fb2)' },
+    'rtf-to-pdf': { accept: 'application/rtf,text/rtf,.rtf', label: 'RTF file (.rtf)' },
+    'odg-to-pdf': {
+      accept: 'application/vnd.oasis.opendocument.graphics,.odg',
+      label: 'ODG file (.odg)',
+    },
+    'odp-to-pdf': {
+      accept: 'application/vnd.oasis.opendocument.presentation,.odp',
+      label: 'ODP file (.odp)',
+    },
+    'ods-to-pdf': {
+      accept: 'application/vnd.oasis.opendocument.spreadsheet,.ods',
+      label: 'ODS file (.ods)',
+    },
+    'odt-to-pdf': {
+      accept: 'application/vnd.oasis.opendocument.text,.odt',
+      label: 'ODT file (.odt)',
+    },
+    'psd-to-pdf': {
+      accept: 'image/vnd.adobe.photoshop,.psd',
+      label: 'Photoshop file (.psd)',
+    },
+    'vsd-to-pdf': {
+      accept: 'application/vnd.visio,.vsd,.vsdx',
+      label: 'Visio file (.vsd or .vsdx)',
+    },
+    'wpd-to-pdf': { accept: '.wpd', label: 'WordPerfect file (.wpd)' },
+    'wps-to-pdf': { accept: '.wps', label: 'WPS file (.wps)' },
+    'pub-to-pdf': {
+      accept: 'application/x-mspublisher,.pub',
+      label: 'Publisher file (.pub)',
+    },
+    'xml-to-pdf': { accept: 'application/xml,text/xml,.xml', label: 'XML file (.xml)' },
+    'xps-to-pdf': {
+      accept: 'application/vnd.ms-xpsdocument,application/oxps,.xps',
+      label: 'XPS file (.xps)',
+    },
+  };
+
+  const getUploadConfig = (toolId: string | null) => {
+    if (!toolId) {
+      return { accept: 'image/*,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg', label: 'image file' };
+    }
+
+    return TOOL_UPLOAD_ACCEPT_MAP[toolId] ?? { accept: PDF_ACCEPT, label: 'PDF file (.pdf)' };
+  };
+
+  const matchesAcceptRule = (
+    fileName: string,
+    mimeType: string,
+    acceptPattern: string
+  ): boolean => {
+    const normalizedName = fileName.toLowerCase();
+    const normalizedType = (mimeType || '').toLowerCase();
+    const rules = acceptPattern
+      .split(',')
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (rules.length === 0) return true;
+
+    return rules.some((rule) => {
+      if (rule.startsWith('.')) {
+        return normalizedName.endsWith(rule);
+      }
+
+      if (rule.endsWith('/*')) {
+        const prefix = rule.slice(0, -1);
+        return normalizedType.startsWith(prefix);
+      }
+
+      return normalizedType === rule;
+    });
+  };
+
   const scrollToElement = (id: string) => {
     const element = document.getElementById(id);
     if (!element) return;
@@ -256,6 +392,7 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
 
   const handleSourceSelect = async (id: string) => {
     setSelectedSource(id);
+    const uploadConfig = getUploadConfig(selectedTool);
 
     if (id === 'url') {
       setUrlInput('');
@@ -277,7 +414,7 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
         // Fallback to local file picker
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = 'image/*,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg';
+        input.accept = uploadConfig.accept;
 
         const filePromise = new Promise<File | null>((resolve) => {
           input.onchange = () => {
@@ -291,6 +428,12 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
 
         const file = await filePromise;
         if (file) {
+          if (!matchesAcceptRule(file.name, file.type, uploadConfig.accept)) {
+            alert(`Invalid file type. Please upload a valid ${uploadConfig.label}.`);
+            setSelectedSource('');
+            return;
+          }
+
           handleFileSelect({
             file: file,
             name: file.name,
@@ -324,6 +467,7 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
   const handleCloudFileSelect = async (cloudFile: any) => {
     try {
       setShowCloudPicker(false);
+      const uploadConfig = getUploadConfig(selectedTool);
 
       let blob: Blob;
 
@@ -338,6 +482,10 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
       }
 
       const file = new File([blob], cloudFile.name, { type: blob.type });
+
+      if (!matchesAcceptRule(file.name, file.type, uploadConfig.accept)) {
+        throw new Error(`Invalid file type. Please upload a valid ${uploadConfig.label}.`);
+      }
 
       handleFileSelect({
         file: file,
@@ -404,7 +552,6 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
   const setupJsonToPdfTool = () => setupGenericTool('json-to-pdf-container');
   const setupMarkdownToPdfTool = () => setupGenericTool('markdown-to-pdf-container');
   const setupExcelToPdfTool = () => setupGenericTool('excel-to-pdf-container');
-  const setupPowerpointToPdfTool = () => setupGenericTool('powerpoint-to-pdf-container');
   const setupEpubToPdfTool = () => setupGenericTool('epub-to-pdf-container');
   const setupMobiToPdfTool = () => setupGenericTool('mobi-to-pdf-container');
   const setupCbzToPdfTool = () => setupGenericTool('cbz-to-pdf-container');
@@ -519,6 +666,9 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
           break;
         case 'word-to-pdf':
           await setupWordToPdfTool();
+          break;
+        case 'powerpoint-to-pdf':
+          await setupPowerpointToPdfTool();
           break;
         case 'sign':
           await setupSignTool();
@@ -953,30 +1103,28 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
   const handleUrlImport = async () => {
     if (!urlInput) return;
 
+    const uploadConfig = getUploadConfig(selectedTool);
+
     try {
-      // Try to fetch the image from the URL
+      // Try to fetch the file from the URL
       const response = await fetch(urlInput);
 
       if (!response.ok) {
-        throw new Error('Failed to fetch image from URL');
+        throw new Error('Failed to fetch file from URL');
       }
 
       const blob = await response.blob();
 
-      // Check if it's an image
-      if (!blob.type.startsWith('image/')) {
-        throw new Error('URL does not point to an image file');
-      }
-
       // Get filename from URL
-      let fileName = urlInput.split('/').pop() || 'image_from_url.jpg';
+      let fileName = urlInput.split('/').pop() || 'imported_file';
       if (fileName.includes('?')) {
         fileName = fileName.split('?')[0];
       }
-      if (!fileName.includes('.')) {
-        // Determine extension from mime type
-        const ext = blob.type.split('/')[1] || 'jpg';
-        fileName += `.${ext}`;
+
+      if (!matchesAcceptRule(fileName, blob.type, uploadConfig.accept)) {
+        throw new Error(
+          `URL file type is not supported. Please upload a valid ${uploadConfig.label}.`
+        );
       }
 
       // Create a File object from the blob
@@ -994,7 +1142,7 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
     } catch (error) {
       console.error('Error importing from URL:', error);
       alert(
-        `Failed to import image from URL: ${error.message}\n\nNote: The URL must be publicly accessible and point directly to an image file. CORS restrictions may prevent loading from some domains.`
+        `Failed to import file from URL: ${error.message}\n\nNote: The URL must be publicly accessible and point directly to a supported file. CORS restrictions may prevent loading from some domains.`
       );
     }
   };
@@ -1114,13 +1262,8 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
             <FileUploader
               onFileSelect={handleFileSelect}
               selectedFile={selectedFile}
-              acceptType={
-                selectedTool === 'image-to-pdf'
-                  ? 'image'
-                  : selectedTool === 'word-to-pdf'
-                    ? 'docx'
-                    : 'pdf'
-              }
+              accept={getUploadConfig(selectedTool).accept}
+              fileTypeLabel={getUploadConfig(selectedTool).label}
               allowMultiple={selectedTool === 'merge' || selectedTool === 'image-to-pdf'}
             />
           )}
@@ -2330,7 +2473,19 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               <p className="text-gray-600 dark:text-gray-400">Convert JPG images to PDF</p>
             </div>
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="jpg-to-pdf-process-btn"
+                onClick={() =>
+                  void imageToPdf(
+                    state.files.length > 0
+                      ? state.files
+                      : selectedFile?.file
+                        ? [selectedFile.file]
+                        : []
+                  )
+                }
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Convert to PDF
               </button>
             </div>
@@ -2523,7 +2678,19 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               </p>
             </div>
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="powerpoint-to-pdf-process-btn"
+                onClick={() =>
+                  void powerpointToPdf(
+                    state.files.length > 0
+                      ? state.files
+                      : selectedFile?.file
+                        ? [selectedFile.file]
+                        : []
+                  )
+                }
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Convert to PDF
               </button>
             </div>

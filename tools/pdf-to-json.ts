@@ -1,36 +1,20 @@
 import JSZip from 'jszip';
-import {
-  downloadFile,
-  formatBytes,
-  readFileAsArrayBuffer,
-} from '../utils/helpers';
-import { initializeGlobalShortcuts } from '../utils/shortcuts-init.js';
-import { isCpdfAvailable } from '../utils/cpdf-helper.js';
-import {
-  showWasmRequiredDialog,
-  WasmProvider,
-} from '../utils/wasm-provider.js';
+import { downloadFile, formatBytes, readFileAsArrayBuffer } from '../utils/helpers';
+import { initializeGlobalShortcuts } from '../utils/shortcuts-init';
+import { isCpdfAvailable } from '../utils/cpdf-helper';
+import { showWasmRequiredDialog, WasmProvider } from '../utils/wasm-provider';
 
-const worker = new Worker(
-  import.meta.env.BASE_URL + 'workers/pdf-to-json.worker.js'
-);
+const worker = new Worker((import.meta.env?.BASE_URL || '/') + 'workers/pdf-to-json.worker.js');
 
 let selectedFiles: File[] = [];
 
 const pdfFilesInput = document.getElementById('pdfFiles') as HTMLInputElement;
 const convertBtn = document.getElementById('convertBtn') as HTMLButtonElement;
-const statusMessage = document.getElementById(
-  'status-message'
-) as HTMLDivElement;
+const statusMessage = document.getElementById('status-message') as HTMLDivElement;
 const fileListDiv = document.getElementById('fileList') as HTMLDivElement;
-const backToToolsBtn = document.getElementById(
-  'back-to-tools'
-) as HTMLButtonElement;
+const backToToolsBtn = document.getElementById('back-to-tools') as HTMLButtonElement;
 
-function showStatus(
-  message: string,
-  type: 'success' | 'error' | 'info' = 'info'
-) {
+function showStatus(message: string, type: 'success' | 'error' | 'info' = 'info') {
   statusMessage.textContent = message;
   statusMessage.className = `mt-4 p-3 rounded-lg text-sm ${
     type === 'success'
@@ -56,8 +40,7 @@ function updateFileList() {
   fileListDiv.classList.remove('hidden');
   selectedFiles.forEach((file) => {
     const fileDiv = document.createElement('div');
-    fileDiv.className =
-      'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm mb-2';
+    fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm mb-2';
 
     const nameSpan = document.createElement('span');
     nameSpan.className = 'truncate font-medium text-gray-200';
@@ -82,10 +65,7 @@ pdfFilesInput.addEventListener('change', (e) => {
     if (selectedFiles.length === 0) {
       showStatus('Please select at least 1 PDF file', 'info');
     } else {
-      showStatus(
-        `${selectedFiles.length} file(s) selected. Ready to convert!`,
-        'info'
-      );
+      showStatus(`${selectedFiles.length} file(s) selected. Ready to convert!`, 'info');
     }
   }
 });
@@ -106,9 +86,7 @@ async function convertPDFsToJSON() {
     convertBtn.disabled = true;
     showStatus('Reading files (Main Thread)...', 'info');
 
-    const fileBuffers = await Promise.all(
-      selectedFiles.map((file) => readFileAsArrayBuffer(file))
-    );
+    const fileBuffers = await Promise.all(selectedFiles.map((file) => readFileAsArrayBuffer(file)));
 
     showStatus('Converting PDFs to JSON..', 'info');
 
@@ -153,10 +131,7 @@ worker.onmessage = async (e: MessageEvent) => {
       const zipBlob = await zip.generateAsync({ type: 'blob' });
       downloadFile(zipBlob, 'pdfs-to-json.zip');
 
-      showStatus(
-        '✅ PDFs converted to JSON successfully! ZIP download started.',
-        'success'
-      );
+      showStatus('✅ PDFs converted to JSON successfully! ZIP download started.', 'success');
 
       selectedFiles = [];
       pdfFilesInput.value = '';
@@ -183,7 +158,7 @@ worker.onmessage = async (e: MessageEvent) => {
 
 if (backToToolsBtn) {
   backToToolsBtn.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL;
+    window.location.href = import.meta.env?.BASE_URL || '/';
   });
 }
 

@@ -1,11 +1,11 @@
 import { createIcons, icons } from 'lucide';
 import { showAlert, showLoader, hideLoader } from '../ui.js';
 import { downloadFile, formatBytes } from '../utils/helpers.js';
-import { loadPyMuPDF } from '../utils/pymupdf-loader.js';
+import { loadPyMuPDF } from '../utils/pymupdf-loader';
 import {
   getSelectedQuality,
   compressImageFile,
-} from '../utils/image-compress.js';
+} from '../utils/image-compress';
 
 const SUPPORTED_FORMATS = '.jpg,.jpeg,.jp2,.jpx';
 const SUPPORTED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/jp2'];

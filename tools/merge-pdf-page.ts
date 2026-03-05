@@ -1,20 +1,10 @@
 import { showLoader, hideLoader, showAlert } from '../ui.js';
-import {
-  downloadFile,
-  readFileAsArrayBuffer,
-  getPDFDocument,
-} from '../utils/helpers.js';
+import { downloadFile, readFileAsArrayBuffer, getPDFDocument } from '../utils/helpers.js';
 import { state } from '../state.js';
-import {
-  renderPagesProgressively,
-  cleanupLazyRendering,
-} from '../utils/render-utils.js';
-import { initPagePreview } from '../utils/page-preview.js';
-import { isCpdfAvailable } from '../utils/cpdf-helper.js';
-import {
-  showWasmRequiredDialog,
-  WasmProvider,
-} from '../utils/wasm-provider.js';
+import { renderPagesProgressively, cleanupLazyRendering } from '../utils/render-utils';
+import { initPagePreview } from '../utils/page-preview';
+import { isCpdfAvailable } from '../utils/cpdf-helper';
+import { showWasmRequiredDialog, WasmProvider } from '../utils/wasm-provider';
 
 import { createIcons, icons } from 'lucide';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -51,9 +41,7 @@ const mergeState: MergeState = {
   mergeSuccess: false,
 };
 
-const mergeWorker = new Worker(
-  import.meta.env.BASE_URL + 'workers/merge.worker.js'
-);
+const mergeWorker = new Worker(import.meta.env.BASE_URL + 'workers/merge.worker.js');
 
 function initializeFileListSortable() {
   const fileList = document.getElementById('file-list');
@@ -101,9 +89,7 @@ function initializePageThumbnailsSortable() {
 }
 
 function generateFileHash() {
-  return (state.files as File[])
-    .map((f) => `${f.name}-${f.size}-${f.lastModified}`)
-    .join('|');
+  return (state.files as File[]).map((f) => `${f.name}-${f.size}-${f.lastModified}`).join('|');
 }
 
 async function renderPageMergeThumbnails() {
@@ -140,11 +126,7 @@ async function renderPageMergeThumbnails() {
     let currentPageNumber = 0;
 
     // Function to create wrapper element for each page
-    const createWrapper = (
-      canvas: HTMLCanvasElement,
-      pageNumber: number,
-      fileName?: string
-    ) => {
+    const createWrapper = (canvas: HTMLCanvasElement, pageNumber: number, fileName?: string) => {
       const wrapper = document.createElement('div');
       wrapper.className =
         'page-thumbnail relative cursor-move flex flex-col items-center gap-1 p-2 border-2 border-gray-600 hover:border-indigo-500 rounded-lg bg-gray-700 transition-colors';
@@ -166,11 +148,8 @@ async function renderPageMergeThumbnails() {
       imgContainer.append(img, pageNumDiv);
 
       const fileNamePara = document.createElement('p');
-      fileNamePara.className =
-        'text-xs text-gray-400 truncate w-full text-center';
-      const fullTitle = fileName
-        ? `${fileName} (page ${pageNumber})`
-        : `Page ${pageNumber}`;
+      fileNamePara.className = 'text-xs text-gray-400 truncate w-full text-center';
+      const fullTitle = fileName ? `${fileName} (page ${pageNumber})` : `Page ${pageNumber}`;
       fileNamePara.title = fullTitle;
       fileNamePara.textContent = fileName
         ? `${fileName.substring(0, 10)}... (p${pageNumber})`
@@ -186,31 +165,23 @@ async function renderPageMergeThumbnails() {
       if (!pdfjsDoc) continue;
 
       // Create a wrapper function that includes the file name
-      const createWrapperWithFileName = (
-        canvas: HTMLCanvasElement,
-        pageNumber: number
-      ) => {
+      const createWrapperWithFileName = (canvas: HTMLCanvasElement, pageNumber: number) => {
         return createWrapper(canvas, pageNumber, file.name);
       };
 
       // Render pages progressively with lazy loading
-      await renderPagesProgressively(
-        pdfjsDoc,
-        container,
-        createWrapperWithFileName,
-        {
-          batchSize: 8,
-          useLazyLoading: true,
-          lazyLoadMargin: '300px',
-          onProgress: (current, total) => {
-            currentPageNumber++;
-            showLoader(`Rendering page previews...`);
-          },
-          onBatchComplete: () => {
-            createIcons({ icons });
-          },
-        }
-      );
+      await renderPagesProgressively(pdfjsDoc, container, createWrapperWithFileName, {
+        batchSize: 8,
+        useLazyLoading: true,
+        lazyLoadMargin: '300px',
+        onProgress: (current, total) => {
+          currentPageNumber++;
+          showLoader(`Rendering page previews...`);
+        },
+        onBatchComplete: () => {
+          createIcons({ icons });
+        },
+      });
 
       initPagePreview(container, pdfjsDoc);
     }
@@ -301,18 +272,14 @@ export async function merge() {
 
       const sortedFiles = Array.from(fileList.children)
         .map((li) => {
-          return state.files.find(
-            (f) => f.name === (li as HTMLElement).dataset.fileName
-          );
+          return state.files.find((f) => f.name === (li as HTMLElement).dataset.fileName);
         })
         .filter(Boolean);
 
       for (const file of sortedFiles) {
         if (!file) continue;
         const safeFileName = file.name.replace(/[^a-zA-Z0-9]/g, '_');
-        const rangeInput = document.getElementById(
-          `range-${safeFileName}`
-        ) as HTMLInputElement;
+        const rangeInput = document.getElementById(`range-${safeFileName}`) as HTMLInputElement;
 
         uniqueFileNames.add(file.name);
 
@@ -413,14 +380,9 @@ export async function merge() {
         const blob = new Blob([e.data.pdfBytes], { type: 'application/pdf' });
         downloadFile(blob, 'merged.pdf');
         mergeState.mergeSuccess = true;
-        showAlert(
-          'Success',
-          'PDFs merged successfully!',
-          'success',
-          async () => {
-            await resetState();
-          }
-        );
+        showAlert('Success', 'PDFs merged successfully!', 'success', async () => {
+          await resetState();
+        });
       } else {
         console.error('Worker merge error:', e.data.message);
         showAlert('Error', e.data.message || 'Failed to merge PDFs.');
@@ -444,9 +406,7 @@ export async function merge() {
 
 export async function refreshMergeUI() {
   document.getElementById('merge-options')?.classList.remove('hidden');
-  const processBtn = document.getElementById(
-    'process-btn'
-  ) as HTMLButtonElement;
+  const processBtn = document.getElementById('process-btn') as HTMLButtonElement;
   if (processBtn) processBtn.disabled = false;
 
   const wasInPageMode = mergeState.activeMode === 'page';
@@ -478,8 +438,7 @@ export async function refreshMergeUI() {
   const pagePanel = document.getElementById('page-mode-panel');
   const fileList = document.getElementById('file-list');
 
-  if (!fileModeBtn || !pageModeBtn || !filePanel || !pagePanel || !fileList)
-    return;
+  if (!fileModeBtn || !pageModeBtn || !filePanel || !pagePanel || !fileList) return;
 
   fileList.textContent = ''; // Clear list safely
   (state.files as File[]).forEach((f, index) => {
@@ -528,8 +487,7 @@ export async function refreshMergeUI() {
     inputWrapper.append(label, input);
 
     const deleteBtn = document.createElement('button');
-    deleteBtn.className =
-      'text-red-400 hover:text-red-300 p-2 flex-shrink-0 self-end';
+    deleteBtn.className = 'text-red-400 hover:text-red-300 p-2 flex-shrink-0 self-end';
     deleteBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
     deleteBtn.title = 'Remove file';
     deleteBtn.onclick = (e) => {
@@ -638,9 +596,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const files = e.dataTransfer?.files;
       if (files && files.length > 0) {
         const pdfFiles = Array.from(files).filter(
-          (f) =>
-            f.type === 'application/pdf' ||
-            f.name.toLowerCase().endsWith('.pdf')
+          (f) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
         );
         if (pdfFiles.length > 0) {
           state.files = [...state.files, ...pdfFiles];

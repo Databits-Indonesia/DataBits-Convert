@@ -2,13 +2,13 @@ import { createIcons, icons } from 'lucide';
 import { showAlert, showLoader, hideLoader } from '../ui.js';
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { isWasmAvailable, getWasmBaseUrl } from '../config/wasm-cdn-config.js';
-import { showWasmRequiredDialog } from '../utils/wasm-provider.js';
-import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader.js';
+import { showWasmRequiredDialog } from '../utils/wasm-provider';
+import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';
 import heic2any from 'heic2any';
 import {
   getSelectedQuality,
   compressImageFile,
-} from '../utils/image-compress.js';
+} from '../utils/image-compress';
 
 const SUPPORTED_FORMATS =
   '.jpg,.jpeg,.png,.bmp,.gif,.tiff,.tif,.pnm,.pgm,.pbm,.ppm,.pam,.jxr,.jpx,.jp2,.psd,.svg,.heic,.heif,.webp';

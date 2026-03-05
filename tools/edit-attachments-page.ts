@@ -2,15 +2,10 @@ import { EditAttachmentState, AttachmentInfo } from '@/types';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { createIcons, icons } from 'lucide';
-import { isCpdfAvailable } from '../utils/cpdf-helper.js';
-import {
-  showWasmRequiredDialog,
-  WasmProvider,
-} from '../utils/wasm-provider.js';
+import { isCpdfAvailable } from '../utils/cpdf-helper';
+import { showWasmRequiredDialog, WasmProvider } from '../utils/wasm-provider';
 
-const worker = new Worker(
-  import.meta.env.BASE_URL + 'workers/edit-attachments.worker.js'
-);
+const worker = new Worker(import.meta.env.BASE_URL + 'workers/edit-attachments.worker.js');
 
 const pageState: EditAttachmentState = {
   file: null,
@@ -55,21 +50,15 @@ worker.onmessage = function (e) {
   } else if (data.status === 'success' && data.modifiedPDF !== undefined) {
     hideLoader();
 
-    const originalName =
-      pageState.file?.name.replace(/\.pdf$/i, '') || 'document';
+    const originalName = pageState.file?.name.replace(/\.pdf$/i, '') || 'document';
     downloadFile(
       new Blob([new Uint8Array(data.modifiedPDF)], { type: 'application/pdf' }),
       `${originalName}_edited.pdf`
     );
 
-    showAlert(
-      'Success',
-      'Attachments updated successfully!',
-      'success',
-      function () {
-        resetState();
-      }
-    );
+    showAlert('Success', 'Attachments updated successfully!', 'success', function () {
+      resetState();
+    });
   } else if (data.status === 'error') {
     hideLoader();
     showAlert('Error', data.message || 'Unknown error occurred.');
@@ -103,8 +92,7 @@ function displayAttachments(attachments: AttachmentInfo[]) {
   controlsContainer.className = 'attachments-controls mb-4 flex justify-end';
 
   const removeAllBtn = document.createElement('button');
-  removeAllBtn.className =
-    'bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm';
+  removeAllBtn.className = 'bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm';
   removeAllBtn.textContent = 'Remove All Attachments';
   removeAllBtn.onclick = function () {
     if (pageState.allAttachments.length === 0) return;
@@ -116,9 +104,7 @@ function displayAttachments(attachments: AttachmentInfo[]) {
     if (allSelected) {
       pageState.allAttachments.forEach(function (attachment) {
         pageState.attachmentsToRemove.delete(attachment.index);
-        const element = document.querySelector(
-          `[data-attachment-index="${attachment.index}"]`
-        );
+        const element = document.querySelector(`[data-attachment-index="${attachment.index}"]`);
         if (element) {
           element.classList.remove('opacity-50', 'line-through');
           const btn = element.querySelector('button');
@@ -132,9 +118,7 @@ function displayAttachments(attachments: AttachmentInfo[]) {
     } else {
       pageState.allAttachments.forEach(function (attachment) {
         pageState.attachmentsToRemove.add(attachment.index);
-        const element = document.querySelector(
-          `[data-attachment-index="${attachment.index}"]`
-        );
+        const element = document.querySelector(`[data-attachment-index="${attachment.index}"]`);
         if (element) {
           element.classList.add('opacity-50', 'line-through');
           const btn = element.querySelector('button');
@@ -198,9 +182,7 @@ function displayAttachments(attachments: AttachmentInfo[]) {
       const allSelected = pageState.allAttachments.every(function (att) {
         return pageState.attachmentsToRemove.has(att.index);
       });
-      removeAllBtn.textContent = allSelected
-        ? 'Deselect All'
-        : 'Remove All Attachments';
+      removeAllBtn.textContent = allSelected ? 'Deselect All' : 'Remove All Attachments';
     };
 
     actionsDiv.append(removeBtn);
@@ -292,8 +274,7 @@ async function updateUI() {
 
   if (pageState.file) {
     const fileDiv = document.createElement('div');
-    fileDiv.className =
-      'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+    fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
 
     const infoContainer = document.createElement('div');
     infoContainer.className = 'flex flex-col overflow-hidden';
@@ -330,10 +311,7 @@ async function updateUI() {
 function handleFileSelect(files: FileList | null) {
   if (files && files.length > 0) {
     const file = files[0];
-    if (
-      file.type === 'application/pdf' ||
-      file.name.toLowerCase().endsWith('.pdf')
-    ) {
+    if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
       pageState.file = file;
       updateUI();
     }
@@ -373,10 +351,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const files = e.dataTransfer?.files;
       if (files && files.length > 0) {
         const pdfFiles = Array.from(files).filter(function (f) {
-          return (
-            f.type === 'application/pdf' ||
-            f.name.toLowerCase().endsWith('.pdf')
-          );
+          return f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf');
         });
         if (pdfFiles.length > 0) {
           const dataTransfer = new DataTransfer();

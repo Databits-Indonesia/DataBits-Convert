@@ -1,39 +1,22 @@
 import { downloadFile, formatBytes } from '../utils/helpers';
-import { initializeGlobalShortcuts } from '../utils/shortcuts-init.js';
-import { isCpdfAvailable } from '../utils/cpdf-helper.js';
-import {
-  showWasmRequiredDialog,
-  WasmProvider,
-} from '../utils/wasm-provider.js';
+import { initializeGlobalShortcuts } from '../utils/shortcuts-init';
+import { isCpdfAvailable } from '../utils/cpdf-helper';
+import { showWasmRequiredDialog, WasmProvider } from '../utils/wasm-provider';
 
-const worker = new Worker(
-  import.meta.env.BASE_URL + 'workers/table-of-contents.worker.js'
-);
+const worker = new Worker(import.meta.env.BASE_URL + 'workers/table-of-contents.worker.js');
 
 let pdfFile: File | null = null;
 
 const dropZone = document.getElementById('drop-zone') as HTMLElement;
 const fileInput = document.getElementById('file-input') as HTMLInputElement;
-const generateBtn = document.getElementById(
-  'generate-btn'
-) as HTMLButtonElement;
+const generateBtn = document.getElementById('generate-btn') as HTMLButtonElement;
 const tocTitleInput = document.getElementById('toc-title') as HTMLInputElement;
-const fontSizeSelect = document.getElementById(
-  'font-size'
-) as HTMLSelectElement;
-const fontFamilySelect = document.getElementById(
-  'font-family'
-) as HTMLSelectElement;
-const addBookmarkCheckbox = document.getElementById(
-  'add-bookmark'
-) as HTMLInputElement;
+const fontSizeSelect = document.getElementById('font-size') as HTMLSelectElement;
+const fontFamilySelect = document.getElementById('font-family') as HTMLSelectElement;
+const addBookmarkCheckbox = document.getElementById('add-bookmark') as HTMLInputElement;
 const statusMessage = document.getElementById('status-message') as HTMLElement;
-const fileDisplayArea = document.getElementById(
-  'file-display-area'
-) as HTMLElement;
-const backToToolsBtn = document.getElementById(
-  'back-to-tools'
-) as HTMLButtonElement;
+const fileDisplayArea = document.getElementById('file-display-area') as HTMLElement;
+const backToToolsBtn = document.getElementById('back-to-tools') as HTMLButtonElement;
 
 interface GenerateTOCMessage {
   command: 'generate-toc';
@@ -56,10 +39,7 @@ interface TOCErrorResponse {
 
 type TOCWorkerResponse = TOCSuccessResponse | TOCErrorResponse;
 
-function showStatus(
-  message: string,
-  type: 'success' | 'error' | 'info' = 'info'
-) {
+function showStatus(message: string, type: 'success' | 'error' | 'info' = 'info') {
   statusMessage.textContent = message;
   statusMessage.className = `mt-4 p-3 rounded-lg text-sm ${
     type === 'success'
@@ -80,8 +60,7 @@ function renderFileDisplay(file: File) {
   fileDisplayArea.classList.remove('hidden');
 
   const fileDiv = document.createElement('div');
-  fileDiv.className =
-    'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+  fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
 
   const nameSpan = document.createElement('span');
   nameSpan.className = 'truncate font-medium text-gray-200';
@@ -185,15 +164,9 @@ worker.onmessage = (e: MessageEvent<TOCWorkerResponse>) => {
     const pdfBytes = new Uint8Array(pdfBytesBuffer);
 
     const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-    downloadFile(
-      blob,
-      pdfFile?.name.replace('.pdf', '_with_toc.pdf') || 'output_with_toc.pdf'
-    );
+    downloadFile(blob, pdfFile?.name.replace('.pdf', '_with_toc.pdf') || 'output_with_toc.pdf');
 
-    showStatus(
-      'Table of contents generated successfully! Download started.',
-      'success'
-    );
+    showStatus('Table of contents generated successfully! Download started.', 'success');
 
     hideStatus();
     pdfFile = null;

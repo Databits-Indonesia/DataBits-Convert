@@ -3,11 +3,8 @@ import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { downloadFile, formatBytes, getPDFDocument } from '../utils/helpers.js';
 import { createIcons, icons } from 'lucide';
 import Sortable from 'sortablejs';
-import { isCpdfAvailable } from '../utils/cpdf-helper.js';
-import {
-  showWasmRequiredDialog,
-  WasmProvider,
-} from '../utils/wasm-provider.js';
+import { isCpdfAvailable } from '../utils/cpdf-helper';
+import { showWasmRequiredDialog, WasmProvider } from '../utils/wasm-provider';
 
 const pageState: AlternateMergeState = {
   files: [],
@@ -49,8 +46,7 @@ async function updateUI() {
   if (pageState.files.length > 0) {
     // Show file count summary
     const summaryDiv = document.createElement('div');
-    summaryDiv.className =
-      'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+    summaryDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
 
     const infoSpan = document.createElement('span');
     infoSpan.className = 'text-gray-200';
@@ -131,10 +127,7 @@ async function updateUI() {
 
 async function mixPages() {
   if (pageState.pdfBytes.size < 2) {
-    showAlert(
-      'Not Enough Files',
-      'Please upload at least two PDF files to alternate and mix.'
-    );
+    showAlert('Not Enough Files', 'Please upload at least two PDF files to alternate and mix.');
     return;
   }
 
@@ -193,14 +186,9 @@ async function mixPages() {
       if (e.data.status === 'success') {
         const blob = new Blob([e.data.pdfBytes], { type: 'application/pdf' });
         downloadFile(blob, 'alternated-mixed.pdf');
-        showAlert(
-          'Success',
-          'PDFs have been mixed successfully!',
-          'success',
-          function () {
-            resetState();
-          }
-        );
+        showAlert('Success', 'PDFs have been mixed successfully!', 'success', function () {
+          resetState();
+        });
       } else {
         console.error('Worker interleave error:', e.data.message);
         showAlert('Error', e.data.message || 'Failed to interleave PDFs.');
@@ -222,9 +210,7 @@ async function mixPages() {
 function handleFileSelect(files: FileList | null) {
   if (files && files.length > 0) {
     const pdfFiles = Array.from(files).filter(function (f) {
-      return (
-        f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
-      );
+      return f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf');
     });
     if (pdfFiles.length > 0) {
       pageState.files = pdfFiles;

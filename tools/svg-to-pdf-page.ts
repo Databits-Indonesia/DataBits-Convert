@@ -9,7 +9,7 @@ import { PDFDocument as PDFLibDocument } from 'pdf-lib';
 import {
   getSelectedQuality,
   compressImageBytes,
-} from '../utils/image-compress.js';
+} from '../utils/image-compress';
 
 let files: File[] = [];
 

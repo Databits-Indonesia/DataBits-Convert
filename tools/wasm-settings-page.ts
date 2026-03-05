@@ -1,7 +1,7 @@
 import { createIcons, icons } from 'lucide';
 import { showAlert, showLoader, hideLoader } from '../ui.js';
-import { WasmProvider, type WasmPackage } from '../utils/wasm-provider.js';
-import { clearPyMuPDFCache } from '../utils/pymupdf-loader.js';
+import { WasmProvider, type WasmPackage } from '../utils/wasm-provider';
+import { clearPyMuPDFCache } from '../utils/pymupdf-loader';
 import { clearGhostscriptCache } from '../utils/ghostscript-dynamic-loader.js';
 
 if (document.readyState === 'loading') {

@@ -2,7 +2,7 @@ import { showAlert } from '../ui.js';
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { convertFileToOutlines } from '../utils/ghostscript-loader.js';
 import { isGhostscriptAvailable } from '../utils/ghostscript-dynamic-loader.js';
-import { showWasmRequiredDialog } from '../utils/wasm-provider.js';
+import { showWasmRequiredDialog } from '../utils/wasm-provider';
 import { icons, createIcons } from 'lucide';
 import JSZip from 'jszip';
 

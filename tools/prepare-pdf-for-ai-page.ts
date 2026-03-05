@@ -8,8 +8,8 @@ import {
 import { state } from '../state.js';
 import { createIcons, icons } from 'lucide';
 import { isWasmAvailable, getWasmBaseUrl } from '../config/wasm-cdn-config.js';
-import { showWasmRequiredDialog } from '../utils/wasm-provider.js';
-import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader.js';
+import { showWasmRequiredDialog } from '../utils/wasm-provider';
+import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';
 
 document.addEventListener('DOMContentLoaded', () => {
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
@@ -24,13 +24,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (backBtn) {
     backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
+      window.location.href = import.meta.env?.BASE_URL || '/';
     });
   }
 
   const updateUI = async () => {
-    if (!fileDisplayArea || !extractOptions || !processBtn || !fileControls)
-      return;
+    if (!fileDisplayArea || !extractOptions || !processBtn || !fileControls) return;
 
     if (state.files.length > 0) {
       fileDisplayArea.innerHTML = '';
@@ -38,8 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
       for (let index = 0; index < state.files.length; index++) {
         const file = state.files[index];
         const fileDiv = document.createElement('div');
-        fileDiv.className =
-          'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+        fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
 
         const infoContainer = document.createElement('div');
         infoContainer.className = 'flex flex-col overflow-hidden';
@@ -55,8 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
         infoContainer.append(nameSpan, metaSpan);
 
         const removeBtn = document.createElement('button');
-        removeBtn.className =
-          'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
+        removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
         removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
         removeBtn.onclick = () => {
           state.files = state.files.filter((_, i) => i !== index);
@@ -115,10 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const llamaDocs = await (pymupdf as any).pdfToLlamaIndex(file);
         const outName = file.name.replace(/\.pdf$/i, '') + '_llm.json';
         const jsonContent = JSON.stringify(llamaDocs, null, 2);
-        downloadFile(
-          new Blob([jsonContent], { type: 'application/json' }),
-          outName
-        );
+        downloadFile(new Blob([jsonContent], { type: 'application/json' }), outName);
 
         hideLoader();
         showAlert(
@@ -134,9 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         for (const file of state.files) {
           try {
-            showLoader(
-              `Extracting ${file.name} for AI (${completed + 1}/${total})...`
-            );
+            showLoader(`Extracting ${file.name} for AI (${completed + 1}/${total})...`);
 
             const llamaDocs = await (pymupdf as any).pdfToLlamaIndex(file);
             const outName = file.name.replace(/\.pdf$/i, '') + '_llm.json';
@@ -175,18 +167,14 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (e: any) {
       hideLoader();
-      showAlert(
-        'Error',
-        `An error occurred during extraction. Error: ${e.message}`
-      );
+      showAlert('Error', `An error occurred during extraction. Error: ${e.message}`);
     }
   };
 
   const handleFileSelect = (files: FileList | null) => {
     if (files && files.length > 0) {
       const pdfFiles = Array.from(files).filter(
-        (f) =>
-          f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
+        (f) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
       );
       if (pdfFiles.length > 0) {
         state.files = [...state.files, ...pdfFiles];

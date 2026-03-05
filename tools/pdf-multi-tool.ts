@@ -10,8 +10,8 @@ import {
   renderPageToCanvas,
   createPlaceholder,
 } from '../utils/render-utils';
-import { initializeGlobalShortcuts } from '../utils/shortcuts-init.js';
-import { repairPdfFile } from './repair-pdf.js';
+import { initializeGlobalShortcuts } from '../utils/shortcuts-init';
+import { repairPdfFile } from './repair-pdf';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -74,11 +74,7 @@ function restore(snap: Snapshot) {
   updatePageDisplay();
 }
 
-function showModal(
-  title: string,
-  message: string,
-  type: 'info' | 'error' | 'success' = 'info'
-) {
+function showModal(title: string, message: string, type: 'info' | 'error' | 'success' = 'info') {
   const modal = document.getElementById('modal');
   const modalTitle = document.getElementById('modal-title');
   const modalMessage = document.getElementById('modal-message');
@@ -125,10 +121,7 @@ function showLoading(current: number, total: number) {
   text.textContent = t('multiTool.renderingPages');
 }
 
-async function withButtonLoading(
-  buttonId: string,
-  action: () => Promise<void>
-) {
+async function withButtonLoading(buttonId: string, action: () => Promise<void>) {
   const button = document.getElementById(buttonId) as HTMLButtonElement;
   if (!button) return;
 
@@ -160,9 +153,7 @@ if (document.readyState === 'loading') {
     initializeTool();
   });
 } else {
-  console.log(
-    'PDF Multi Tool: DOMContentLoaded already fired, initializing immediately'
-  );
+  console.log('PDF Multi Tool: DOMContentLoaded already fired, initializing immediately');
   initializeTool();
 }
 
@@ -179,30 +170,20 @@ function initializeTool() {
   document.getElementById('upload-pdfs-btn')?.addEventListener('click', () => {
     console.log('Upload button clicked, isRendering:', isRendering);
     if (isRendering) {
-      showModal(
-        t('multiTool.pleaseWait'),
-        t('multiTool.pagesRendering'),
-        'info'
-      );
+      showModal(t('multiTool.pleaseWait'), t('multiTool.pagesRendering'), 'info');
       return;
     }
     document.getElementById('pdf-file-input')?.click();
   });
 
-  document
-    .getElementById('pdf-file-input')
-    ?.addEventListener('change', handlePdfUpload);
-  document
-    .getElementById('insert-pdf-input')
-    ?.addEventListener('change', handleInsertPdf);
+  document.getElementById('pdf-file-input')?.addEventListener('change', handlePdfUpload);
+  document.getElementById('insert-pdf-input')?.addEventListener('change', handleInsertPdf);
 
-  document
-    .getElementById('bulk-rotate-left-btn')
-    ?.addEventListener('click', () => {
-      if (isRendering) return;
-      snapshot();
-      bulkRotate(-90);
-    });
+  document.getElementById('bulk-rotate-left-btn')?.addEventListener('click', () => {
+    if (isRendering) return;
+    snapshot();
+    bulkRotate(-90);
+  });
   document.getElementById('bulk-rotate-btn')?.addEventListener('click', () => {
     if (isRendering) return;
     snapshot();
@@ -213,38 +194,30 @@ function initializeTool() {
     snapshot();
     bulkDelete();
   });
-  document
-    .getElementById('bulk-duplicate-btn')
-    ?.addEventListener('click', () => {
-      if (isRendering) return;
-      snapshot();
-      bulkDuplicate();
-    });
+  document.getElementById('bulk-duplicate-btn')?.addEventListener('click', () => {
+    if (isRendering) return;
+    snapshot();
+    bulkDuplicate();
+  });
   document.getElementById('bulk-split-btn')?.addEventListener('click', () => {
     if (isRendering) return;
     snapshot();
     bulkSplit();
   });
-  document
-    .getElementById('bulk-download-btn')
-    ?.addEventListener('click', () => {
-      if (isRendering) return;
-      if (isRendering) return;
-      if (selectedPages.size === 0) {
-        showModal(
-          t('multiTool.noPagesSelected'),
-          t('multiTool.selectOnePage'),
-          'info'
-        );
-        return;
-      }
-      withButtonLoading('bulk-download-btn', async () => {
-        await downloadPagesAsPdf(
-          Array.from(selectedPages).sort((a, b) => a - b),
-          'selected-pages.pdf'
-        );
-      });
+  document.getElementById('bulk-download-btn')?.addEventListener('click', () => {
+    if (isRendering) return;
+    if (isRendering) return;
+    if (selectedPages.size === 0) {
+      showModal(t('multiTool.noPagesSelected'), t('multiTool.selectOnePage'), 'info');
+      return;
+    }
+    withButtonLoading('bulk-download-btn', async () => {
+      await downloadPagesAsPdf(
+        Array.from(selectedPages).sort((a, b) => a - b),
+        'selected-pages.pdf'
+      );
     });
+  });
 
   document.getElementById('select-all-btn')?.addEventListener('click', () => {
     if (isRendering) return;
@@ -269,13 +242,11 @@ function initializeTool() {
       await downloadAll();
     });
   });
-  document
-    .getElementById('add-blank-page-btn')
-    ?.addEventListener('click', () => {
-      if (isRendering) return;
-      snapshot();
-      addBlankPage();
-    });
+  document.getElementById('add-blank-page-btn')?.addEventListener('click', () => {
+    if (isRendering) return;
+    snapshot();
+    addBlankPage();
+  });
   document.getElementById('undo-btn')?.addEventListener('click', () => {
     if (isRendering) return;
     const last = undoStack.pop();
@@ -311,9 +282,7 @@ function initializeTool() {
     }
   });
 
-  document
-    .getElementById('modal-close-btn')
-    ?.addEventListener('click', hideModal);
+  document.getElementById('modal-close-btn')?.addEventListener('click', hideModal);
   document.getElementById('modal')?.addEventListener('click', (e) => {
     if (e.target === document.getElementById('modal')) {
       hideModal();
@@ -407,24 +376,18 @@ async function loadPdfs(files: File[]) {
         try {
           console.log(`Repairing ${file.name}...`);
           const loadingText = document.getElementById('loading-text');
-          if (loadingText)
-            loadingText.textContent = `Repairing ${file.name}...`;
+          if (loadingText) loadingText.textContent = `Repairing ${file.name}...`;
 
           const repairedData = await repairPdfFile(file);
           if (repairedData) {
             arrayBuffer = repairedData.buffer as ArrayBuffer;
             console.log(`Successfully repaired ${file.name} before loading.`);
           } else {
-            console.warn(
-              `Repair returned null for ${file.name}, using original file.`
-            );
+            console.warn(`Repair returned null for ${file.name}, using original file.`);
             arrayBuffer = await file.arrayBuffer();
           }
         } catch (repairError) {
-          console.warn(
-            `Failed to repair ${file.name}, attempting to load original:`,
-            repairError
-          );
+          console.warn(`Failed to repair ${file.name}, attempting to load original:`, repairError);
           arrayBuffer = await file.arrayBuffer();
         }
 
@@ -484,11 +447,7 @@ async function loadPdfs(files: File[]) {
         );
       } catch (e) {
         console.error(`Failed to load PDF ${file.name}:`, e);
-        showModal(
-          t('multiTool.error'),
-          `${t('multiTool.failedToLoad')} ${file.name}.`,
-          'error'
-        );
+        showModal(t('multiTool.error'), `${t('multiTool.failedToLoad')} ${file.name}.`, 'error');
       }
     }
 
@@ -499,9 +458,7 @@ async function loadPdfs(files: File[]) {
   } finally {
     hideLoading();
     isRendering = false;
-    console.log(
-      'PDF Multi Tool: Render finished/cancelled, isRendering set to false'
-    );
+    console.log('PDF Multi Tool: Render finished/cancelled, isRendering set to false');
     if (renderCancelled) {
       renderCancelled = false;
     }
@@ -526,10 +483,7 @@ function createPageCard(pageData: PageData, index: number) {
 }
 
 // Modified to return the element instead of appending it
-function createPageElement(
-  canvas: HTMLCanvasElement | null,
-  index: number
-): HTMLElement {
+function createPageElement(canvas: HTMLCanvasElement | null, index: number): HTMLElement {
   const pageData = allPages[index];
   if (!pageData) {
     console.error(`Page data not found for index ${index}`);
@@ -537,8 +491,7 @@ function createPageElement(
   }
 
   const card = document.createElement('div');
-  card.className =
-    'bg-gray-800 rounded-lg border-2 border-gray-700 p-2 relative group cursor-move';
+  card.className = 'bg-gray-800 rounded-lg border-2 border-gray-700 p-2 relative group cursor-move';
   card.dataset.pageIndex = index.toString();
   card.dataset.pageId = pageData.id; // Set ID for reconciliation
 
@@ -569,8 +522,7 @@ function createPageElement(
   } else {
     // Show loading placeholder if canvas is null
     const loading = document.createElement('div');
-    loading.className =
-      'flex flex-col items-center justify-center text-gray-400';
+    loading.className = 'flex flex-col items-center justify-center text-gray-400';
     loading.innerHTML = `
       <i data-lucide="loader" class="w-8 h-8 animate-spin mb-2"></i>
       <span class="text-xs">${t('common.loading')}</span>
@@ -590,14 +542,12 @@ function createPageElement(
     'flex items-center justify-center gap-1 sm:opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-2 left-0 right-0';
 
   const actionsInner = document.createElement('div');
-  actionsInner.className =
-    'flex items-center gap-1 bg-gray-900/90 rounded px-2 py-1';
+  actionsInner.className = 'flex items-center gap-1 bg-gray-900/90 rounded px-2 py-1';
   actions.appendChild(actionsInner);
 
   // Select checkbox
   const selectBtn = document.createElement('button');
-  selectBtn.className =
-    'absolute top-2 right-2 p-1 rounded bg-gray-900/70 hover:bg-gray-800 z-10';
+  selectBtn.className = 'absolute top-2 right-2 p-1 rounded bg-gray-900/70 hover:bg-gray-800 z-10';
   selectBtn.innerHTML = selectedPages.has(index)
     ? '<i data-lucide="check-square" class="w-4 h-4 text-indigo-400"></i>'
     : '<i data-lucide="square" class="w-4 h-4 text-gray-200"></i>';
@@ -609,16 +559,14 @@ function createPageElement(
   // Rotate button
   const rotateBtn = document.createElement('button');
   rotateBtn.className = 'p-1 rounded hover:bg-gray-700';
-  rotateBtn.innerHTML =
-    '<i data-lucide="rotate-cw" class="w-4 h-4 text-gray-300"></i>';
+  rotateBtn.innerHTML = '<i data-lucide="rotate-cw" class="w-4 h-4 text-gray-300"></i>';
   rotateBtn.onclick = (e) => {
     e.stopPropagation();
     rotatePage(index, 90);
   };
   const rotateLeftBtn = document.createElement('button');
   rotateLeftBtn.className = 'p-1 rounded hover:bg-gray-700';
-  rotateLeftBtn.innerHTML =
-    '<i data-lucide="rotate-ccw" class="w-4 h-4 text-gray-300"></i>';
+  rotateLeftBtn.innerHTML = '<i data-lucide="rotate-ccw" class="w-4 h-4 text-gray-300"></i>';
   rotateLeftBtn.onclick = (e) => {
     e.stopPropagation();
     rotatePage(index, -90);
@@ -627,8 +575,7 @@ function createPageElement(
   // Duplicate button
   const duplicateBtn = document.createElement('button');
   duplicateBtn.className = 'p-1 rounded hover:bg-gray-700';
-  duplicateBtn.innerHTML =
-    '<i data-lucide="copy" class="w-4 h-4 text-gray-300"></i>';
+  duplicateBtn.innerHTML = '<i data-lucide="copy" class="w-4 h-4 text-gray-300"></i>';
   duplicateBtn.title = t('multiTool.actions.duplicatePage');
   duplicateBtn.onclick = (e) => {
     e.stopPropagation();
@@ -639,8 +586,7 @@ function createPageElement(
   // Delete button
   const deleteBtn = document.createElement('button');
   deleteBtn.className = 'p-1 rounded hover:bg-gray-700';
-  deleteBtn.innerHTML =
-    '<i data-lucide="trash-2" class="w-4 h-4 text-red-400"></i>';
+  deleteBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4 text-red-400"></i>';
   deleteBtn.title = t('multiTool.actions.deletePage');
   deleteBtn.onclick = (e) => {
     e.stopPropagation();
@@ -651,8 +597,7 @@ function createPageElement(
   // Insert PDF button
   const insertBtn = document.createElement('button');
   insertBtn.className = 'p-1 rounded hover:bg-gray-700';
-  insertBtn.innerHTML =
-    '<i data-lucide="file-plus" class="w-4 h-4 text-gray-300"></i>';
+  insertBtn.innerHTML = '<i data-lucide="file-plus" class="w-4 h-4 text-gray-300"></i>';
   insertBtn.title = t('multiTool.actions.insertPdf');
   insertBtn.onclick = (e) => {
     e.stopPropagation();
@@ -663,8 +608,7 @@ function createPageElement(
   // Split button
   const splitBtn = document.createElement('button');
   splitBtn.className = 'p-1 rounded hover:bg-gray-700';
-  splitBtn.innerHTML =
-    '<i data-lucide="scissors" class="w-4 h-4 text-gray-300"></i>';
+  splitBtn.innerHTML = '<i data-lucide="scissors" class="w-4 h-4 text-gray-300"></i>';
   splitBtn.title = t('multiTool.actions.toggleSplit');
   splitBtn.onclick = (e) => {
     e.stopPropagation();
@@ -673,14 +617,7 @@ function createPageElement(
     renderSplitMarkers();
   };
 
-  actionsInner.append(
-    rotateLeftBtn,
-    rotateBtn,
-    duplicateBtn,
-    insertBtn,
-    splitBtn,
-    deleteBtn
-  );
+  actionsInner.append(rotateLeftBtn, rotateBtn, duplicateBtn, insertBtn, splitBtn, deleteBtn);
   card.append(preview, info, actions, selectBtn);
 
   // Check for split marker
@@ -688,8 +625,7 @@ function createPageElement(
     const marker = document.createElement('div');
     marker.className =
       'split-marker absolute -right-3 top-0 bottom-0 w-6 flex items-center justify-center z-20 pointer-events-none';
-    marker.innerHTML =
-      '<div class="h-full w-0.5 border-l-2 border-dashed border-blue-400"></div>';
+    marker.innerHTML = '<div class="h-full w-0.5 border-l-2 border-dashed border-blue-400"></div>';
     card.appendChild(marker);
   }
 
@@ -741,19 +677,15 @@ function toggleSelectOptimized(index: number) {
   const card = pagesContainer.children[index] as HTMLElement;
   if (!card) return;
 
-  const selectBtn = card.querySelector(
-    'button[class*="absolute top-2 right-2"]'
-  );
+  const selectBtn = card.querySelector('button[class*="absolute top-2 right-2"]');
   if (!selectBtn) return;
 
   if (selectedPages.has(index)) {
     card.classList.add('border-indigo-500', 'ring-2', 'ring-indigo-500');
-    selectBtn.innerHTML =
-      '<i data-lucide="check-square" class="w-4 h-4 text-indigo-400"></i>';
+    selectBtn.innerHTML = '<i data-lucide="check-square" class="w-4 h-4 text-indigo-400"></i>';
   } else {
     card.classList.remove('border-indigo-500', 'ring-2', 'ring-indigo-500');
-    selectBtn.innerHTML =
-      '<i data-lucide="square" class="w-4 h-4 text-gray-200"></i>';
+    selectBtn.innerHTML = '<i data-lucide="square" class="w-4 h-4 text-gray-200"></i>';
   }
 
   createIcons({ icons });
@@ -858,8 +790,7 @@ async function handleInsertPdf(e: Event) {
 
     // Load PDF.js document for rendering
     const pdfBytes = await pdfDoc.save();
-    const pdfjsDoc = await getPDFDocument({ data: new Uint8Array(pdfBytes) })
-      .promise;
+    const pdfjsDoc = await getPDFDocument({ data: new Uint8Array(pdfBytes) }).promise;
     const numPages = pdfjsDoc.numPages;
 
     const newPages: PageData[] = [];
@@ -896,13 +827,9 @@ async function handleInsertPdf(e: Event) {
 
         // Update UI if card exists
         const pagesContainer = document.getElementById('pages-container');
-        const card = pagesContainer?.querySelector(
-          `div[data-page-index="${globalIndex}"]`
-        );
+        const card = pagesContainer?.querySelector(`div[data-page-index="${globalIndex}"]`);
         if (card) {
-          const preview =
-            card.querySelector('.bg-gray-700') ||
-            card.querySelector('.bg-white');
+          const preview = card.querySelector('.bg-gray-700') || card.querySelector('.bg-white');
           if (preview) {
             // Re-create the preview content
             preview.innerHTML = '';
@@ -920,11 +847,7 @@ async function handleInsertPdf(e: Event) {
     }
   } catch (e) {
     console.error('Failed to insert PDF:', e);
-    showModal(
-      'Error',
-      'Failed to insert PDF. The file may be corrupted.',
-      'error'
-    );
+    showModal('Error', 'Failed to insert PDF. The file may be corrupted.', 'error');
   }
 
   input.value = '';
@@ -994,9 +917,7 @@ function bulkRotate(delta: number) {
 
       // Update DOM immediately if it exists
       const pagesContainer = document.getElementById('pages-container');
-      const card = pagesContainer?.querySelector(
-        `div[data-page-index="${index}"]`
-      );
+      const card = pagesContainer?.querySelector(`div[data-page-index="${index}"]`);
       if (card) {
         const canvas = card.querySelector('canvas');
         if (canvas) {
@@ -1043,11 +964,7 @@ function bulkDuplicate() {
 
 function bulkSplit() {
   if (selectedPages.size === 0) {
-    showModal(
-      'No Selection',
-      'Please select pages to mark for splitting.',
-      'info'
-    );
+    showModal('No Selection', 'Please select pages to mark for splitting.', 'info');
     return;
   }
   const indices = Array.from(selectedPages);
@@ -1173,11 +1090,7 @@ async function downloadSplitPdfs() {
     const zipBlob = await zip.generateAsync({ type: 'blob' });
     downloadFile(zipBlob, 'split-documents.zip');
 
-    showModal(
-      'Success',
-      `Downloaded ${segments.length} PDF files in a ZIP archive.`,
-      'success'
-    );
+    showModal('Success', `Downloaded ${segments.length} PDF files in a ZIP archive.`, 'success');
   } catch (e) {
     console.error('Failed to create split PDFs:', e);
     showModal('Error', 'Failed to create split PDFs.', 'error');
@@ -1294,28 +1207,19 @@ function updatePageDisplay() {
 
       // Update index-dependent attributes
       card.dataset.pageIndex = index.toString();
-      const info = card.querySelector(
-        '.text-xs.text-gray-400.text-center.mb-2'
-      );
+      const info = card.querySelector('.text-xs.text-gray-400.text-center.mb-2');
       if (info) info.textContent = `Page ${index + 1} `;
 
       // Update selection state
-      const selectBtn = card.querySelector(
-        'button[class*="absolute top-2 right-2"]'
-      );
+      const selectBtn = card.querySelector('button[class*="absolute top-2 right-2"]');
       if (selectBtn) {
         if (selectedPages.has(index)) {
           card.classList.add('border-indigo-500', 'ring-2', 'ring-indigo-500');
           selectBtn.innerHTML =
             '<i data-lucide="check-square" class="w-4 h-4 text-indigo-400"></i>';
         } else {
-          card.classList.remove(
-            'border-indigo-500',
-            'ring-2',
-            'ring-indigo-500'
-          );
-          selectBtn.innerHTML =
-            '<i data-lucide="square" class="w-4 h-4 text-gray-200"></i>';
+          card.classList.remove('border-indigo-500', 'ring-2', 'ring-indigo-500');
+          selectBtn.innerHTML = '<i data-lucide="square" class="w-4 h-4 text-gray-200"></i>';
         }
         // Update click handler to use new index
         (selectBtn as HTMLElement).onclick = (e) => {
@@ -1331,9 +1235,7 @@ function updatePageDisplay() {
       }
 
       // Update action buttons
-      const actionsInner = card.querySelector(
-        '.flex.items-center.gap-1.bg-gray-900\\/90'
-      );
+      const actionsInner = card.querySelector('.flex.items-center.gap-1.bg-gray-900\\/90');
       if (actionsInner) {
         const buttons = actionsInner.querySelectorAll('button');
         if (buttons[0])
@@ -1422,9 +1324,7 @@ function updatePageNumbers() {
       };
     }
 
-    const actionsInner = card.querySelector(
-      '.flex.items-center.gap-1.bg-gray-900\\/90'
-    );
+    const actionsInner = card.querySelector('.flex.items-center.gap-1.bg-gray-900\\/90');
     if (actionsInner) {
       const buttons = actionsInner.querySelectorAll('button');
       // Order: Rotate Left, Rotate Right, Duplicate, Insert, Split, Delete

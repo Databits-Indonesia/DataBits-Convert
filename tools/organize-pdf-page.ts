@@ -6,7 +6,7 @@ import {
   downloadFile,
   getPDFDocument,
 } from '../utils/helpers.js';
-import { initPagePreview } from '../utils/page-preview.js';
+import { initPagePreview } from '../utils/page-preview';
 import { PDFDocument } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 import Sortable from 'sortablejs';
