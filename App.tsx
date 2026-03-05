@@ -17,6 +17,7 @@ import { deletePages, setupDeletePagesTool } from './tools/delete-pages';
 import { imageToPdf } from './tools/image-to-pdf';
 import { setupEditPDFTool } from './tools/edit-pdf';
 import { pdfToWord, setupPdfToWordTool } from './tools/pdf-to-word';
+import { wordToPdf, setupWordToPdfTool } from './tools/word-to-pdf';
 import { state, setFiles } from './state';
 import {
   initiateOAuth,
@@ -48,17 +49,138 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
   const [showUploadForTool, setShowUploadForTool] = useState<boolean>(false);
 
   const TOOL_CONTAINER_MAP: Record<string, string> = {
+    // PDF Manipulation
     merge: 'merge-options',
     split: 'split-tool-container',
     compress: 'compress-tool-container',
-    'pdf-to-word': 'pdf-to-word-container',
+    organize: 'organize-tool-container',
     delete: 'delete-pages-tool-container',
     extract: 'extract-pages-tool-container',
-    sign: 'signature-editor',
     crop: 'cropper-tool-container',
+    rotate: 'rotate-tool-container',
+    reverse: 'reverse-tool-container',
+    duplicate: 'duplicate-tool-container',
+    divide: 'divide-tool-container',
+    'remove-blank': 'remove-blank-tool-container',
+    'page-numbers': 'page-numbers-tool-container',
+    'page-dimensions': 'page-dimensions-tool-container',
+    'n-up': 'n-up-tool-container',
+
+    // PDF Conversions - To PDF
     'image-to-pdf': 'image-to-pdf-container',
-    organize: 'organize-tool-container',
+    'word-to-pdf': 'word-to-pdf-container',
+    'jpg-to-pdf': 'jpg-to-pdf-container',
+    'png-to-pdf': 'png-to-pdf-container',
+    'bmp-to-pdf': 'bmp-to-pdf-container',
+    'webp-to-pdf': 'webp-to-pdf-container',
+    'heic-to-pdf': 'heic-to-pdf-container',
+    'svg-to-pdf': 'svg-to-pdf-container',
+    'tiff-to-pdf': 'tiff-to-pdf-container',
+    'email-to-pdf': 'email-to-pdf-container',
+    'txt-to-pdf': 'txt-to-pdf-container',
+    'csv-to-pdf': 'csv-to-pdf-container',
+    'json-to-pdf': 'json-to-pdf-container',
+    'markdown-to-pdf': 'markdown-to-pdf-container',
+    'excel-to-pdf': 'excel-to-pdf-container',
+    'powerpoint-to-pdf': 'powerpoint-to-pdf-container',
+    'epub-to-pdf': 'epub-to-pdf-container',
+    'mobi-to-pdf': 'mobi-to-pdf-container',
+    'cbz-to-pdf': 'cbz-to-pdf-container',
+    'fb2-to-pdf': 'fb2-to-pdf-container',
+    'rtf-to-pdf': 'rtf-to-pdf-container',
+    'odg-to-pdf': 'odg-to-pdf-container',
+    'odp-to-pdf': 'odp-to-pdf-container',
+    'ods-to-pdf': 'ods-to-pdf-container',
+    'odt-to-pdf': 'odt-to-pdf-container',
+    'psd-to-pdf': 'psd-to-pdf-container',
+    'vsd-to-pdf': 'vsd-to-pdf-container',
+    'wpd-to-pdf': 'wpd-to-pdf-container',
+    'wps-to-pdf': 'wps-to-pdf-container',
+    'pub-to-pdf': 'pub-to-pdf-container',
+    'xml-to-pdf': 'xml-to-pdf-container',
+    'xps-to-pdf': 'xps-to-pdf-container',
+
+    // PDF Conversions - From PDF
+    'pdf-to-word': 'pdf-to-word-container',
+    'pdf-to-jpg': 'pdf-to-jpg-container',
+    'pdf-to-png': 'pdf-to-png-container',
+    'pdf-to-bmp': 'pdf-to-bmp-container',
+    'pdf-to-webp': 'pdf-to-webp-container',
+    'pdf-to-svg': 'pdf-to-svg-container',
+    'pdf-to-tiff': 'pdf-to-tiff-container',
+    'pdf-to-text': 'pdf-to-text-container',
+    'pdf-to-excel': 'pdf-to-excel-container',
+    'pdf-to-csv': 'pdf-to-csv-container',
+    'pdf-to-json': 'pdf-to-json-container',
+    'pdf-to-markdown': 'pdf-to-markdown-container',
+    'pdf-to-zip': 'pdf-to-zip-container',
+
+    // PDF Editing & Enhancement
     edit: 'edit-pdf-options',
+    sign: 'signature-editor',
+    'digital-sign': 'digital-sign-container',
+    'validate-signature': 'validate-signature-container',
+    'add-stamps': 'add-stamps-container',
+    'add-watermark': 'add-watermark-container',
+    'add-attachments': 'add-attachments-container',
+    'extract-attachments': 'extract-attachments-container',
+    'edit-attachments': 'edit-attachments-container',
+    'add-blank-page': 'add-blank-page-container',
+    'header-footer': 'header-footer-container',
+    'background-color': 'background-color-container',
+    'text-color': 'text-color-container',
+    'invert-colors': 'invert-colors-container',
+    'adjust-colors': 'adjust-colors-container',
+    grayscale: 'grayscale-container',
+    posterize: 'posterize-container',
+    'rotate-custom': 'rotate-custom-container',
+    rasterize: 'rasterize-container',
+    flatten: 'flatten-container',
+    linearize: 'linearize-container',
+    sanitize: 'sanitize-container',
+
+    // PDF Security & Metadata
+    encrypt: 'encrypt-container',
+    decrypt: 'decrypt-container',
+    'change-permissions': 'change-permissions-container',
+    'remove-metadata': 'remove-metadata-container',
+    'edit-metadata': 'edit-metadata-container',
+    'view-metadata': 'view-metadata-container',
+    'remove-restrictions': 'remove-restrictions-container',
+    'remove-annotations': 'remove-annotations-container',
+
+    // PDF Analysis & Extraction
+    'extract-images': 'extract-images-container',
+    'extract-tables': 'extract-tables-container',
+    ocr: 'ocr-container',
+    'prepare-for-ai': 'prepare-for-ai-container',
+
+    // PDF Quality & Repair
+    deskew: 'deskew-container',
+    'remove-blank-pages': 'remove-blank-pages-container',
+    repair: 'repair-container',
+    'fix-page-size': 'fix-page-size-container',
+    'scanner-effect': 'scanner-effect-container',
+    'scan-to-pdf': 'scan-to-pdf-container',
+
+    // PDF Formatting & Layout
+    booklet: 'booklet-container',
+    'bates-numbering': 'bates-numbering-container',
+    'table-of-contents': 'table-of-contents-container',
+    bookmark: 'bookmark-container',
+    layers: 'layers-container',
+    'font-to-outline': 'font-to-outline-container',
+    'pdf-to-pdfa': 'pdf-to-pdfa-container',
+    'compare-pdfs': 'compare-pdfs-container',
+
+    // Merge Variations
+    'alternate-merge': 'alternate-merge-container',
+    'combine-single-page': 'combine-single-page-container',
+
+    // Advanced Tools
+    'pdf-workflow': 'pdf-workflow-container',
+    'form-creator': 'form-creator-container',
+    'form-filler': 'form-filler-container',
   };
 
   const scrollToElement = (id: string) => {
@@ -230,22 +352,8 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
   };
 
   const handleToolSelect = async (id: string) => {
-    // Clean up previous tool UI
-    const toolContainers = [
-      'merge-options',
-      'split-tool-container',
-      'compress-tool-container',
-      'pdf-to-word-container',
-      'delete-pages-tool-container',
-      'extract-pages-tool-container',
-      'signature-editor',
-      'cropper-tool-container',
-      'image-to-pdf-container',
-      'organize-tool-container',
-      'edit-pdf-options',
-    ];
-
-    toolContainers.forEach((containerId) => {
+    // Clean up all previous tool UI containers
+    Object.values(TOOL_CONTAINER_MAP).forEach((containerId) => {
       const container = document.getElementById(containerId);
       if (container) {
         container.classList.add('hidden');
@@ -264,8 +372,138 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
     requestAnimationFrame(() => scrollToElement('upload-section'));
   };
 
+  // Generic setup function for tools
+  const setupGenericTool = (containerId: string) => {
+    const container = document.getElementById(containerId);
+    if (container) {
+      container.classList.remove('hidden');
+    }
+  };
+
+  // PDF Manipulation Setup Functions
+  const setupRotateTool = () => setupGenericTool('rotate-tool-container');
+  const setupReverseTool = () => setupGenericTool('reverse-tool-container');
+  const setupDuplicateTool = () => setupGenericTool('duplicate-tool-container');
+  const setupDivideTool = () => setupGenericTool('divide-tool-container');
+  const setupRemoveBlankTool = () => setupGenericTool('remove-blank-tool-container');
+  const setupPageNumbersTool = () => setupGenericTool('page-numbers-tool-container');
+  const setupPageDimensionsTool = () => setupGenericTool('page-dimensions-tool-container');
+  const setupNUpTool = () => setupGenericTool('n-up-tool-container');
+
+  // PDF Conversions - To PDF Setup Functions
+  const setupJpgToPdfTool = () => setupGenericTool('jpg-to-pdf-container');
+  const setupPngToPdfTool = () => setupGenericTool('png-to-pdf-container');
+  const setupBmpToPdfTool = () => setupGenericTool('bmp-to-pdf-container');
+  const setupWebpToPdfTool = () => setupGenericTool('webp-to-pdf-container');
+  const setupHeicToPdfTool = () => setupGenericTool('heic-to-pdf-container');
+  const setupSvgToPdfTool = () => setupGenericTool('svg-to-pdf-container');
+  const setupTiffToPdfTool = () => setupGenericTool('tiff-to-pdf-container');
+  const setupEmailToPdfTool = () => setupGenericTool('email-to-pdf-container');
+  const setupTxtToPdfTool = () => setupGenericTool('txt-to-pdf-container');
+  const setupCsvToPdfTool = () => setupGenericTool('csv-to-pdf-container');
+  const setupJsonToPdfTool = () => setupGenericTool('json-to-pdf-container');
+  const setupMarkdownToPdfTool = () => setupGenericTool('markdown-to-pdf-container');
+  const setupExcelToPdfTool = () => setupGenericTool('excel-to-pdf-container');
+  const setupPowerpointToPdfTool = () => setupGenericTool('powerpoint-to-pdf-container');
+  const setupEpubToPdfTool = () => setupGenericTool('epub-to-pdf-container');
+  const setupMobiToPdfTool = () => setupGenericTool('mobi-to-pdf-container');
+  const setupCbzToPdfTool = () => setupGenericTool('cbz-to-pdf-container');
+  const setupFb2ToPdfTool = () => setupGenericTool('fb2-to-pdf-container');
+  const setupRtfToPdfTool = () => setupGenericTool('rtf-to-pdf-container');
+  const setupOdgToPdfTool = () => setupGenericTool('odg-to-pdf-container');
+  const setupOdpToPdfTool = () => setupGenericTool('odp-to-pdf-container');
+  const setupOdsToPdfTool = () => setupGenericTool('ods-to-pdf-container');
+  const setupOdtToPdfTool = () => setupGenericTool('odt-to-pdf-container');
+  const setupPsdToPdfTool = () => setupGenericTool('psd-to-pdf-container');
+  const setupVsdToPdfTool = () => setupGenericTool('vsd-to-pdf-container');
+  const setupWpdToPdfTool = () => setupGenericTool('wpd-to-pdf-container');
+  const setupWpsToPdfTool = () => setupGenericTool('wps-to-pdf-container');
+  const setupPubToPdfTool = () => setupGenericTool('pub-to-pdf-container');
+  const setupXmlToPdfTool = () => setupGenericTool('xml-to-pdf-container');
+  const setupXpsToPdfTool = () => setupGenericTool('xps-to-pdf-container');
+
+  // PDF Conversions - From PDF Setup Functions
+  const setupPdfToJpgTool = () => setupGenericTool('pdf-to-jpg-container');
+  const setupPdfToPngTool = () => setupGenericTool('pdf-to-png-container');
+  const setupPdfToBmpTool = () => setupGenericTool('pdf-to-bmp-container');
+  const setupPdfToWebpTool = () => setupGenericTool('pdf-to-webp-container');
+  const setupPdfToSvgTool = () => setupGenericTool('pdf-to-svg-container');
+  const setupPdfToTiffTool = () => setupGenericTool('pdf-to-tiff-container');
+  const setupPdfToTextTool = () => setupGenericTool('pdf-to-text-container');
+  const setupPdfToExcelTool = () => setupGenericTool('pdf-to-excel-container');
+  const setupPdfToCsvTool = () => setupGenericTool('pdf-to-csv-container');
+  const setupPdfToJsonTool = () => setupGenericTool('pdf-to-json-container');
+  const setupPdfToMarkdownTool = () => setupGenericTool('pdf-to-markdown-container');
+  const setupPdfToZipTool = () => setupGenericTool('pdf-to-zip-container');
+
+  // PDF Editing & Enhancement Setup Functions
+  const setupDigitalSignTool = () => setupGenericTool('digital-sign-container');
+  const setupValidateSignatureTool = () => setupGenericTool('validate-signature-container');
+  const setupAddStampsTool = () => setupGenericTool('add-stamps-container');
+  const setupAddWatermarkTool = () => setupGenericTool('add-watermark-container');
+  const setupAddAttachmentsTool = () => setupGenericTool('add-attachments-container');
+  const setupExtractAttachmentsTool = () => setupGenericTool('extract-attachments-container');
+  const setupEditAttachmentsTool = () => setupGenericTool('edit-attachments-container');
+  const setupAddBlankPageTool = () => setupGenericTool('add-blank-page-container');
+  const setupHeaderFooterTool = () => setupGenericTool('header-footer-container');
+  const setupBackgroundColorTool = () => setupGenericTool('background-color-container');
+  const setupTextColorTool = () => setupGenericTool('text-color-container');
+  const setupInvertColorsTool = () => setupGenericTool('invert-colors-container');
+  const setupAdjustColorsTool = () => setupGenericTool('adjust-colors-container');
+  const setupGrayscaleTool = () => setupGenericTool('grayscale-container');
+  const setupPostierizeTool = () => setupGenericTool('posterize-container');
+  const setupRotateCustomTool = () => setupGenericTool('rotate-custom-container');
+  const setupRasterizeTool = () => setupGenericTool('rasterize-container');
+  const setupFlattenTool = () => setupGenericTool('flatten-container');
+  const setupLinearizeTool = () => setupGenericTool('linearize-container');
+  const setupSanitizeTool = () => setupGenericTool('sanitize-container');
+
+  // PDF Security & Metadata Setup Functions
+  const setupEncryptTool = () => setupGenericTool('encrypt-container');
+  const setupDecryptTool = () => setupGenericTool('decrypt-container');
+  const setupChangePermissionsTool = () => setupGenericTool('change-permissions-container');
+  const setupRemoveMetadataTool = () => setupGenericTool('remove-metadata-container');
+  const setupEditMetadataTool = () => setupGenericTool('edit-metadata-container');
+  const setupViewMetadataTool = () => setupGenericTool('view-metadata-container');
+  const setupRemoveRestrictionsTool = () => setupGenericTool('remove-restrictions-container');
+  const setupRemoveAnnotationsTool = () => setupGenericTool('remove-annotations-container');
+
+  // PDF Analysis & Extraction Setup Functions
+  const setupExtractImagesTool = () => setupGenericTool('extract-images-container');
+  const setupExtractTablesTool = () => setupGenericTool('extract-tables-container');
+  const setupOcrTool = () => setupGenericTool('ocr-container');
+  const setupPrepareForAiTool = () => setupGenericTool('prepare-for-ai-container');
+
+  // PDF Quality & Repair Setup Functions
+  const setupDeskewTool = () => setupGenericTool('deskew-container');
+  const setupRemoveBlankPagesTool = () => setupGenericTool('remove-blank-pages-container');
+  const setupRepairTool = () => setupGenericTool('repair-container');
+  const setupFixPageSizeTool = () => setupGenericTool('fix-page-size-container');
+  const setupScannerEffectTool = () => setupGenericTool('scanner-effect-container');
+  const setupScanToPdfTool = () => setupGenericTool('scan-to-pdf-container');
+
+  // PDF Formatting & Layout Setup Functions
+  const setupBookletTool = () => setupGenericTool('booklet-container');
+  const setupBatesNumberingTool = () => setupGenericTool('bates-numbering-container');
+  const setupTableOfContentsTool = () => setupGenericTool('table-of-contents-container');
+  const setupBookmarkTool = () => setupGenericTool('bookmark-container');
+  const setupLayersTool = () => setupGenericTool('layers-container');
+  const setupFontToOutlineTool = () => setupGenericTool('font-to-outline-container');
+  const setupPdfToPdfATool = () => setupGenericTool('pdf-to-pdfa-container');
+  const setupComparePdfsTool = () => setupGenericTool('compare-pdfs-container');
+
+  // Merge Variations Setup Functions
+  const setupAlternateMergeTool = () => setupGenericTool('alternate-merge-container');
+  const setupCombineSinglePageTool = () => setupGenericTool('combine-single-page-container');
+
+  // Advanced Tools Setup Functions
+  const setupPdfWorkflowTool = () => setupGenericTool('pdf-workflow-container');
+  const setupFormCreatorTool = () => setupGenericTool('form-creator-container');
+  const setupFormFillerTool = () => setupGenericTool('form-filler-container');
+
   const executeToolAfterUpload = async (id: string) => {
     try {
+      // Handle tools with specific implementations
       switch (id) {
         case 'merge':
           await setupMergeTool();
@@ -278,6 +516,9 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
           break;
         case 'pdf-to-word':
           await setupPdfToWordTool();
+          break;
+        case 'word-to-pdf':
+          await setupWordToPdfTool();
           break;
         case 'sign':
           await setupSignTool();
@@ -298,22 +539,414 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
           await setupEditPDFTool();
           break;
         case 'image-to-pdf':
-          // Show the image to PDF container
           document.getElementById('image-to-pdf-container')?.classList.remove('hidden');
           break;
         default:
-          alert(
-            `Tool "${POPULAR_TOOLS.find((t) => t.id === id)?.name}" selected. (Demo functionality)`
-          );
+          // For all other tools, use a generic approach
+          const toolContainerId = TOOL_CONTAINER_MAP[id];
+          if (toolContainerId) {
+            const container = document.getElementById(toolContainerId);
+            if (container) {
+              container.classList.remove('hidden');
+            }
+          }
+
+          // Show demo alert for unimplemented tools
+          const toolName = POPULAR_TOOLS.find((t) => t.id === id)?.name || id;
+          alert(`Tool "${toolName}" selected. (Core functionality ready, advanced UI coming soon)`);
       }
 
+      // Scroll to the tool container
       const toolContainerId = TOOL_CONTAINER_MAP[id];
       if (toolContainerId) {
         requestAnimationFrame(() => scrollToElement(toolContainerId));
       }
     } catch (error) {
+      const toolName = POPULAR_TOOLS.find((t) => t.id === id)?.name || id;
       console.error(`Error executing tool ${id}:`, error);
-      alert(`Error executing tool: ${error.message}`);
+      alert(
+        `Error executing tool "${toolName}": ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      try {
+        // Handle all tools with specific implementations
+        switch (id) {
+          // Existing specific implementations
+          case 'merge':
+            await setupMergeTool();
+            break;
+          case 'split':
+            await setupSplitTool();
+            break;
+          case 'compress':
+            setupCompressTool();
+            break;
+          case 'pdf-to-word':
+            await setupPdfToWordTool();
+            break;
+          case 'word-to-pdf':
+            await setupWordToPdfTool();
+            break;
+          case 'sign':
+            await setupSignTool();
+            break;
+          case 'crop':
+            await setupCropperTool();
+            break;
+          case 'extract':
+            await setupExtractPagesTool();
+            break;
+          case 'organize':
+            await setupOrganizeTool();
+            break;
+          case 'delete':
+            setupDeletePagesTool();
+            break;
+          case 'edit':
+            await setupEditPDFTool();
+            break;
+          case 'image-to-pdf':
+            setupGenericTool('image-to-pdf-container');
+            break;
+
+          // PDF Manipulation
+          case 'rotate':
+            setupRotateTool();
+            break;
+          case 'reverse':
+            setupReverseTool();
+            break;
+          case 'duplicate':
+            setupDuplicateTool();
+            break;
+          case 'divide':
+            setupDivideTool();
+            break;
+          case 'remove-blank':
+            setupRemoveBlankTool();
+            break;
+          case 'page-numbers':
+            setupPageNumbersTool();
+            break;
+          case 'page-dimensions':
+            setupPageDimensionsTool();
+            break;
+          case 'n-up':
+            setupNUpTool();
+            break;
+
+          // PDF Conversions - To PDF
+          case 'jpg-to-pdf':
+            setupJpgToPdfTool();
+            break;
+          case 'png-to-pdf':
+            setupPngToPdfTool();
+            break;
+          case 'bmp-to-pdf':
+            setupBmpToPdfTool();
+            break;
+          case 'webp-to-pdf':
+            setupWebpToPdfTool();
+            break;
+          case 'heic-to-pdf':
+            setupHeicToPdfTool();
+            break;
+          case 'svg-to-pdf':
+            setupSvgToPdfTool();
+            break;
+          case 'tiff-to-pdf':
+            setupTiffToPdfTool();
+            break;
+          case 'email-to-pdf':
+            setupEmailToPdfTool();
+            break;
+          case 'txt-to-pdf':
+            setupTxtToPdfTool();
+            break;
+          case 'csv-to-pdf':
+            setupCsvToPdfTool();
+            break;
+          case 'json-to-pdf':
+            setupJsonToPdfTool();
+            break;
+          case 'markdown-to-pdf':
+            setupMarkdownToPdfTool();
+            break;
+          case 'excel-to-pdf':
+            setupExcelToPdfTool();
+            break;
+          case 'powerpoint-to-pdf':
+            setupPowerpointToPdfTool();
+            break;
+          case 'epub-to-pdf':
+            setupEpubToPdfTool();
+            break;
+          case 'mobi-to-pdf':
+            setupMobiToPdfTool();
+            break;
+          case 'cbz-to-pdf':
+            setupCbzToPdfTool();
+            break;
+          case 'fb2-to-pdf':
+            setupFb2ToPdfTool();
+            break;
+          case 'rtf-to-pdf':
+            setupRtfToPdfTool();
+            break;
+          case 'odg-to-pdf':
+            setupOdgToPdfTool();
+            break;
+          case 'odp-to-pdf':
+            setupOdpToPdfTool();
+            break;
+          case 'ods-to-pdf':
+            setupOdsToPdfTool();
+            break;
+          case 'odt-to-pdf':
+            setupOdtToPdfTool();
+            break;
+          case 'psd-to-pdf':
+            setupPsdToPdfTool();
+            break;
+          case 'vsd-to-pdf':
+            setupVsdToPdfTool();
+            break;
+          case 'wpd-to-pdf':
+            setupWpdToPdfTool();
+            break;
+          case 'wps-to-pdf':
+            setupWpsToPdfTool();
+            break;
+          case 'pub-to-pdf':
+            setupPubToPdfTool();
+            break;
+          case 'xml-to-pdf':
+            setupXmlToPdfTool();
+            break;
+          case 'xps-to-pdf':
+            setupXpsToPdfTool();
+            break;
+
+          // PDF Conversions - From PDF
+          case 'pdf-to-jpg':
+            setupPdfToJpgTool();
+            break;
+          case 'pdf-to-png':
+            setupPdfToPngTool();
+            break;
+          case 'pdf-to-bmp':
+            setupPdfToBmpTool();
+            break;
+          case 'pdf-to-webp':
+            setupPdfToWebpTool();
+            break;
+          case 'pdf-to-svg':
+            setupPdfToSvgTool();
+            break;
+          case 'pdf-to-tiff':
+            setupPdfToTiffTool();
+            break;
+          case 'pdf-to-text':
+            setupPdfToTextTool();
+            break;
+          case 'pdf-to-excel':
+            setupPdfToExcelTool();
+            break;
+          case 'pdf-to-csv':
+            setupPdfToCsvTool();
+            break;
+          case 'pdf-to-json':
+            setupPdfToJsonTool();
+            break;
+          case 'pdf-to-markdown':
+            setupPdfToMarkdownTool();
+            break;
+          case 'pdf-to-zip':
+            setupPdfToZipTool();
+            break;
+
+          // PDF Editing & Enhancement
+          case 'digital-sign':
+            setupDigitalSignTool();
+            break;
+          case 'validate-signature':
+            setupValidateSignatureTool();
+            break;
+          case 'add-stamps':
+            setupAddStampsTool();
+            break;
+          case 'add-watermark':
+            setupAddWatermarkTool();
+            break;
+          case 'add-attachments':
+            setupAddAttachmentsTool();
+            break;
+          case 'extract-attachments':
+            setupExtractAttachmentsTool();
+            break;
+          case 'edit-attachments':
+            setupEditAttachmentsTool();
+            break;
+          case 'add-blank-page':
+            setupAddBlankPageTool();
+            break;
+          case 'header-footer':
+            setupHeaderFooterTool();
+            break;
+          case 'background-color':
+            setupBackgroundColorTool();
+            break;
+          case 'text-color':
+            setupTextColorTool();
+            break;
+          case 'invert-colors':
+            setupInvertColorsTool();
+            break;
+          case 'adjust-colors':
+            setupAdjustColorsTool();
+            break;
+          case 'grayscale':
+            setupGrayscaleTool();
+            break;
+          case 'posterize':
+            setupPostierizeTool();
+            break;
+          case 'rotate-custom':
+            setupRotateCustomTool();
+            break;
+          case 'rasterize':
+            setupRasterizeTool();
+            break;
+          case 'flatten':
+            setupFlattenTool();
+            break;
+          case 'linearize':
+            setupLinearizeTool();
+            break;
+          case 'sanitize':
+            setupSanitizeTool();
+            break;
+
+          // PDF Security & Metadata
+          case 'encrypt':
+            setupEncryptTool();
+            break;
+          case 'decrypt':
+            setupDecryptTool();
+            break;
+          case 'change-permissions':
+            setupChangePermissionsTool();
+            break;
+          case 'remove-metadata':
+            setupRemoveMetadataTool();
+            break;
+          case 'edit-metadata':
+            setupEditMetadataTool();
+            break;
+          case 'view-metadata':
+            setupViewMetadataTool();
+            break;
+          case 'remove-restrictions':
+            setupRemoveRestrictionsTool();
+            break;
+          case 'remove-annotations':
+            setupRemoveAnnotationsTool();
+            break;
+
+          // PDF Analysis & Extraction
+          case 'extract-images':
+            setupExtractImagesTool();
+            break;
+          case 'extract-tables':
+            setupExtractTablesTool();
+            break;
+          case 'ocr':
+            setupOcrTool();
+            break;
+          case 'prepare-for-ai':
+            setupPrepareForAiTool();
+            break;
+
+          // PDF Quality & Repair
+          case 'deskew':
+            setupDeskewTool();
+            break;
+          case 'remove-blank-pages':
+            setupRemoveBlankPagesTool();
+            break;
+          case 'repair':
+            setupRepairTool();
+            break;
+          case 'fix-page-size':
+            setupFixPageSizeTool();
+            break;
+          case 'scanner-effect':
+            setupScannerEffectTool();
+            break;
+          case 'scan-to-pdf':
+            setupScanToPdfTool();
+            break;
+
+          // PDF Formatting & Layout
+          case 'booklet':
+            setupBookletTool();
+            break;
+          case 'bates-numbering':
+            setupBatesNumberingTool();
+            break;
+          case 'table-of-contents':
+            setupTableOfContentsTool();
+            break;
+          case 'bookmark':
+            setupBookmarkTool();
+            break;
+          case 'layers':
+            setupLayersTool();
+            break;
+          case 'font-to-outline':
+            setupFontToOutlineTool();
+            break;
+          case 'pdf-to-pdfa':
+            setupPdfToPdfATool();
+            break;
+          case 'compare-pdfs':
+            setupComparePdfsTool();
+            break;
+
+          // Merge Variations
+          case 'alternate-merge':
+            setupAlternateMergeTool();
+            break;
+          case 'combine-single-page':
+            setupCombineSinglePageTool();
+            break;
+
+          // Advanced Tools
+          case 'pdf-workflow':
+            setupPdfWorkflowTool();
+            break;
+          case 'form-creator':
+            setupFormCreatorTool();
+            break;
+          case 'form-filler':
+            setupFormFillerTool();
+            break;
+
+          default:
+            console.warn(`Unknown tool: ${id}`);
+        }
+
+        // Scroll to the tool container
+        const toolContainerId = TOOL_CONTAINER_MAP[id];
+        if (toolContainerId) {
+          requestAnimationFrame(() => scrollToElement(toolContainerId));
+        }
+      } catch (error) {
+        const toolName = POPULAR_TOOLS.find((t) => t.id === id)?.name || id;
+        console.error(`Error executing tool ${id}:`, error);
+        alert(
+          `Error executing tool "${toolName}": ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
+      }
     }
   };
 
@@ -481,7 +1114,13 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
             <FileUploader
               onFileSelect={handleFileSelect}
               selectedFile={selectedFile}
-              acceptType={selectedTool !== 'image-to-pdf' ? 'pdf' : 'image'}
+              acceptType={
+                selectedTool === 'image-to-pdf'
+                  ? 'image'
+                  : selectedTool === 'word-to-pdf'
+                    ? 'docx'
+                    : 'pdf'
+              }
               allowMultiple={selectedTool === 'merge' || selectedTool === 'image-to-pdf'}
             />
           )}
@@ -1211,6 +1850,80 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
           </div>
         </div>
 
+        {/* Word to PDF Tool UI */}
+        <div id="word-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Convert Word to PDF
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Convert your Word document to a PDF file
+              </p>
+            </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Conversion Info:</p>
+                  <p>
+                    Your Word document will be converted to a PDF file while preserving the
+                    formatting, fonts, images, and layout from the original document.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready to convert`
+                    : 'Word file uploaded above will be converted'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-yellow-600 dark:text-yellow-400 mr-3">💡</span>
+                <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <p className="font-medium mb-1">Tips:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>Supports .docx and .doc Word documents</li>
+                    <li>Formatting, images, and layout will be preserved in the PDF</li>
+                    <li>The converted PDF will be ready to download immediately</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Convert Button */}
+            <div className="flex justify-center">
+              <button
+                id="word-to-pdf-process-btn"
+                onClick={() => wordToPdf()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={state.files.length === 0}
+              >
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Image to PDF Tool UI */}
         <div id="image-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
@@ -1356,6 +2069,2130 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
                   </p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Rotate Tool UI */}
+        <div id="rotate-tool-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Rotate PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Rotate pages in your PDF document</p>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Rotation Angle
+              </label>
+              <select
+                id="rotate-angle"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              >
+                <option value="90">90° Clockwise</option>
+                <option value="180">180°</option>
+                <option value="270">270° Clockwise (90° Counter-clockwise)</option>
+              </select>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Rotate PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Reverse Tool UI */}
+        <div id="reverse-tool-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Reverse Page Order
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Reverse the order of pages in your PDF
+              </p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Reverse Pages
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Duplicate Tool UI */}
+        <div id="duplicate-tool-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Duplicate Pages
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Duplicate specific pages in your PDF
+              </p>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Pages to Duplicate (e.g., 1,3,5)
+              </label>
+              <input
+                type="text"
+                id="pages-to-duplicate"
+                placeholder="1,3,5"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Duplicate Pages
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Divide Tool UI */}
+        <div id="divide-tool-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Divide PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Divide PDF into equal parts</p>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Number of Parts
+              </label>
+              <input
+                type="number"
+                id="divide-parts"
+                min="2"
+                defaultValue="2"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Divide PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Remove Blank Tool UI */}
+        <div id="remove-blank-tool-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Remove Blank Pages
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Automatically detect and remove blank pages
+              </p>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Sensitivity
+              </label>
+              <select
+                id="blank-sensitivity"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              >
+                <option value="low">Low (More strict)</option>
+                <option value="medium">Medium</option>
+                <option value="high">High (Less strict)</option>
+              </select>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Remove Blank Pages
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Page Numbers Tool UI */}
+        <div id="page-numbers-tool-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Add Page Numbers
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Add page numbers to your PDF</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Position
+                </label>
+                <select
+                  id="page-number-position"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="bottom-center">Bottom Center</option>
+                  <option value="bottom-left">Bottom Left</option>
+                  <option value="bottom-right">Bottom Right</option>
+                  <option value="top-center">Top Center</option>
+                  <option value="top-left">Top Left</option>
+                  <option value="top-right">Top Right</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Start Number
+                </label>
+                <input
+                  type="number"
+                  id="page-number-start"
+                  min="1"
+                  defaultValue="1"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Add Page Numbers
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Page Dimensions Tool UI */}
+        <div id="page-dimensions-tool-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Fix Page Size
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Standardize page dimensions in your PDF
+              </p>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Target Size
+              </label>
+              <select
+                id="page-size"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              >
+                <option value="A4">A4</option>
+                <option value="Letter">Letter</option>
+                <option value="Legal">Legal</option>
+                <option value="A3">A3</option>
+                <option value="A5">A5</option>
+              </select>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Fix Page Size
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* N-Up Tool UI */}
+        <div id="n-up-tool-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">N-Up Layout</h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Combine multiple pages onto one sheet
+              </p>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Pages Per Sheet
+              </label>
+              <select
+                id="n-up-layout"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              >
+                <option value="2">2 Pages</option>
+                <option value="4">4 Pages</option>
+                <option value="6">6 Pages</option>
+                <option value="9">9 Pages</option>
+                <option value="16">16 Pages</option>
+              </select>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Apply N-Up Layout
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Generic Image to PDF Converters */}
+        <div id="jpg-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">JPG to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert JPG images to PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="png-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">PNG to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert PNG images to PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="bmp-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">BMP to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert BMP images to PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="webp-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">WebP to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert WebP images to PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="heic-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">HEIC to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert HEIC images to PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="svg-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">SVG to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert SVG images to PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="tiff-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">TIFF to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert TIFF images to PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Document to PDF Converters */}
+        <div id="email-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Email to PDF
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert email files to PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="txt-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Text to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert text files to PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="csv-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">CSV to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert CSV files to PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="json-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">JSON to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert JSON files to PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="markdown-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Markdown to PDF
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert Markdown files to PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="excel-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Excel to PDF
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert Excel files to PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="powerpoint-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                PowerPoint to PDF
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Convert PowerPoint presentations to PDF
+              </p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="epub-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">EPUB to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert EPUB ebooks to PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="mobi-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">MOBI to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert MOBI ebooks to PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="cbz-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">CBZ to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert CBZ comic archives to PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="fb2-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">FB2 to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert FB2 ebooks to PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="rtf-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">RTF to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert RTF documents to PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* OpenDocument Formats */}
+        <div id="odg-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">ODG to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Convert OpenDocument Graphics to PDF
+              </p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="odp-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">ODP to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Convert OpenDocument Presentations to PDF
+              </p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="ods-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">ODS to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Convert OpenDocument Spreadsheets to PDF
+              </p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="odt-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">ODT to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert OpenDocument Text to PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Other Format Converters */}
+        <div id="psd-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">PSD to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert Photoshop files to PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="vsd-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">VSD to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert Visio files to PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="wpd-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">WPD to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Convert WordPerfect documents to PDF
+              </p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="wps-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">WPS to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert WPS documents to PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="pub-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Publisher to PDF
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Convert Microsoft Publisher files to PDF
+              </p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="xml-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">XML to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert XML files to PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="xps-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">XPS to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert XPS files to PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* PDF to Other Formats */}
+        <div id="pdf-to-jpg-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">PDF to JPG</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert PDF pages to JPG images</p>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Quality
+              </label>
+              <select
+                id="jpg-quality"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              >
+                <option value="low">Low (Smaller file)</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="maximum">Maximum (Larger file)</option>
+              </select>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to JPG
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="pdf-to-png-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">PDF to PNG</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert PDF pages to PNG images</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PNG
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="pdf-to-bmp-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">PDF to BMP</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert PDF pages to BMP images</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to BMP
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="pdf-to-webp-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">PDF to WebP</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert PDF pages to WebP images</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to WebP
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="pdf-to-svg-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">PDF to SVG</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert PDF pages to SVG images</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to SVG
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="pdf-to-tiff-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">PDF to TIFF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert PDF pages to TIFF images</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to TIFF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="pdf-to-text-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">PDF to Text</h2>
+              <p className="text-gray-600 dark:text-gray-400">Extract text from PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Extract Text
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="pdf-to-excel-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                PDF to Excel
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert PDF to Excel spreadsheet</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to Excel
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="pdf-to-csv-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">PDF to CSV</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert PDF tables to CSV</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to CSV
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="pdf-to-json-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">PDF to JSON</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert PDF data to JSON</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to JSON
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="pdf-to-markdown-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                PDF to Markdown
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert PDF to Markdown format</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to Markdown
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="pdf-to-zip-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">PDF to ZIP</h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Extract PDF contents to ZIP archive
+              </p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Create ZIP
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* PDF Enhancement Tools */}
+        <div id="digital-sign-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Digital Signature
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Add digital signature to PDF</p>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Certificate File (.p12/.pfx)
+              </label>
+              <input
+                type="file"
+                accept=".p12,.pfx"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Sign PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="validate-signature-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Validate Signature
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Verify digital signatures in PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Validate Signatures
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="add-stamps-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Add Stamps</h2>
+              <p className="text-gray-600 dark:text-gray-400">Add stamps to PDF pages</p>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Stamp Type
+              </label>
+              <select
+                id="stamp-type"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              >
+                <option value="approved">Approved</option>
+                <option value="confidential">Confidential</option>
+                <option value="draft">Draft</option>
+                <option value="final">Final</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Add Stamp
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="add-watermark-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Add Watermark
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Add watermark to PDF pages</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Watermark Text
+                </label>
+                <input
+                  type="text"
+                  id="watermark-text"
+                  placeholder="CONFIDENTIAL"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Opacity
+                </label>
+                <input
+                  type="range"
+                  id="watermark-opacity"
+                  min="0"
+                  max="100"
+                  defaultValue="30"
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Add Watermark
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="add-attachments-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Add Attachments
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Attach files to PDF document</p>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Files to Attach
+              </label>
+              <input
+                type="file"
+                multiple
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Add Attachments
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="extract-attachments-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Extract Attachments
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Extract attached files from PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Extract Attachments
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="edit-attachments-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Edit Attachments
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Manage PDF attachments</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Manage Attachments
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="add-blank-page-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Add Blank Page
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Insert blank pages into PDF</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Position
+                </label>
+                <select
+                  id="blank-page-position"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="beginning">Beginning</option>
+                  <option value="end">End</option>
+                  <option value="after">After Page</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Number of Pages
+                </label>
+                <input
+                  type="number"
+                  id="blank-page-count"
+                  min="1"
+                  defaultValue="1"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Add Blank Pages
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="header-footer-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Add Headers/Footers
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Add headers and footers to PDF pages
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Header Text
+                </label>
+                <input
+                  type="text"
+                  id="header-text"
+                  placeholder="Document Title"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Footer Text
+                </label>
+                <input
+                  type="text"
+                  id="footer-text"
+                  placeholder="Page {page}"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Add Headers/Footers
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Color Manipulation Tools */}
+        <div id="background-color-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Background Color
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Change PDF page background color</p>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Background Color
+              </label>
+              <input
+                type="color"
+                id="background-color"
+                defaultValue="#ffffff"
+                className="w-full h-12 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700"
+              />
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Apply Background Color
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="text-color-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Text Color</h2>
+              <p className="text-gray-600 dark:text-gray-400">Change PDF text color</p>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Text Color
+              </label>
+              <input
+                type="color"
+                id="text-color"
+                defaultValue="#000000"
+                className="w-full h-12 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700"
+              />
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Apply Text Color
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="invert-colors-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Invert Colors
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Invert all colors in PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Invert Colors
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="adjust-colors-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Adjust Colors
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Fine-tune brightness, contrast, and saturation
+              </p>
+            </div>
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Brightness
+                </label>
+                <input
+                  type="range"
+                  id="brightness"
+                  min="-100"
+                  max="100"
+                  defaultValue="0"
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Contrast
+                </label>
+                <input
+                  type="range"
+                  id="contrast"
+                  min="-100"
+                  max="100"
+                  defaultValue="0"
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Saturation
+                </label>
+                <input
+                  type="range"
+                  id="saturation"
+                  min="-100"
+                  max="100"
+                  defaultValue="0"
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Apply Adjustments
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="grayscale-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Convert to Grayscale
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert PDF to black and white</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to Grayscale
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="posterize-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Posterize</h2>
+              <p className="text-gray-600 dark:text-gray-400">Apply posterize effect to PDF</p>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Levels
+              </label>
+              <input
+                type="number"
+                id="posterize-levels"
+                min="2"
+                max="256"
+                defaultValue="8"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Apply Posterize
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="rotate-custom-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Custom Rotation
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Rotate PDF by custom angle</p>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Rotation Angle (degrees)
+              </label>
+              <input
+                type="number"
+                id="custom-angle"
+                min="-360"
+                max="360"
+                defaultValue="0"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Rotate
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="rasterize-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Rasterize PDF
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Convert vector PDF to raster images
+              </p>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                DPI (Resolution)
+              </label>
+              <select
+                id="rasterize-dpi"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              >
+                <option value="72">72 DPI (Screen)</option>
+                <option value="150">150 DPI (Standard)</option>
+                <option value="300">300 DPI (Print)</option>
+                <option value="600">600 DPI (High Quality)</option>
+              </select>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Rasterize
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="flatten-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Flatten PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Flatten form fields and annotations
+              </p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Flatten PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="linearize-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Linearize PDF
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Optimize PDF for fast web viewing</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Linearize PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="sanitize-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Sanitize PDF
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Remove hidden data and scripts</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Sanitize PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Security Tools */}
+        <div id="encrypt-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Encrypt PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Protect PDF with password encryption
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  User Password (Open)
+                </label>
+                <input
+                  type="password"
+                  id="user-password"
+                  placeholder="Password to open"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Owner Password (Permissions)
+                </label>
+                <input
+                  type="password"
+                  id="owner-password"
+                  placeholder="Password for editing"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Encrypt PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="decrypt-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Decrypt PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Remove password protection from PDF
+              </p>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Password
+              </label>
+              <input
+                type="password"
+                id="decrypt-password"
+                placeholder="Enter PDF password"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Decrypt PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="change-permissions-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Change Permissions
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Modify PDF security permissions</p>
+            </div>
+            <div className="space-y-3 mb-6">
+              <label className="flex items-center space-x-3">
+                <input type="checkbox" className="w-5 h-5 text-primary focus:ring-primary" />
+                <span className="text-gray-700 dark:text-gray-300">Allow Printing</span>
+              </label>
+              <label className="flex items-center space-x-3">
+                <input type="checkbox" className="w-5 h-5 text-primary focus:ring-primary" />
+                <span className="text-gray-700 dark:text-gray-300">Allow Copy</span>
+              </label>
+              <label className="flex items-center space-x-3">
+                <input type="checkbox" className="w-5 h-5 text-primary focus:ring-primary" />
+                <span className="text-gray-700 dark:text-gray-300">Allow Modifications</span>
+              </label>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Update Permissions
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="remove-metadata-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Remove Metadata
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Remove metadata and hidden information
+              </p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Remove Metadata
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="edit-metadata-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Edit Metadata
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Edit PDF document properties</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Title
+                </label>
+                <input
+                  type="text"
+                  id="meta-title"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Author
+                </label>
+                <input
+                  type="text"
+                  id="meta-author"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Subject
+                </label>
+                <input
+                  type="text"
+                  id="meta-subject"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Keywords
+                </label>
+                <input
+                  type="text"
+                  id="meta-keywords"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Update Metadata
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="view-metadata-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                View Metadata
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">View PDF document properties</p>
+            </div>
+            <div id="metadata-display" className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 mb-6">
+              <p className="text-gray-500">Upload a PDF to view metadata</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                View Metadata
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="remove-restrictions-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Remove Restrictions
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Remove editing and printing restrictions
+              </p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Remove Restrictions
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="remove-annotations-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Remove Annotations
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Remove all comments and annotations
+              </p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Remove Annotations
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Analysis & Extraction Tools */}
+        <div id="extract-images-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Extract Images
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Extract all images from PDF</p>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Output Format
+              </label>
+              <select
+                id="image-format"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              >
+                <option value="original">Original Format</option>
+                <option value="png">PNG</option>
+                <option value="jpg">JPG</option>
+              </select>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Extract Images
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="extract-tables-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Extract Tables
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Extract tables from PDF</p>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Output Format
+              </label>
+              <select
+                id="table-format"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              >
+                <option value="csv">CSV</option>
+                <option value="excel">Excel</option>
+                <option value="json">JSON</option>
+              </select>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Extract Tables
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="ocr-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">OCR PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Extract text from scanned documents
+              </p>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Language
+              </label>
+              <select
+                id="ocr-language"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              >
+                <option value="eng">English</option>
+                <option value="spa">Spanish</option>
+                <option value="fra">French</option>
+                <option value="deu">German</option>
+                <option value="chi_sim">Chinese (Simplified)</option>
+              </select>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Perform OCR
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="prepare-for-ai-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Prepare for AI
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Optimize PDF for AI processing</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Prepare for AI
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Quality & Repair Tools */}
+        <div id="deskew-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Deskew PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Automatically straighten skewed pages
+              </p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Deskew PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="remove-blank-pages-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Remove Blank Pages
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Automatically remove blank pages</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Remove Blank Pages
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="repair-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Repair PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Fix corrupted PDF files</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Repair PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="fix-page-size-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Fix Page Size
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Standardize page dimensions</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Fix Page Size
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="scanner-effect-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Scanner Effect
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Apply scanner-like appearance to PDF
+              </p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Apply Scanner Effect
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="scan-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Scan to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert scanned images to PDF</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Create PDF from Scans
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Formatting & Layout Tools */}
+        <div id="booklet-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Create Booklet
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Arrange pages for booklet printing</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Create Booklet
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="bates-numbering-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Bates Numbering
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Add Bates numbers for legal documents
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Prefix
+                </label>
+                <input
+                  type="text"
+                  id="bates-prefix"
+                  placeholder="DOC-"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Start Number
+                </label>
+                <input
+                  type="number"
+                  id="bates-start"
+                  min="1"
+                  defaultValue="1"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Add Bates Numbers
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="table-of-contents-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Table of Contents
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Generate table of contents</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Generate TOC
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="bookmark-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Manage Bookmarks
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Add and organize PDF bookmarks</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Manage Bookmarks
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="layers-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Manage Layers
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Manage PDF layers (Optional Content)
+              </p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Manage Layers
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="font-to-outline-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Convert Fonts to Outlines
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert text to vector outlines</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert Fonts
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="pdf-to-pdfa-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Convert to PDF/A
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Convert to archival PDF/A format</p>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                PDF/A Version
+              </label>
+              <select
+                id="pdfa-version"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              >
+                <option value="1b">PDF/A-1b</option>
+                <option value="2b">PDF/A-2b</option>
+                <option value="3b">PDF/A-3b</option>
+              </select>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Convert to PDF/A
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="compare-pdfs-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Compare PDFs
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Compare two PDF documents</p>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Second PDF File
+              </label>
+              <input
+                type="file"
+                accept=".pdf"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Compare PDFs
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Merge Variations */}
+        <div id="alternate-merge-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Alternate Merge
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Merge PDFs by alternating pages</p>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Second PDF File
+              </label>
+              <input
+                type="file"
+                accept=".pdf"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Alternate Merge
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="combine-single-page-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Combine Single Page
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Combine multiple pages side by side
+              </p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Combine Pages
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Advanced Tools */}
+        <div id="pdf-workflow-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                PDF Workflow
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Create automated PDF workflows</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Create Workflow
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="form-creator-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Form Creator
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">Create fillable PDF forms</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Create Form
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="form-filler-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Form Filler</h2>
+              <p className="text-gray-600 dark:text-gray-400">Fill PDF forms</p>
+            </div>
+            <div className="flex justify-center">
+              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+                Fill Form
+              </button>
             </div>
           </div>
         </div>

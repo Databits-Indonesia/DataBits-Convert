@@ -1,6 +1,6 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile } from '../utils/helpers.js';
-import { state } from '../state.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile } from '../utils/helpers';
+import { state } from '../state';
 
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
 
@@ -16,9 +16,7 @@ async function convertImageToPngBytes(file: any) {
         canvas.height = img.height;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0);
-        const pngBlob = await new Promise((res) =>
-          canvas.toBlob(res, 'image/png')
-        );
+        const pngBlob = await new Promise((res) => canvas.toBlob(res, 'image/png'));
         // @ts-expect-error TS(2339) FIXME: Property 'arrayBuffer' does not exist on type 'unk... Remove this comment to see the full error message
         const pngBytes = await pngBlob.arrayBuffer();
         resolve(pngBytes);
@@ -58,10 +56,7 @@ export async function bmpToPdf() {
     );
   } catch (e) {
     console.error(e);
-    showAlert(
-      'Error',
-      'Failed to convert BMP to PDF. One of the files may be invalid.'
-    );
+    showAlert('Error', 'Failed to convert BMP to PDF. One of the files may be invalid.');
   } finally {
     hideLoader();
   }

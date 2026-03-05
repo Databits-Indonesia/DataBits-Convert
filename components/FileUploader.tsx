@@ -4,7 +4,7 @@ import { FileState } from '../types';
 interface FileUploaderProps {
   onFileSelect: (file: FileState, allFiles?: File[]) => void;
   selectedFile: FileState | null;
-  acceptType?: 'image' | 'pdf';
+  acceptType?: 'image' | 'pdf' | 'docx';
   allowMultiple?: boolean;
 }
 
@@ -24,6 +24,15 @@ const FileUploader: React.FC<FileUploaderProps> = ({
       const isValidPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
       if (!isValidPdf) {
         setError('Invalid file type. Please upload a PDF file.');
+        return false;
+      }
+    } else if (acceptType === 'docx') {
+      // Check for DOCX file types
+      const isValidDocx =
+        file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+        /\.docx?$/i.test(file.name);
+      if (!isValidDocx) {
+        setError('Invalid file type. Please upload a Word file (.docx or .doc).');
         return false;
       }
     } else {
@@ -217,7 +226,9 @@ const FileUploader: React.FC<FileUploaderProps> = ({
             accept={
               acceptType === 'pdf'
                 ? 'application/pdf,.pdf'
-                : 'image/*,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg'
+                : acceptType === 'docx'
+                  ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,.doc'
+                  : 'image/*,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg'
             }
             multiple={allowMultiple}
             onChange={handleFileInput}
@@ -285,7 +296,9 @@ const FileUploader: React.FC<FileUploaderProps> = ({
             accept={
               acceptType === 'pdf'
                 ? 'application/pdf,.pdf'
-                : 'image/*,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg'
+                : acceptType === 'docx'
+                  ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,.doc'
+                  : 'image/*,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg'
             }
             multiple={allowMultiple}
             onChange={handleFileInput}

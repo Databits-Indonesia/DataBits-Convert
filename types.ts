@@ -15,5 +15,13 @@ export interface Tool {
   name: string;
   icon: string;
   description: string;
+  category: string;
   popular?: boolean;
+}
+
+export interface ToolCategory {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
 }
