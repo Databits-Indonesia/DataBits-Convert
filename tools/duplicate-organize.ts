@@ -10,20 +10,17 @@ import * as pdfjsLib from 'pdfjs-dist';
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
 const duplicateOrganizeState = {
-  sortableInstances: {},
+  sortableInstances: {} as any,
 };
 
 function initializePageGridSortable() {
-  const grid = document.getElementById('page-grid');
+  const grid = document.getElementById('duplicate-page-grid');
   if (!grid) return;
 
-  // @ts-expect-error TS(2339) FIXME: Property 'pageGrid' does not exist on type '{}'.
   if (duplicateOrganizeState.sortableInstances.pageGrid) {
-    // @ts-expect-error TS(2339) FIXME: Property 'pageGrid' does not exist on type '{}'.
     duplicateOrganizeState.sortableInstances.pageGrid.destroy();
   }
 
-  // @ts-expect-error TS(2339) FIXME: Property 'pageGrid' does not exist on type '{}'.
   duplicateOrganizeState.sortableInstances.pageGrid = Sortable.create(grid, {
     animation: 150,
     ghostClass: 'sortable-ghost',
@@ -47,11 +44,11 @@ function initializePageGridSortable() {
 function attachEventListeners(element: any) {
   // Re-number all visible page labels
   const renumberPages = () => {
-    const grid = document.getElementById('page-grid');
+    const grid = document.getElementById('duplicate-page-grid');
+    if (!grid) return;
     const pages = grid.querySelectorAll('.page-number');
     pages.forEach((label, index) => {
-      // @ts-expect-error TS(2322) FIXME: Type 'number' is not assignable to type 'string'.
-      label.textContent = index + 1;
+      label.textContent = (index + 1).toString();
     });
   };
 
@@ -83,8 +80,11 @@ function attachEventListeners(element: any) {
 }
 
 export async function renderDuplicateOrganizeThumbnails() {
-  const grid = document.getElementById('page-grid');
-  if (!grid) return;
+  const grid = document.getElementById('duplicate-page-grid');
+  if (!grid) {
+    console.error('[Duplicate] duplicate-page-grid not found');
+    return;
+  }
 
   // Cleanup any previous lazy loading observers
   cleanupLazyRendering();
@@ -100,8 +100,7 @@ export async function renderDuplicateOrganizeThumbnails() {
     const wrapper = document.createElement('div');
     wrapper.className =
       'page-thumbnail relative cursor-move flex flex-col items-center gap-2';
-    // @ts-expect-error TS(2322) FIXME: Type 'number' is not assignable to type 'string'.
-    wrapper.dataset.originalPageIndex = pageNumber - 1;
+    wrapper.dataset.originalPageIndex = (pageNumber - 1).toString();
 
     const imgContainer = document.createElement('div');
     imgContainer.className =
@@ -177,7 +176,11 @@ export async function renderDuplicateOrganizeThumbnails() {
 export async function processAndSave() {
   showLoader('Building new PDF...');
   try {
-    const grid = document.getElementById('page-grid');
+    const grid = document.getElementById('duplicate-page-grid');
+    if (!grid) {
+      showAlert('Error', 'Page grid not found');
+      return;
+    }
     const finalPageElements = grid.querySelectorAll('.page-thumbnail');
 
     const finalIndices = Array.from(finalPageElements)
@@ -216,4 +219,53 @@ export async function processAndSave() {
   } finally {
     hideLoader();
   }
+}
+
+export async function setupDuplicateTool() {
+  console.log('[Duplicate] setupDuplicateTool called');
+  document.getElementById('duplicate-tool-container')?.classList.remove('hidden');
+
+  const saveBtn = document.getElementById('duplicate-save-btn');
+  if (saveBtn) {
+    console.log('[Duplicate] Adding click listener to save button');
+    saveBtn.onclick = function() {
+      console.log('[Duplicate] Save button clicked!');
+      processAndSave();
+    };
+  } else {
+    console.warn('[Duplicate] Save button not found!');
+  }
+
+  // Load PDF from files if available
+  if (state.files.length > 0 && !state.pdfDoc) {
+    console.log('[Duplicate] Loading PDF from files');
+    try {
+      showLoader('Loading PDF...');
+      const file = state.files[0];
+      const arrayBuffer = await file.arrayBuffer();
+      state.pdfDoc = await PDFLibDocument.load(arrayBuffer, {
+        ignoreEncryption: true,
+        throwOnInvalidObject: false,
+      });
+      hideLoader();
+      console.log('[Duplicate] PDF loaded, page count:', state.pdfDoc.getPageCount());
+    } catch (error) {
+      hideLoader();
+      console.error('[Duplicate] Error loading PDF:', error);
+      showAlert('Error', 'Failed to load PDF file.');
+      return;
+    }
+  }
+
+  // Check if PDF is already loaded in state
+  if (state.pdfDoc && state.files.length > 0) {
+    console.log('[Duplicate] Rendering thumbnails');
+    await renderDuplicateOrganizeThumbnails();
+  } else {
+    console.warn('[Duplicate] No PDF loaded in state');
+  }
+
+  // Expose on window for debugging
+  (window as any).testDuplicateSave = processAndSave;
+  console.log('[Duplicate] Test function available as: window.testDuplicateSave()');
 }

@@ -1,4 +1,3 @@
-import { AddAttachmentState } from '@/types';
 import { showLoader, hideLoader, showAlert } from '../ui.js';
 import { downloadFile, formatBytes } from '../utils/helpers.js';
 import { createIcons, icons } from 'lucide';
@@ -6,7 +5,13 @@ import { PDFDocument as PDFLibDocument } from 'pdf-lib';
 import { isCpdfAvailable } from '../utils/cpdf-helper';
 import { showWasmRequiredDialog, WasmProvider } from '../utils/wasm-provider';
 
-const worker = new Worker(import.meta.env.BASE_URL + 'workers/add-attachments.worker.js');
+interface AddAttachmentState {
+  file: File | null;
+  pdfDoc: PDFLibDocument | null;
+  attachments: File[];
+}
+
+// const worker = new Worker(import.meta.env.BASE_URL + 'workers/add-attachments.worker.js');
 
 const pageState: AddAttachmentState = {
   file: null,
@@ -49,6 +54,7 @@ function resetState() {
   if (documentRadio) documentRadio.checked = true;
 }
 
+/*
 worker.onmessage = function (e) {
   const data = e.data;
 
@@ -74,12 +80,15 @@ worker.onmessage = function (e) {
     showAlert('Error', data.message || 'Unknown error occurred.');
   }
 };
+*/
 
+/*
 worker.onerror = function (error) {
   hideLoader();
   console.error('Worker error:', error);
   showAlert('Error', 'Worker error occurred. Check console for details.');
 };
+*/
 
 async function updateUI() {
   const fileDisplayArea = document.getElementById('file-display-area');
@@ -243,7 +252,11 @@ async function addAttachments() {
     };
 
     const transferables = [pdfBuffer, ...attachmentBuffers];
-    worker.postMessage(message, transferables);
+    // worker.postMessage(message, transferables);
+    
+    // TODO: Implement attachment without worker
+    hideLoader();
+    showAlert('Info', 'Add attachments feature needs to be implemented for Next.js', 'info');
   } catch (error: any) {
     console.error('Error attaching files:', error);
     hideLoader();
@@ -279,7 +292,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (backBtn) {
     backBtn.addEventListener('click', function () {
-      window.location.href = import.meta.env.BASE_URL;
+      window.location.href = '/';
     });
   }
 

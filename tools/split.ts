@@ -147,32 +147,32 @@ export async function setupSplitTool() {
       if (container) container.innerHTML = '';
     }
 
-    rangePanel.classList.add('hidden');
-    visualPanel.classList.add('hidden');
-    evenOddPanel.classList.add('hidden');
-    allPagesPanel.classList.add('hidden');
-    bookmarksPanel.classList.add('hidden');
-    nTimesPanel.classList.add('hidden');
-    zipOptionWrapper.classList.add('hidden');
+    rangePanel?.classList.add('hidden');
+    visualPanel?.classList.add('hidden');
+    evenOddPanel?.classList.add('hidden');
+    allPagesPanel?.classList.add('hidden');
+    bookmarksPanel?.classList.add('hidden');
+    nTimesPanel?.classList.add('hidden');
+    zipOptionWrapper?.classList.add('hidden');
     if (nTimesWarning) nTimesWarning.classList.add('hidden');
 
     if (mode === 'range') {
-      rangePanel.classList.remove('hidden');
-      zipOptionWrapper.classList.remove('hidden');
+      rangePanel?.classList.remove('hidden');
+      zipOptionWrapper?.classList.remove('hidden');
     } else if (mode === 'visual') {
-      visualPanel.classList.remove('hidden');
-      zipOptionWrapper.classList.remove('hidden');
+      visualPanel?.classList.remove('hidden');
+      zipOptionWrapper?.classList.remove('hidden');
       renderVisualSelector();
     } else if (mode === 'even-odd') {
-      evenOddPanel.classList.remove('hidden');
+      evenOddPanel?.classList.remove('hidden');
     } else if (mode === 'all') {
-      allPagesPanel.classList.remove('hidden');
+      allPagesPanel?.classList.remove('hidden');
     } else if (mode === 'bookmarks') {
-      bookmarksPanel.classList.remove('hidden');
-      zipOptionWrapper.classList.remove('hidden');
+      bookmarksPanel?.classList.remove('hidden');
+      zipOptionWrapper?.classList.remove('hidden');
     } else if (mode === 'n-times') {
-      nTimesPanel.classList.remove('hidden');
-      zipOptionWrapper.classList.remove('hidden');
+      nTimesPanel?.classList.remove('hidden');
+      zipOptionWrapper?.classList.remove('hidden');
 
       const updateWarning = () => {
         if (!state.pdfDoc) return;

@@ -1,13 +1,13 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile, formatBytes, getPDFDocument } from '../utils/helpers.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile, formatBytes, getPDFDocument } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
 import {
   renderPagesProgressively,
   cleanupLazyRendering,
 } from '../utils/render-utils';
-import { rotatePdfPages } from '../utils/pdf-operations';
 import * as pdfjsLib from 'pdfjs-dist';
+import { state } from '../state';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -15,14 +15,12 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 ).toString();
 
 interface RotateState {
-  file: File | null;
   pdfDoc: PDFLibDocument | null;
   pdfJsDoc: pdfjsLib.PDFDocumentProxy | null;
   rotations: number[];
 }
 
-const pageState: RotateState = {
-  file: null,
+const rotateState: RotateState = {
   pdfDoc: null,
   pdfJsDoc: null,
   rotations: [],
@@ -30,10 +28,9 @@ const pageState: RotateState = {
 
 function resetState() {
   cleanupLazyRendering();
-  pageState.file = null;
-  pageState.pdfDoc = null;
-  pageState.pdfJsDoc = null;
-  pageState.rotations = [];
+  rotateState.pdfDoc = null;
+  rotateState.pdfJsDoc = null;
+  rotateState.rotations = [];
 
   const fileDisplayArea = document.getElementById('file-display-area');
   if (fileDisplayArea) fileDisplayArea.innerHTML = '';
@@ -43,20 +40,17 @@ function resetState() {
 
   const pageThumbnails = document.getElementById('page-thumbnails');
   if (pageThumbnails) pageThumbnails.innerHTML = '';
-
-  const fileInput = document.getElementById('file-input') as HTMLInputElement;
-  if (fileInput) fileInput.value = '';
 }
 
 function updateAllRotationDisplays() {
-  for (let i = 0; i < pageState.rotations.length; i++) {
+  for (let i = 0; i < rotateState.rotations.length; i++) {
     const container = document.querySelector(`[data-page-index="${i}"]`);
     if (container) {
       const wrapper = container.querySelector(
         '.thumbnail-wrapper'
       ) as HTMLElement;
       if (wrapper)
-        wrapper.style.transform = `rotate(${pageState.rotations[i]}deg)`;
+        wrapper.style.transform = `rotate(${rotateState.rotations[i]}deg)`;
     }
   }
 }
@@ -78,7 +72,7 @@ function createPageWrapper(
     'thumbnail-wrapper flex items-center justify-center p-2 h-36';
   canvasWrapper.style.transition = 'transform 0.3s ease';
   // Apply initial rotation if it exists
-  const initialRotation = pageState.rotations[pageIndex] || 0;
+  const initialRotation = rotateState.rotations[pageIndex] || 0;
   canvasWrapper.style.transform = `rotate(${initialRotation}deg)`;
 
   canvas.className = 'max-w-full max-h-full object-contain';
@@ -102,12 +96,12 @@ function createPageWrapper(
   rotateLeftBtn.innerHTML = '<i data-lucide="rotate-ccw" class="w-3 h-3"></i>';
   rotateLeftBtn.onclick = function (e) {
     e.stopPropagation();
-    pageState.rotations[pageIndex] = pageState.rotations[pageIndex] - 90;
+    rotateState.rotations[pageIndex] = rotateState.rotations[pageIndex] - 90;
     const wrapper = container.querySelector(
       '.thumbnail-wrapper'
     ) as HTMLElement;
     if (wrapper)
-      wrapper.style.transform = `rotate(${pageState.rotations[pageIndex]}deg)`;
+      wrapper.style.transform = `rotate(${rotateState.rotations[pageIndex]}deg)`;
   };
 
   const rotateRightBtn = document.createElement('button');
@@ -116,12 +110,12 @@ function createPageWrapper(
   rotateRightBtn.innerHTML = '<i data-lucide="rotate-cw" class="w-3 h-3"></i>';
   rotateRightBtn.onclick = function (e) {
     e.stopPropagation();
-    pageState.rotations[pageIndex] = pageState.rotations[pageIndex] + 90;
+    rotateState.rotations[pageIndex] = rotateState.rotations[pageIndex] + 90;
     const wrapper = container.querySelector(
       '.thumbnail-wrapper'
     ) as HTMLElement;
     if (wrapper)
-      wrapper.style.transform = `rotate(${pageState.rotations[pageIndex]}deg)`;
+      wrapper.style.transform = `rotate(${rotateState.rotations[pageIndex]}deg)`;
   };
 
   controls.append(rotateLeftBtn, rotateRightBtn);
@@ -137,12 +131,12 @@ function createPageWrapper(
 
 async function renderThumbnails() {
   const pageThumbnails = document.getElementById('page-thumbnails');
-  if (!pageThumbnails || !pageState.pdfJsDoc) return;
+  if (!pageThumbnails || !rotateState.pdfJsDoc) return;
 
   pageThumbnails.innerHTML = '';
 
   await renderPagesProgressively(
-    pageState.pdfJsDoc,
+    rotateState.pdfJsDoc,
     pageThumbnails,
     createPageWrapper,
     {
@@ -167,7 +161,8 @@ async function updateUI() {
 
   fileDisplayArea.innerHTML = '';
 
-  if (pageState.file) {
+  if (state.files.length > 0) {
+    const file = state.files[0]; // Use first file from state
     const fileDiv = document.createElement('div');
     fileDiv.className =
       'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
@@ -177,11 +172,11 @@ async function updateUI() {
 
     const nameSpan = document.createElement('div');
     nameSpan.className = 'truncate font-medium text-gray-200 text-sm mb-1';
-    nameSpan.textContent = pageState.file.name;
+    nameSpan.textContent = file.name;
 
     const metaSpan = document.createElement('div');
     metaSpan.className = 'text-xs text-gray-400';
-    metaSpan.textContent = `${formatBytes(pageState.file.size)} • Loading...`;
+    metaSpan.textContent = `${formatBytes(file.size)} • Loading...`;
 
     infoContainer.append(nameSpan, metaSpan);
 
@@ -189,6 +184,7 @@ async function updateUI() {
     removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
     removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
     removeBtn.onclick = function () {
+      state.files = [];
       resetState();
     };
 
@@ -198,25 +194,29 @@ async function updateUI() {
 
     try {
       showLoader('Loading PDF...');
-      const arrayBuffer = await pageState.file.arrayBuffer();
+      const arrayBuffer = await file.arrayBuffer();
 
-      pageState.pdfDoc = await PDFLibDocument.load(arrayBuffer.slice(0), {
+      rotateState.pdfDoc = await PDFLibDocument.load(arrayBuffer.slice(0), {
         ignoreEncryption: true,
         throwOnInvalidObject: false,
       });
 
-      pageState.pdfJsDoc = await getPDFDocument({ data: arrayBuffer.slice(0) })
+      rotateState.pdfJsDoc = await getPDFDocument({ data: arrayBuffer.slice(0) })
         .promise;
 
-      const pageCount = pageState.pdfDoc.getPageCount();
-      pageState.rotations = new Array(pageCount).fill(0);
+      const pageCount = rotateState.pdfDoc.getPageCount();
+      rotateState.rotations = new Array(pageCount).fill(0);
 
-      metaSpan.textContent = `${formatBytes(pageState.file.size)} • ${pageCount} pages`;
+      metaSpan.textContent = `${formatBytes(file.size)} • ${pageCount} pages`;
 
       await renderThumbnails();
       hideLoader();
 
-      if (toolOptions) toolOptions.classList.remove('hidden');
+      if (toolOptions) {
+        toolOptions.classList.remove('hidden');
+        // Setup button listeners AFTER showing the options
+        setupButtonListeners();
+      }
     } catch (error) {
       console.error('Error loading PDF:', error);
       hideLoader();
@@ -228,8 +228,59 @@ async function updateUI() {
   }
 }
 
+function setupButtonListeners() {
+  console.log('[Rotate] setupButtonListeners called');
+  
+  const processBtn = document.getElementById('rotate-process-btn');
+  const rotateAllLeft = document.getElementById('rotate-all-left');
+  const rotateAllRight = document.getElementById('rotate-all-right');
+
+  console.log('[Rotate] processBtn:', processBtn);
+  console.log('[Rotate] rotateAllLeft:', rotateAllLeft);
+  console.log('[Rotate] rotateAllRight:', rotateAllRight);
+
+  if (rotateAllLeft) {
+    rotateAllLeft.onclick = function () {
+      console.log('[Rotate] Rotate all left clicked');
+      for (let i = 0; i < rotateState.rotations.length; i++) {
+        rotateState.rotations[i] = rotateState.rotations[i] - 90;
+      }
+      updateAllRotationDisplays();
+    };
+  }
+
+  if (rotateAllRight) {
+    rotateAllRight.onclick = function () {
+      console.log('[Rotate] Rotate all right clicked');
+      for (let i = 0; i < rotateState.rotations.length; i++) {
+        rotateState.rotations[i] = rotateState.rotations[i] + 90;
+      }
+      updateAllRotationDisplays();
+    };
+  }
+
+  if (processBtn) {
+    console.log('[Rotate] Adding click listener to process button');
+    processBtn.onclick = function() {
+      console.log('[Rotate] Process button clicked!');
+      applyRotations();
+    };
+  } else {
+    console.warn('[Rotate] Process button not found!');
+  }
+  
+  // Also expose on window for debugging
+  (window as any).testRotateApply = applyRotations;
+  console.log('[Rotate] Test function available as: window.testRotateApply()');
+}
+
 async function applyRotations() {
-  if (!pageState.pdfDoc || !pageState.file) {
+  console.log('[Rotate] applyRotations called');
+  console.log('[Rotate] rotateState.pdfDoc:', rotateState.pdfDoc);
+  console.log('[Rotate] state.files:', state.files);
+  console.log('[Rotate] rotateState.rotations:', rotateState.rotations);
+  
+  if (!rotateState.pdfDoc || state.files.length === 0) {
     showAlert('Error', 'Please upload a PDF first.');
     return;
   }
@@ -237,121 +288,64 @@ async function applyRotations() {
   showLoader('Applying rotations...');
 
   try {
-    const pdfBytes = await pageState.pdfDoc.save();
-    const rotatedPdfBytes = await rotatePdfPages(
-      new Uint8Array(pdfBytes),
-      pageState.rotations
-    );
-    const originalName = pageState.file.name.replace(/\.pdf$/i, '');
+    const pages = rotateState.pdfDoc.getPages();
+    console.log('[Rotate] Pages count:', pages.length);
+    
+    for (let i = 0; i < pages.length; i++) {
+      if (rotateState.rotations[i] !== 0) {
+        const currentRotation = pages[i].getRotation().angle;
+        const newRotation = (currentRotation + rotateState.rotations[i]) % 360;
+        console.log(`[Rotate] Page ${i}: rotating from ${currentRotation} to ${newRotation}`);
+        pages[i].setRotation({ type: 'degrees', angle: newRotation });
+      }
+    }
+    
+    console.log('[Rotate] Saving PDF...');
+    const pdfBytes = await rotateState.pdfDoc.save();
+    console.log('[Rotate] PDF saved, size:', pdfBytes.length);
+    
+    const originalName = state.files[0].name.replace(/\.pdf$/i, '');
+    const filename = `${originalName}_rotated.pdf`;
+    console.log('[Rotate] Downloading as:', filename);
 
     downloadFile(
-      new Blob([rotatedPdfBytes as unknown as BlobPart], {
+      new Blob([pdfBytes], {
         type: 'application/pdf',
       }),
-      `${originalName}_rotated.pdf`
+      filename
     );
+
+    console.log('[Rotate] Download triggered');
+    hideLoader();
 
     showAlert(
       'Success',
       'Rotations applied successfully!',
       'success',
       function () {
+        state.files = [];
         resetState();
       }
     );
   } catch (e) {
-    console.error(e);
-    showAlert('Error', 'Could not apply rotations.');
-  } finally {
+    console.error('[Rotate] Error:', e);
     hideLoader();
+    showAlert('Error', 'Could not apply rotations.');
   }
 }
 
-function handleFileSelect(files: FileList | null) {
-  if (files && files.length > 0) {
-    const file = files[0];
-    if (
-      file.type === 'application/pdf' ||
-      file.name.toLowerCase().endsWith('.pdf')
-    ) {
-      pageState.file = file;
-      updateUI();
-    }
+// Export for use in other modules
+export { applyRotations };
+
+export async function setupRotateTool() {
+  console.log('[Rotate] setupRotateTool called');
+  document.getElementById('rotate-tool-container')?.classList.remove('hidden');
+
+  // Load PDF from state if files are already present
+  console.log('[Rotate] Checking for existing files, count:', state.files.length);
+  if (state.files.length > 0) {
+    console.log('[Rotate] Loading PDF from existing files');
+    await updateUI();
   }
 }
 
-document.addEventListener('DOMContentLoaded', function () {
-  const fileInput = document.getElementById('file-input') as HTMLInputElement;
-  const dropZone = document.getElementById('drop-zone');
-  const processBtn = document.getElementById('process-btn');
-  const backBtn = document.getElementById('back-to-tools');
-  const rotateAllLeft = document.getElementById('rotate-all-left');
-  const rotateAllRight = document.getElementById('rotate-all-right');
-
-  if (backBtn) {
-    backBtn.addEventListener('click', function () {
-      window.location.href = import.meta.env.BASE_URL;
-    });
-  }
-
-  if (rotateAllLeft) {
-    rotateAllLeft.addEventListener('click', function () {
-      for (let i = 0; i < pageState.rotations.length; i++) {
-        pageState.rotations[i] = pageState.rotations[i] - 90;
-      }
-      updateAllRotationDisplays();
-    });
-  }
-
-  if (rotateAllRight) {
-    rotateAllRight.addEventListener('click', function () {
-      for (let i = 0; i < pageState.rotations.length; i++) {
-        pageState.rotations[i] = pageState.rotations[i] + 90;
-      }
-      updateAllRotationDisplays();
-    });
-  }
-
-  if (fileInput && dropZone) {
-    fileInput.addEventListener('change', function (e) {
-      handleFileSelect((e.target as HTMLInputElement).files);
-    });
-
-    dropZone.addEventListener('dragover', function (e) {
-      e.preventDefault();
-      dropZone.classList.add('bg-gray-700');
-    });
-
-    dropZone.addEventListener('dragleave', function (e) {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-    });
-
-    dropZone.addEventListener('drop', function (e) {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-      const files = e.dataTransfer?.files;
-      if (files && files.length > 0) {
-        const pdfFiles = Array.from(files).filter(function (f) {
-          return (
-            f.type === 'application/pdf' ||
-            f.name.toLowerCase().endsWith('.pdf')
-          );
-        });
-        if (pdfFiles.length > 0) {
-          const dataTransfer = new DataTransfer();
-          dataTransfer.items.add(pdfFiles[0]);
-          handleFileSelect(dataTransfer.files);
-        }
-      }
-    });
-
-    fileInput.addEventListener('click', function () {
-      fileInput.value = '';
-    });
-  }
-
-  if (processBtn) {
-    processBtn.addEventListener('click', applyRotations);
-  }
-});

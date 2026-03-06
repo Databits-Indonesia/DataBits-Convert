@@ -1,40 +1,28 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile, formatBytes } from '../utils/helpers.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile, formatBytes } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
 import JSZip from 'jszip';
-
-interface ReverseState {
-  files: File[];
-}
-
-const reverseState: ReverseState = {
-  files: [],
-};
+import { state } from '../state';
 
 function resetState() {
-  reverseState.files = [];
-
-  const fileDisplayArea = document.getElementById('file-display-area');
+  const fileDisplayArea = document.getElementById('reverse-file-display-area');
   if (fileDisplayArea) fileDisplayArea.innerHTML = '';
 
-  const toolOptions = document.getElementById('tool-options');
+  const toolOptions = document.getElementById('reverse-tool-options');
   if (toolOptions) toolOptions.classList.add('hidden');
-
-  const fileInput = document.getElementById('file-input') as HTMLInputElement;
-  if (fileInput) fileInput.value = '';
 }
 
 function updateUI() {
-  const fileDisplayArea = document.getElementById('file-display-area');
-  const toolOptions = document.getElementById('tool-options');
+  const fileDisplayArea = document.getElementById('reverse-file-display-area');
+  const toolOptions = document.getElementById('reverse-tool-options');
 
   if (!fileDisplayArea) return;
 
   fileDisplayArea.innerHTML = '';
 
-  if (reverseState.files.length > 0) {
-    reverseState.files.forEach(function (file, index) {
+  if (state.files.length > 0) {
+    state.files.forEach(function (file, index) {
       const fileDiv = document.createElement('div');
       fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
 
@@ -55,7 +43,7 @@ function updateUI() {
       removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
       removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
       removeBtn.onclick = function () {
-        reverseState.files = reverseState.files.filter(function (_, i) {
+        state.files = state.files.filter(function (_, i) {
           return i !== index;
         });
         updateUI();
@@ -67,14 +55,38 @@ function updateUI() {
 
     createIcons({ icons });
 
-    if (toolOptions) toolOptions.classList.remove('hidden');
+    if (toolOptions) {
+      toolOptions.classList.remove('hidden');
+      setupButtonListeners();
+    }
   } else {
     if (toolOptions) toolOptions.classList.add('hidden');
   }
 }
 
+function setupButtonListeners() {
+  console.log('[Reverse] setupButtonListeners called');
+  
+  const processBtn = document.getElementById('reverse-process-btn');
+  console.log('[Reverse] processBtn:', processBtn);
+
+  if (processBtn) {
+    console.log('[Reverse] Adding click listener to process button');
+    processBtn.onclick = function() {
+      console.log('[Reverse] Process button clicked!');
+      reversePages();
+    };
+  } else {
+    console.warn('[Reverse] Process button not found!');
+  }
+  
+  // Also expose on window for debugging
+  (window as any).testReversePages = reversePages;
+  console.log('[Reverse] Test function available as: window.testReversePages()');
+}
+
 async function reversePages() {
-  if (reverseState.files.length === 0) {
+  if (state.files.length === 0) {
     showAlert('No Files', 'Please select one or more PDF files.');
     return;
   }
@@ -84,9 +96,9 @@ async function reversePages() {
   try {
     const zip = new JSZip();
 
-    for (let j = 0; j < reverseState.files.length; j++) {
-      const file = reverseState.files[j];
-      showLoader(`Processing ${file.name} (${j + 1}/${reverseState.files.length})...`);
+    for (let j = 0; j < state.files.length; j++) {
+      const file = state.files[j];
+      showLoader(`Processing ${file.name} (${j + 1}/${state.files.length})...`);
 
       const arrayBuffer = await file.arrayBuffer();
       const pdfDoc = await PDFLibDocument.load(arrayBuffer, {
@@ -111,9 +123,9 @@ async function reversePages() {
       zip.file(fileName, newPdfBytes);
     }
 
-    if (reverseState.files.length === 1) {
+    if (state.files.length === 1) {
       // Single file: download directly
-      const file = reverseState.files[0];
+      const file = state.files[0];
       const arrayBuffer = await file.arrayBuffer();
       const pdfDoc = await PDFLibDocument.load(arrayBuffer, {
         ignoreEncryption: true,
@@ -145,6 +157,7 @@ async function reversePages() {
     }
 
     showAlert('Success', 'Pages have been reversed successfully!', 'success', function () {
+      state.files = [];
       resetState();
     });
   } catch (e) {
@@ -158,57 +171,16 @@ async function reversePages() {
   }
 }
 
-function handleFileSelect(files: FileList | null) {
-  if (files && files.length > 0) {
-    const pdfFiles = Array.from(files).filter(function (f) {
-      return f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf');
-    });
-    if (pdfFiles.length > 0) {
-      reverseState.files = [...reverseState.files, ...pdfFiles];
-      updateUI();
-    }
+export async function setupReverseTool() {
+  console.log('[Reverse] setupReverseTool called');
+  document.getElementById('reverse-tool-container')?.classList.remove('hidden');
+
+  // Load files from state if already present
+  if (state.files.length > 0) {
+    console.log('[Reverse] Loading files from state');
+    updateUI();
   }
 }
 
-document.addEventListener('DOMContentLoaded', function () {
-  const fileInput = document.getElementById('file-input') as HTMLInputElement;
-  const dropZone = document.getElementById('drop-zone');
-  const processBtn = document.getElementById('process-btn');
-  const backBtn = document.getElementById('back-to-tools');
+export { reversePages };
 
-  if (backBtn) {
-    backBtn.addEventListener('click', function () {
-      window.location.href = import.meta.env?.BASE_URL || '/';
-    });
-  }
-
-  if (fileInput && dropZone) {
-    fileInput.addEventListener('change', function (e) {
-      handleFileSelect((e.target as HTMLInputElement).files);
-    });
-
-    dropZone.addEventListener('dragover', function (e) {
-      e.preventDefault();
-      dropZone.classList.add('bg-gray-700');
-    });
-
-    dropZone.addEventListener('dragleave', function (e) {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-    });
-
-    dropZone.addEventListener('drop', function (e) {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-      handleFileSelect(e.dataTransfer?.files || null);
-    });
-
-    fileInput.addEventListener('click', function () {
-      fileInput.value = '';
-    });
-  }
-
-  if (processBtn) {
-    processBtn.addEventListener('click', reversePages);
-  }
-});

@@ -30,6 +30,10 @@ import {
   setupWordToPdfTool,
   powerpointToPdf,
   setupPowerpointToPdfTool,
+  setupRotateTool as setupRotateToolImpl,
+  setupReverseTool as setupReverseToolImpl,
+  setupDuplicateTool as setupDuplicateToolImpl,
+  setupDivideTool as setupDivideToolImpl,
 } from './tools';
 import { state, setFiles } from './state';
 import {
@@ -529,10 +533,10 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
   };
 
   // PDF Manipulation Setup Functions
-  const setupRotateTool = () => setupGenericTool('rotate-tool-container');
-  const setupReverseTool = () => setupGenericTool('reverse-tool-container');
-  const setupDuplicateTool = () => setupGenericTool('duplicate-tool-container');
-  const setupDivideTool = () => setupGenericTool('divide-tool-container');
+  const setupRotateTool = () => setupRotateToolImpl();
+  const setupReverseTool = () => setupReverseToolImpl();
+  const setupDuplicateTool = () => setupDuplicateToolImpl();
+  const setupDivideTool = () => setupDivideToolImpl();
   const setupRemoveBlankTool = () => setupGenericTool('remove-blank-tool-container');
   const setupPageNumbersTool = () => setupGenericTool('page-numbers-tool-container');
   const setupPageDimensionsTool = () => setupGenericTool('page-dimensions-tool-container');
@@ -660,6 +664,18 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
           break;
         case 'compress':
           setupCompressTool();
+          break;
+        case 'rotate':
+          setupRotateTool();
+          break;
+        case 'reverse':
+          setupReverseTool();
+          break;
+        case 'duplicate':
+          setupDuplicateTool();
+          break;
+        case 'divide':
+          setupDivideTool();
           break;
         case 'pdf-to-word':
           await setupPdfToWordTool();
@@ -2223,23 +2239,42 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Rotate PDF</h2>
               <p className="text-gray-600 dark:text-gray-400">Rotate pages in your PDF document</p>
             </div>
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Rotation Angle
-              </label>
-              <select
-                id="rotate-angle"
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-              >
-                <option value="90">90° Clockwise</option>
-                <option value="180">180°</option>
-                <option value="270">270° Clockwise (90° Counter-clockwise)</option>
-              </select>
-            </div>
-            <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
-                Rotate PDF
-              </button>
+
+            {/* File Display Area */}
+            <div id="file-display-area" className="mb-4"></div>
+
+            {/* Tool Options */}
+            <div id="tool-options" className="hidden">
+              {/* Rotation Controls */}
+              <div className="mb-6 flex gap-4 justify-center">
+                <button
+                  id="rotate-all-left"
+                  className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
+                >
+                  <i data-lucide="rotate-ccw" className="w-5 h-5"></i>
+                  Rotate All Left
+                </button>
+                <button
+                  id="rotate-all-right"
+                  className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
+                >
+                  <i data-lucide="rotate-cw" className="w-5 h-5"></i>
+                  Rotate All Right
+                </button>
+              </div>
+
+              {/* Page Thumbnails */}
+              <div id="page-thumbnails" className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6"></div>
+
+              {/* Process Button */}
+              <div className="flex justify-center">
+                <button
+                  id="rotate-process-btn"
+                  className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+                >
+                  Apply Rotations
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -2255,10 +2290,20 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
                 Reverse the order of pages in your PDF
               </p>
             </div>
-            <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
-                Reverse Pages
-              </button>
+
+            {/* File Display Area */}
+            <div id="reverse-file-display-area" className="mb-4"></div>
+
+            {/* Tool Options */}
+            <div id="reverse-tool-options" className="hidden">
+              <div className="flex justify-center">
+                <button
+                  id="reverse-process-btn"
+                  className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+                >
+                  Reverse Pages
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -2271,23 +2316,23 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
                 Duplicate Pages
               </h2>
               <p className="text-gray-600 dark:text-gray-400">
-                Duplicate specific pages in your PDF
+                Drag, drop, duplicate, and delete pages to organize your PDF
               </p>
             </div>
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Pages to Duplicate (e.g., 1,3,5)
-              </label>
-              <input
-                type="text"
-                id="pages-to-duplicate"
-                placeholder="1,3,5"
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-              />
-            </div>
+
+            {/* Page Grid */}
+            <div
+              id="duplicate-page-grid"
+              className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6"
+            ></div>
+
+            {/* Save Button */}
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
-                Duplicate Pages
+              <button
+                id="duplicate-save-btn"
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
+                Save Organized PDF
               </button>
             </div>
           </div>
@@ -2297,25 +2342,50 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
         <div id="divide-tool-container" className="hidden max-w-6xl mx-auto mt-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Divide PDF</h2>
-              <p className="text-gray-600 dark:text-gray-400">Divide PDF into equal parts</p>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Divide PDF Pages</h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Split pages vertically or horizontally
+              </p>
             </div>
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Number of Parts
-              </label>
-              <input
-                type="number"
-                id="divide-parts"
-                min="2"
-                defaultValue="2"
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-              />
-            </div>
-            <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
-                Divide PDF
-              </button>
+
+            {/* File Display Area */}
+            <div id="divide-file-display-area" className="mb-4"></div>
+
+            {/* Tool Options */}
+            <div id="divide-tool-options" className="hidden">
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Split Type
+                </label>
+                <select
+                  id="divide-split-type"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="vertical">Vertical Split</option>
+                  <option value="horizontal">Horizontal Split</option>
+                </select>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Page Range (e.g., 1-3, 5, 7-9 or leave empty for all)
+                </label>
+                <input
+                  type="text"
+                  id="divide-page-range"
+                  placeholder="e.g., 1-3, 5, 7-9 or leave empty for all"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+
+              <div className="flex justify-center">
+                <button
+                  id="divide-process-btn"
+                  className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+                >
+                  Divide Pages
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -2475,15 +2545,7 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
             <div className="flex justify-center">
               <button
                 id="jpg-to-pdf-process-btn"
-                onClick={() =>
-                  void imageToPdf(
-                    state.files.length > 0
-                      ? state.files
-                      : selectedFile?.file
-                        ? [selectedFile.file]
-                        : []
-                  )
-                }
+                onClick={() => void imageToPdf()}
                 className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
               >
                 Convert to PDF
