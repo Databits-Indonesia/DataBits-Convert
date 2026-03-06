@@ -1,41 +1,31 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile, formatBytes, hexToRgb } from '../utils/helpers.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile, formatBytes, hexToRgb } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument as PDFLibDocument, rgb, PageSizes } from 'pdf-lib';
+import { state } from '../state';
 
-interface NUpState {
-    file: File | null;
-    pdfDoc: PDFLibDocument | null;
-}
-
-const pageState: NUpState = {
-    file: null,
-    pdfDoc: null,
-};
+let pdfDoc: PDFLibDocument | null = null;
 
 function resetState() {
-    pageState.file = null;
-    pageState.pdfDoc = null;
+    pdfDoc = null;
 
-    const fileDisplayArea = document.getElementById('file-display-area');
+    const fileDisplayArea = document.getElementById('n-up-file-display-area');
     if (fileDisplayArea) fileDisplayArea.innerHTML = '';
 
-    const toolOptions = document.getElementById('tool-options');
+    const toolOptions = document.getElementById('n-up-tool-options');
     if (toolOptions) toolOptions.classList.add('hidden');
-
-    const fileInput = document.getElementById('file-input') as HTMLInputElement;
-    if (fileInput) fileInput.value = '';
 }
 
 async function updateUI() {
-    const fileDisplayArea = document.getElementById('file-display-area');
-    const toolOptions = document.getElementById('tool-options');
+    const fileDisplayArea = document.getElementById('n-up-file-display-area');
+    const toolOptions = document.getElementById('n-up-tool-options');
 
     if (!fileDisplayArea) return;
 
     fileDisplayArea.innerHTML = '';
 
-    if (pageState.file) {
+    if (state.files.length > 0) {
+        const file = state.files[0];
         const fileDiv = document.createElement('div');
         fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
 
@@ -44,11 +34,11 @@ async function updateUI() {
 
         const nameSpan = document.createElement('div');
         nameSpan.className = 'truncate font-medium text-gray-200 text-sm mb-1';
-        nameSpan.textContent = pageState.file.name;
+        nameSpan.textContent = file.name;
 
         const metaSpan = document.createElement('div');
         metaSpan.className = 'text-xs text-gray-400';
-        metaSpan.textContent = `${formatBytes(pageState.file.size)} • Loading...`;
+        metaSpan.textContent = `${formatBytes(file.size)} • Loading...`;
 
         infoContainer.append(nameSpan, metaSpan);
 
@@ -56,6 +46,7 @@ async function updateUI() {
         removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
         removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
         removeBtn.onclick = function () {
+            state.files = [];
             resetState();
         };
 
@@ -65,17 +56,20 @@ async function updateUI() {
 
         try {
             showLoader('Loading PDF...');
-            const arrayBuffer = await pageState.file.arrayBuffer();
-            pageState.pdfDoc = await PDFLibDocument.load(arrayBuffer, {
+            const arrayBuffer = await file.arrayBuffer();
+            pdfDoc = await PDFLibDocument.load(arrayBuffer, {
                 ignoreEncryption: true,
                 throwOnInvalidObject: false
             });
             hideLoader();
 
-            const pageCount = pageState.pdfDoc.getPageCount();
-            metaSpan.textContent = `${formatBytes(pageState.file.size)} • ${pageCount} pages`;
+            const pageCount = pdfDoc.getPageCount();
+            metaSpan.textContent = `${formatBytes(file.size)} • ${pageCount} pages`;
 
-            if (toolOptions) toolOptions.classList.remove('hidden');
+            if (toolOptions) {
+                toolOptions.classList.remove('hidden');
+                setupButtonListeners();
+            }
         } catch (error) {
             console.error('Error loading PDF:', error);
             hideLoader();
@@ -87,23 +81,39 @@ async function updateUI() {
     }
 }
 
+function setupButtonListeners() {
+    const processBtn = document.getElementById('n-up-process-btn');
+    const addBorderCheckbox = document.getElementById('n-up-add-border');
+    const borderColorWrapper = document.getElementById('n-up-border-color-wrapper');
+
+    if (addBorderCheckbox && borderColorWrapper) {
+        addBorderCheckbox.addEventListener('change', function () {
+            borderColorWrapper.classList.toggle('hidden', !(addBorderCheckbox as HTMLInputElement).checked);
+        });
+    }
+
+    if (processBtn) {
+        processBtn.onclick = () => nUpTool();
+    }
+}
+
 async function nUpTool() {
-    if (!pageState.pdfDoc || !pageState.file) {
+    if (!pdfDoc || state.files.length === 0) {
         showAlert('Error', 'Please upload a PDF first.');
         return;
     }
 
-    const n = parseInt((document.getElementById('pages-per-sheet') as HTMLSelectElement).value);
-    const pageSizeKey = (document.getElementById('output-page-size') as HTMLSelectElement).value as keyof typeof PageSizes;
-    let orientation = (document.getElementById('output-orientation') as HTMLSelectElement).value;
-    const useMargins = (document.getElementById('add-margins') as HTMLInputElement).checked;
-    const addBorder = (document.getElementById('add-border') as HTMLInputElement).checked;
-    const borderColor = hexToRgb((document.getElementById('border-color') as HTMLInputElement).value);
+    const n = parseInt((document.getElementById('n-up-pages-per-sheet') as HTMLSelectElement).value);
+    const pageSizeKey = (document.getElementById('n-up-output-page-size') as HTMLSelectElement).value as keyof typeof PageSizes;
+    let orientation = (document.getElementById('n-up-output-orientation') as HTMLSelectElement).value;
+    const useMargins = (document.getElementById('n-up-add-margins') as HTMLInputElement).checked;
+    const addBorder = (document.getElementById('n-up-add-border') as HTMLInputElement).checked;
+    const borderColor = hexToRgb((document.getElementById('n-up-border-color') as HTMLInputElement).value);
 
     showLoader('Creating N-Up PDF...');
 
     try {
-        const sourceDoc = pageState.pdfDoc;
+        const sourceDoc = pdfDoc;
         const newDoc = await PDFLibDocument.create();
         const sourcePages = sourceDoc.getPages();
 
@@ -176,7 +186,7 @@ async function nUpTool() {
         }
 
         const newPdfBytes = await newDoc.save();
-        const originalName = pageState.file.name.replace(/\.pdf$/i, '');
+        const originalName = state.files[0].name.replace(/\.pdf$/i, '');
 
         downloadFile(
             new Blob([new Uint8Array(newPdfBytes)], { type: 'application/pdf' }),
@@ -194,73 +204,21 @@ async function nUpTool() {
     }
 }
 
-function handleFileSelect(files: FileList | null) {
-    if (files && files.length > 0) {
-        const file = files[0];
-        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-            pageState.file = file;
-            updateUI();
-        }
+export async function setupNUpTool() {
+    console.log('[NUp] setupNUpTool called');
+    
+    const container = document.getElementById('n-up-container');
+    console.log('[NUp] Container element:', container);
+    
+    if (container) {
+        container.classList.remove('hidden');
+        console.log('[NUp] Container shown');
+    } else {
+        console.error('[NUp] Container not found!');
+    }
+    
+    if (state.files.length > 0) {
+        console.log('[NUp] Loading PDF from files');
+        await updateUI();
     }
 }
-
-document.addEventListener('DOMContentLoaded', function () {
-    const fileInput = document.getElementById('file-input') as HTMLInputElement;
-    const dropZone = document.getElementById('drop-zone');
-    const processBtn = document.getElementById('process-btn');
-    const backBtn = document.getElementById('back-to-tools');
-    const addBorderCheckbox = document.getElementById('add-border');
-    const borderColorWrapper = document.getElementById('border-color-wrapper');
-
-    if (backBtn) {
-        backBtn.addEventListener('click', function () {
-            window.location.href = import.meta.env.BASE_URL;
-        });
-    }
-
-    if (addBorderCheckbox && borderColorWrapper) {
-        addBorderCheckbox.addEventListener('change', function () {
-            borderColorWrapper.classList.toggle('hidden', !(addBorderCheckbox as HTMLInputElement).checked);
-        });
-    }
-
-    if (fileInput && dropZone) {
-        fileInput.addEventListener('change', function (e) {
-            handleFileSelect((e.target as HTMLInputElement).files);
-        });
-
-        dropZone.addEventListener('dragover', function (e) {
-            e.preventDefault();
-            dropZone.classList.add('bg-gray-700');
-        });
-
-        dropZone.addEventListener('dragleave', function (e) {
-            e.preventDefault();
-            dropZone.classList.remove('bg-gray-700');
-        });
-
-        dropZone.addEventListener('drop', function (e) {
-            e.preventDefault();
-            dropZone.classList.remove('bg-gray-700');
-            const files = e.dataTransfer?.files;
-            if (files && files.length > 0) {
-                const pdfFiles = Array.from(files).filter(function (f) {
-                    return f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf');
-                });
-                if (pdfFiles.length > 0) {
-                    const dataTransfer = new DataTransfer();
-                    dataTransfer.items.add(pdfFiles[0]);
-                    handleFileSelect(dataTransfer.files);
-                }
-            }
-        });
-
-        fileInput.addEventListener('click', function () {
-            fileInput.value = '';
-        });
-    }
-
-    if (processBtn) {
-        processBtn.addEventListener('click', nUpTool);
-    }
-});

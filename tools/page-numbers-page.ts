@@ -1,108 +1,26 @@
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui.js';
-import { downloadFile, hexToRgb, formatBytes } from '../utils/helpers.js';
-import { PDFDocument as PDFLibDocument } from 'pdf-lib';
-import {
-  addPageNumbers as addPageNumbersToPdf,
-  type PageNumberPosition,
-  type PageNumberFormat,
-} from '../utils/pdf-operations';
+import { showAlert, showLoader, hideLoader } from '../ui';
+import { downloadFile, hexToRgb, formatBytes } from '../utils/helpers';
+import { PDFDocument as PDFLibDocument, rgb, StandardFonts } from 'pdf-lib';
+import { state } from '../state';
 
-interface PageState {
-  file: File | null;
-  pdfDoc: PDFLibDocument | null;
-}
+type PageNumberPosition = 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
+type PageNumberFormat = 'simple' | 'page_x_of_y';
 
-const pageState: PageState = {
-  file: null,
-  pdfDoc: null,
-};
+let pdfDoc: PDFLibDocument | null = null;
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initializePage);
-} else {
-  initializePage();
-}
-
-function initializePage() {
-  createIcons({ icons });
-
-  const fileInput = document.getElementById('file-input') as HTMLInputElement;
-  const dropZone = document.getElementById('drop-zone');
-  const backBtn = document.getElementById('back-to-tools');
-  const processBtn = document.getElementById('process-btn');
-
-  if (fileInput) {
-    fileInput.addEventListener('change', handleFileUpload);
-    fileInput.addEventListener('click', () => {
-      fileInput.value = '';
-    });
-  }
-
-  if (dropZone) {
-    dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropZone.classList.add('border-indigo-500');
-    });
-
-    dropZone.addEventListener('dragleave', () => {
-      dropZone.classList.remove('border-indigo-500');
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('border-indigo-500');
-      if (e.dataTransfer?.files.length) {
-        handleFiles(e.dataTransfer.files);
-      }
-    });
-  }
-
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
-    });
-  }
-
-  if (processBtn) {
-    processBtn.addEventListener('click', addPageNumbers);
-  }
-}
-
-function handleFileUpload(e: Event) {
-  const input = e.target as HTMLInputElement;
-  if (input.files?.length) {
-    handleFiles(input.files);
-  }
-}
-
-async function handleFiles(files: FileList) {
-  const file = files[0];
-  if (!file || file.type !== 'application/pdf') {
-    showAlert('Invalid File', 'Please upload a valid PDF file.');
-    return;
-  }
-
-  showLoader('Loading PDF...');
-  try {
-    const arrayBuffer = await file.arrayBuffer();
-    pageState.pdfDoc = await PDFLibDocument.load(arrayBuffer);
-    pageState.file = file;
-
-    updateFileDisplay();
-    document.getElementById('options-panel')?.classList.remove('hidden');
-  } catch (error) {
-    console.error(error);
-    showAlert('Error', 'Failed to load PDF file.');
-  } finally {
-    hideLoader();
-  }
+function resetState() {
+  pdfDoc = null;
+  const fileDisplayArea = document.getElementById('page-numbers-file-display-area');
+  if (fileDisplayArea) fileDisplayArea.innerHTML = '';
+  document.getElementById('page-numbers-options-panel')?.classList.add('hidden');
 }
 
 function updateFileDisplay() {
-  const fileDisplayArea = document.getElementById('file-display-area');
-  if (!fileDisplayArea || !pageState.file || !pageState.pdfDoc) return;
+  const fileDisplayArea = document.getElementById('page-numbers-file-display-area');
+  if (!fileDisplayArea || state.files.length === 0 || !pdfDoc) return;
 
+  const file = state.files[0];
   fileDisplayArea.innerHTML = '';
   const fileDiv = document.createElement('div');
   fileDiv.className =
@@ -113,71 +31,153 @@ function updateFileDisplay() {
 
   const nameSpan = document.createElement('div');
   nameSpan.className = 'truncate font-medium text-gray-200 text-sm mb-1';
-  nameSpan.textContent = pageState.file.name;
+  nameSpan.textContent = file.name;
 
   const metaSpan = document.createElement('div');
   metaSpan.className = 'text-xs text-gray-400';
-  metaSpan.textContent = `${formatBytes(pageState.file.size)} • ${pageState.pdfDoc.getPageCount()} pages`;
+  metaSpan.textContent = `${formatBytes(file.size)} • ${pdfDoc.getPageCount()} pages`;
 
   infoContainer.append(nameSpan, metaSpan);
 
   const removeBtn = document.createElement('button');
   removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
   removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
-  removeBtn.onclick = resetState;
+  removeBtn.onclick = () => {
+    state.files = [];
+    resetState();
+  };
 
   fileDiv.append(infoContainer, removeBtn);
   fileDisplayArea.appendChild(fileDiv);
   createIcons({ icons });
 }
 
-function resetState() {
-  pageState.file = null;
-  pageState.pdfDoc = null;
-  const fileDisplayArea = document.getElementById('file-display-area');
-  if (fileDisplayArea) fileDisplayArea.innerHTML = '';
-  document.getElementById('options-panel')?.classList.add('hidden');
-  const fileInput = document.getElementById('file-input') as HTMLInputElement;
-  if (fileInput) fileInput.value = '';
+async function handleFileUpload() {
+  if (state.files.length === 0) {
+    showAlert('Invalid File', 'Please upload a valid PDF file.');
+    return;
+  }
+
+  const file = state.files[0];
+  showLoader('Loading PDF...');
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    pdfDoc = await PDFLibDocument.load(arrayBuffer);
+
+    updateFileDisplay();
+    document.getElementById('page-numbers-options-panel')?.classList.remove('hidden');
+    setupButtonListeners();
+  } catch (error) {
+    console.error(error);
+    showAlert('Error', 'Failed to load PDF file.');
+  } finally {
+    hideLoader();
+  }
+}
+
+function setupButtonListeners() {
+  const processBtn = document.getElementById('page-numbers-process-btn');
+
+  if (processBtn) {
+    processBtn.onclick = () => addPageNumbers();
+  }
 }
 
 async function addPageNumbers() {
-  if (!pageState.pdfDoc) {
+  if (!pdfDoc || state.files.length === 0) {
     showAlert('Error', 'Please upload a PDF file first.');
     return;
   }
 
   showLoader('Adding page numbers...');
   try {
-    const position = (document.getElementById('position') as HTMLSelectElement)
+    const position = (document.getElementById('page-numbers-position') as HTMLSelectElement)
       .value as PageNumberPosition;
     const fontSize =
       parseInt(
-        (document.getElementById('font-size') as HTMLInputElement).value
+        (document.getElementById('page-numbers-font-size') as HTMLInputElement).value
       ) || 12;
     const format =
-      (document.getElementById('number-format') as HTMLSelectElement).value ===
-      'page_x_of_y'
-        ? ('page_x_of_y' as PageNumberFormat)
-        : ('simple' as PageNumberFormat);
-    const colorHex = (document.getElementById('text-color') as HTMLInputElement)
+      (document.getElementById('page-numbers-format') as HTMLSelectElement).value as PageNumberFormat;
+    const colorHex = (document.getElementById('page-numbers-text-color') as HTMLInputElement)
       .value;
     const textColor = hexToRgb(colorHex);
 
-    const pdfBytes = new Uint8Array(await pageState.pdfDoc.save());
-    const resultBytes = await addPageNumbersToPdf(pdfBytes, {
-      position,
-      fontSize,
-      format,
-      color: textColor,
-    });
+    // Create a new PDF with page numbers
+    const newPdfDoc = await PDFLibDocument.create();
+    const font = await newPdfDoc.embedFont(StandardFonts.Helvetica);
+    const pages = pdfDoc.getPages();
+    const totalPages = pages.length;
 
+    for (let i = 0; i < totalPages; i++) {
+      const [copiedPage] = await newPdfDoc.copyPages(pdfDoc, [i]);
+      newPdfDoc.addPage(copiedPage);
+      
+      const page = newPdfDoc.getPage(i);
+      const { width, height } = page.getSize();
+      
+      // Generate page number text
+      let text: string;
+      if (format === 'page_x_of_y') {
+        text = `Page ${i + 1} of ${totalPages}`;
+      } else {
+        text = `${i + 1}`;
+      }
+      
+      const textWidth = font.widthOfTextAtSize(text, fontSize);
+      const textHeight = fontSize;
+      
+      // Calculate position
+      let x: number, y: number;
+      const margin = 20;
+      
+      switch (position) {
+        case 'top-left':
+          x = margin;
+          y = height - margin - textHeight;
+          break;
+        case 'top-center':
+          x = (width - textWidth) / 2;
+          y = height - margin - textHeight;
+          break;
+        case 'top-right':
+          x = width - margin - textWidth;
+          y = height - margin - textHeight;
+          break;
+        case 'bottom-left':
+          x = margin;
+          y = margin;
+          break;
+        case 'bottom-center':
+          x = (width - textWidth) / 2;
+          y = margin;
+          break;
+        case 'bottom-right':
+          x = width - margin - textWidth;
+          y = margin;
+          break;
+        default:
+          x = (width - textWidth) / 2;
+          y = margin;
+      }
+      
+      page.drawText(text, {
+        x,
+        y,
+        size: fontSize,
+        font,
+        color: rgb(textColor.r / 255, textColor.g / 255, textColor.b / 255),
+      });
+    }
+
+    const newPdfBytes = await newPdfDoc.save();
+    const originalName = state.files[0].name.replace(/\.pdf$/i, '');
+    
     downloadFile(
-      new Blob([resultBytes as unknown as BlobPart], {
-        type: 'application/pdf',
-      }),
-      'paginated.pdf'
+      new Blob([newPdfBytes], { type: 'application/pdf' }),
+      `${originalName}_paginated.pdf`
     );
+    
     showAlert('Success', 'Page numbers added successfully!', 'success', () => {
       resetState();
     });
@@ -186,5 +186,24 @@ async function addPageNumbers() {
     showAlert('Error', 'Could not add page numbers.');
   } finally {
     hideLoader();
+  }
+}
+
+export async function setupPageNumbersTool() {
+  console.log('[PageNumbers] setupPageNumbersTool called');
+  
+  const container = document.getElementById('page-numbers-container');
+  console.log('[PageNumbers] Container element:', container);
+  
+  if (container) {
+    container.classList.remove('hidden');
+    console.log('[PageNumbers] Container shown');
+  } else {
+    console.error('[PageNumbers] Container not found!');
+  }
+  
+  if (state.files.length > 0) {
+    console.log('[PageNumbers] Loading PDF from files');
+    await handleFileUpload();
   }
 }

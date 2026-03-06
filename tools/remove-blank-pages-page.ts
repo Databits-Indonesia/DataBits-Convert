@@ -2,6 +2,9 @@ import { PDFDocument } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 import { createIcons, icons } from 'lucide';
 import { initPagePreview } from '../utils/page-preview';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile } from '../utils/helpers';
+import { state } from '../state';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -11,125 +14,102 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 // State
 const pageState: {
   pdfDoc: PDFDocument | null;
-  file: File | null;
   detectedBlankPages: number[];
   pageThumbnails: Map<number, string>;
 } = {
   pdfDoc: null,
-  file: null,
   detectedBlankPages: [],
   pageThumbnails: new Map(),
 };
 
-function showLoader(msg = 'Processing...') {
-  document.getElementById('loader-modal')?.classList.remove('hidden');
-  const txt = document.getElementById('loader-text');
-  if (txt) txt.textContent = msg;
-}
-
-function hideLoader() {
-  document.getElementById('loader-modal')?.classList.add('hidden');
-}
-
-function showAlert(
-  title: string,
-  msg: string,
-  type = 'error',
-  cb?: () => void
-) {
-  const modal = document.getElementById('alert-modal');
-  const t = document.getElementById('alert-title');
-  const m = document.getElementById('alert-message');
-  if (t) t.textContent = title;
-  if (m) m.textContent = msg;
-  modal?.classList.remove('hidden');
-  const okBtn = document.getElementById('alert-ok');
-  if (okBtn) {
-    const newBtn = okBtn.cloneNode(true) as HTMLElement;
-    okBtn.replaceWith(newBtn);
-    newBtn.addEventListener('click', () => {
-      modal?.classList.add('hidden');
-      if (cb) cb();
-    });
-  }
-}
-
-function downloadFile(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 function updateFileDisplay() {
-  const area = document.getElementById('file-display-area');
-  if (!area || !pageState.file || !pageState.pdfDoc) return;
+  const area = document.getElementById('remove-blank-file-display-area');
+  if (!area || state.files.length === 0 || !pageState.pdfDoc) return;
 
+  const file = state.files[0];
   const fileSize =
-    pageState.file.size < 1024 * 1024
-      ? `${(pageState.file.size / 1024).toFixed(1)} KB`
-      : `${(pageState.file.size / 1024 / 1024).toFixed(2)} MB`;
+    file.size < 1024 * 1024
+      ? `${(file.size / 1024).toFixed(1)} KB`
+      : `${(file.size / 1024 / 1024).toFixed(2)} MB`;
   const pageCount = pageState.pdfDoc.getPageCount();
 
   area.innerHTML = `
         <div class="bg-gray-700 p-3 rounded-lg border border-gray-600 hover:border-indigo-500 transition-colors">
             <div class="flex items-center justify-between">
                 <div class="flex-1 min-w-0">
-                    <p class="truncate font-medium text-white">${pageState.file.name}</p>
+                    <p class="truncate font-medium text-white">${file.name}</p>
                     <p class="text-gray-400 text-sm">${fileSize} • ${pageCount} page${pageCount !== 1 ? 's' : ''}</p>
                 </div>
-                <button id="remove-file" class="text-red-400 hover:text-red-300 p-2 flex-shrink-0 ml-2" title="Remove file">
+                <button id="remove-blank-remove-file" class="text-red-400 hover:text-red-300 p-2 flex-shrink-0 ml-2" title="Remove file">
                     <i data-lucide="trash-2" class="w-4 h-4"></i>
                 </button>
             </div>
         </div>
     `;
   createIcons({ icons });
-  document.getElementById('remove-file')?.addEventListener('click', resetState);
+  document.getElementById('remove-blank-remove-file')?.addEventListener('click', resetState);
 }
 
 function resetState() {
   pageState.pdfDoc = null;
-  pageState.file = null;
   pageState.detectedBlankPages = [];
   pageState.pageThumbnails.forEach((url) => URL.revokeObjectURL(url));
   pageState.pageThumbnails.clear();
 
-  const area = document.getElementById('file-display-area');
+  const area = document.getElementById('remove-blank-file-display-area');
   if (area) area.innerHTML = '';
-  document.getElementById('options-panel')?.classList.add('hidden');
-  document.getElementById('preview-panel')?.classList.add('hidden');
-  const inp = document.getElementById('file-input') as HTMLInputElement;
-  if (inp) inp.value = '';
-  const slider = document.getElementById(
-    'sensitivity-slider'
-  ) as HTMLInputElement;
+  document.getElementById('remove-blank-options-panel')?.classList.add('hidden');
+  document.getElementById('remove-blank-preview-panel')?.classList.add('hidden');
+  
+  const slider = document.getElementById('remove-blank-sensitivity-slider') as HTMLInputElement;
   if (slider) slider.value = '80';
-  const sliderLabel = document.getElementById('sensitivity-value');
+  const sliderLabel = document.getElementById('remove-blank-sensitivity-value');
   if (sliderLabel) sliderLabel.textContent = '80';
 }
 
-async function handleFileUpload(file: File) {
-  if (!file || file.type !== 'application/pdf') {
+async function handleFileUpload() {
+  if (state.files.length === 0) {
     showAlert('Error', 'Please upload a valid PDF file.');
     return;
   }
+  
+  const file = state.files[0];
   showLoader('Loading PDF...');
   try {
     const buf = await file.arrayBuffer();
     pageState.pdfDoc = await PDFDocument.load(buf);
-    pageState.file = file;
     pageState.detectedBlankPages = [];
     updateFileDisplay();
-    document.getElementById('options-panel')?.classList.remove('hidden');
-    document.getElementById('preview-panel')?.classList.add('hidden');
+    document.getElementById('remove-blank-options-panel')?.classList.remove('hidden');
+    document.getElementById('remove-blank-preview-panel')?.classList.add('hidden');
+    setupButtonListeners();
   } catch (e) {
     console.error(e);
     showAlert('Error', 'Failed to load PDF file.');
   } finally {
     hideLoader();
+  }
+}
+
+function setupButtonListeners() {
+  const detectBtn = document.getElementById('remove-blank-detect-btn');
+  const processBtn = document.getElementById('remove-blank-process-btn');
+  const sensitivitySlider = document.getElementById('remove-blank-sensitivity-slider') as HTMLInputElement;
+  const sensitivityValue = document.getElementById('remove-blank-sensitivity-value');
+
+  if (sensitivitySlider && sensitivityValue) {
+    sensitivitySlider.addEventListener('input', (e) => {
+      const value = (e.target as HTMLInputElement).value;
+      sensitivityValue.textContent = value;
+    });
+  }
+
+  if (detectBtn) {
+    detectBtn.onclick = () => detectBlankPages();
+  }
+
+  if (processBtn) {
+    processBtn.onclick = () => processRemoveBlankPages();
   }
 }
 
@@ -175,18 +155,17 @@ async function generateThumbnail(page: any): Promise<string> {
 }
 
 async function detectBlankPages() {
-  if (!pageState.pdfDoc || !pageState.file)
+  if (!pageState.pdfDoc || state.files.length === 0)
     return showAlert('Error', 'Please upload a PDF first.');
 
-  const sensitivitySlider = document.getElementById(
-    'sensitivity-slider'
-  ) as HTMLInputElement;
+  const file = state.files[0];
+  const sensitivitySlider = document.getElementById('remove-blank-sensitivity-slider') as HTMLInputElement;
   const sensitivityPercent = parseInt(sensitivitySlider?.value || '80');
   const maxNonWhitePercent = 5 - (sensitivityPercent / 100) * 4.9;
 
   showLoader('Detecting blank pages...');
   try {
-    const pdfData = await pageState.file.arrayBuffer();
+    const pdfData = await file.arrayBuffer();
     const pdfDoc = await pdfjsLib.getDocument({ data: pdfData }).promise;
     const totalPages = pdfDoc.numPages;
 
@@ -211,9 +190,9 @@ async function detectBlankPages() {
 
     // Show preview panel
     updatePreviewPanel();
-    document.getElementById('preview-panel')?.classList.remove('hidden');
+    document.getElementById('remove-blank-preview-panel')?.classList.remove('hidden');
 
-    const previewContainer = document.getElementById('blank-pages-preview');
+    const previewContainer = document.getElementById('remove-blank-pages-preview');
     if (previewContainer) initPagePreview(previewContainer, pdfDoc);
 
     hideLoader();
@@ -225,8 +204,8 @@ async function detectBlankPages() {
 }
 
 function updatePreviewPanel() {
-  const previewInfo = document.getElementById('preview-info');
-  const previewContainer = document.getElementById('blank-pages-preview');
+  const previewInfo = document.getElementById('remove-blank-preview-info');
+  const previewContainer = document.getElementById('remove-blank-pages-preview');
 
   if (!previewInfo || !previewContainer) return;
 
@@ -278,11 +257,11 @@ function togglePageSelection(div: HTMLElement, pageIndex: number) {
 }
 
 async function processRemoveBlankPages() {
-  if (!pageState.pdfDoc || !pageState.file)
+  if (!pageState.pdfDoc || state.files.length === 0)
     return showAlert('Error', 'Please upload a PDF first.');
 
   // Get selected pages to remove
-  const previewContainer = document.getElementById('blank-pages-preview');
+  const previewContainer = document.getElementById('remove-blank-pages-preview');
   const selectedPages: number[] = [];
   previewContainer?.querySelectorAll('[data-selected="true"]').forEach((el) => {
     const pageIndex = parseInt((el as HTMLElement).dataset.pageIndex || '-1');
@@ -307,9 +286,11 @@ async function processRemoveBlankPages() {
     }
 
     const newPdfBytes = await newPdf.save();
+    const originalName = state.files[0].name.replace(/\.pdf$/i, '');
+    
     downloadFile(
       new Blob([new Uint8Array(newPdfBytes)], { type: 'application/pdf' }),
-      'blank-pages-removed.pdf'
+      `${originalName}_blank-pages-removed.pdf`
     );
     showAlert(
       'Success',
@@ -325,46 +306,21 @@ async function processRemoveBlankPages() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  const fileInput = document.getElementById('file-input') as HTMLInputElement;
-  const dropZone = document.getElementById('drop-zone');
-  const detectBtn = document.getElementById('detect-btn');
-  const processBtn = document.getElementById('process-btn');
-  const sensitivitySlider = document.getElementById(
-    'sensitivity-slider'
-  ) as HTMLInputElement;
-  const sensitivityValue = document.getElementById('sensitivity-value');
-
-  sensitivitySlider?.addEventListener('input', (e) => {
-    const value = (e.target as HTMLInputElement).value;
-    if (sensitivityValue) sensitivityValue.textContent = value;
-  });
-
-  fileInput?.addEventListener('change', (e) => {
-    const f = (e.target as HTMLInputElement).files?.[0];
-    if (f) handleFileUpload(f);
-  });
-
-  dropZone?.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    dropZone.classList.add('border-indigo-500');
-  });
-
-  dropZone?.addEventListener('dragleave', () => {
-    dropZone.classList.remove('border-indigo-500');
-  });
-
-  dropZone?.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropZone.classList.remove('border-indigo-500');
-    const f = e.dataTransfer?.files[0];
-    if (f) handleFileUpload(f);
-  });
-
-  detectBtn?.addEventListener('click', detectBlankPages);
-  processBtn?.addEventListener('click', processRemoveBlankPages);
-
-  document.getElementById('back-to-tools')?.addEventListener('click', () => {
-    window.location.href = '../../index.html';
-  });
-});
+export async function setupRemoveBlankPagesTool() {
+  console.log('[RemoveBlankPages] setupRemoveBlankPagesTool called');
+  
+  const container = document.getElementById('remove-blank-pages-container');
+  console.log('[RemoveBlankPages] Container element:', container);
+  
+  if (container) {
+    container.classList.remove('hidden');
+    console.log('[RemoveBlankPages] Container shown');
+  } else {
+    console.error('[RemoveBlankPages] Container not found!');
+  }
+  
+  if (state.files.length > 0) {
+    console.log('[RemoveBlankPages] Loading PDF from files');
+    await handleFileUpload();
+  }
+}

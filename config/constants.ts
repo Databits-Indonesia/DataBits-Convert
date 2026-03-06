@@ -167,13 +167,6 @@ export const POPULAR_TOOLS: Tool[] = [
     category: 'manipulation',
   },
   {
-    id: 'remove-blank',
-    name: 'Remove Blank Pages',
-    icon: 'filter_alt',
-    description: 'Remove empty pages from PDF.',
-    category: 'manipulation',
-  },
-  {
     id: 'page-numbers',
     name: 'Add Page Numbers',
     icon: 'numbers',

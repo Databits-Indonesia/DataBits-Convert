@@ -34,6 +34,11 @@ import {
   setupReverseTool as setupReverseToolImpl,
   setupDuplicateTool as setupDuplicateToolImpl,
   setupDivideTool as setupDivideToolImpl,
+  setupAddBlankPageTool as setupAddBlankPageToolImpl,
+  setupRemoveBlankPagesTool as setupRemoveBlankPagesToolImpl,
+  setupPageNumbersTool as setupPageNumbersToolImpl,
+  setupFixPageSizeTool as setupFixPageSizeToolImpl,
+  setupNUpTool as setupNUpToolImpl,
 } from './tools';
 import { state, setFiles } from './state';
 import {
@@ -79,9 +84,9 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
     duplicate: 'duplicate-tool-container',
     divide: 'divide-tool-container',
     'remove-blank': 'remove-blank-tool-container',
-    'page-numbers': 'page-numbers-tool-container',
-    'page-dimensions': 'page-dimensions-tool-container',
-    'n-up': 'n-up-tool-container',
+    'page-numbers': 'page-numbers-container',
+    'page-dimensions': 'fix-page-size-container',
+    'n-up': 'n-up-container',
 
     // PDF Conversions - To PDF
     'image-to-pdf': 'image-to-pdf-container',
@@ -537,10 +542,14 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
   const setupReverseTool = () => setupReverseToolImpl();
   const setupDuplicateTool = () => setupDuplicateToolImpl();
   const setupDivideTool = () => setupDivideToolImpl();
-  const setupRemoveBlankTool = () => setupGenericTool('remove-blank-tool-container');
-  const setupPageNumbersTool = () => setupGenericTool('page-numbers-tool-container');
-  const setupPageDimensionsTool = () => setupGenericTool('page-dimensions-tool-container');
-  const setupNUpTool = () => setupGenericTool('n-up-tool-container');
+  const setupAddBlankPageTool = () => {
+    console.log('[App] setupAddBlankPageTool wrapper called');
+    return setupAddBlankPageToolImpl();
+  };
+  const setupRemoveBlankPagesTool = () => setupRemoveBlankPagesToolImpl();
+  const setupPageNumbersTool = () => setupPageNumbersToolImpl();
+  const setupPageDimensionsTool = () => setupFixPageSizeToolImpl();
+  const setupNUpTool = () => setupNUpToolImpl();
 
   // PDF Conversions - To PDF Setup Functions
   const setupJpgToPdfTool = () => setupGenericTool('jpg-to-pdf-container');
@@ -595,7 +604,6 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
   const setupAddAttachmentsTool = () => setupGenericTool('add-attachments-container');
   const setupExtractAttachmentsTool = () => setupGenericTool('extract-attachments-container');
   const setupEditAttachmentsTool = () => setupGenericTool('edit-attachments-container');
-  const setupAddBlankPageTool = () => setupGenericTool('add-blank-page-container');
   const setupHeaderFooterTool = () => setupGenericTool('header-footer-container');
   const setupBackgroundColorTool = () => setupGenericTool('background-color-container');
   const setupTextColorTool = () => setupGenericTool('text-color-container');
@@ -627,7 +635,6 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
 
   // PDF Quality & Repair Setup Functions
   const setupDeskewTool = () => setupGenericTool('deskew-container');
-  const setupRemoveBlankPagesTool = () => setupGenericTool('remove-blank-pages-container');
   const setupRepairTool = () => setupGenericTool('repair-container');
   const setupFixPageSizeTool = () => setupGenericTool('fix-page-size-container');
   const setupScannerEffectTool = () => setupGenericTool('scanner-effect-container');
@@ -676,6 +683,21 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
           break;
         case 'divide':
           setupDivideTool();
+          break;
+        case 'add-blank-page':
+          setupAddBlankPageTool();
+          break;
+        case 'remove-blank-pages':
+          setupRemoveBlankPagesTool();
+          break;
+        case 'page-numbers':
+          setupPageNumbersTool();
+          break;
+        case 'page-dimensions':
+          setupPageDimensionsTool();
+          break;
+        case 'n-up':
+          setupNUpTool();
           break;
         case 'pdf-to-word':
           await setupPdfToWordTool();
@@ -786,6 +808,9 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
             break;
           case 'divide':
             setupDivideTool();
+            break;
+          case 'add-blank-page':
+            setupAddBlankPageTool();
             break;
           case 'remove-blank':
             setupRemoveBlankTool();
@@ -2423,7 +2448,7 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
         </div>
 
         {/* Page Numbers Tool UI */}
-        <div id="page-numbers-tool-container" className="hidden max-w-6xl mx-auto mt-8">
+        <div id="page-numbers-container" className="hidden max-w-6xl mx-auto mt-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
@@ -2431,46 +2456,81 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               </h2>
               <p className="text-gray-600 dark:text-gray-400">Add page numbers to your PDF</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Position
-                </label>
-                <select
-                  id="page-number-position"
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+
+            {/* File Display Area */}
+            <div id="page-numbers-file-display-area" className="mb-4"></div>
+
+            {/* Options Panel */}
+            <div id="page-numbers-options-panel" className="hidden">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Position
+                  </label>
+                  <select
+                    id="page-numbers-position"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="bottom-center">Bottom Center</option>
+                    <option value="bottom-left">Bottom Left</option>
+                    <option value="bottom-right">Bottom Right</option>
+                    <option value="top-center">Top Center</option>
+                    <option value="top-left">Top Left</option>
+                    <option value="top-right">Top Right</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Format
+                  </label>
+                  <select
+                    id="page-numbers-format"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="simple">Simple (1, 2, 3...)</option>
+                    <option value="page_x_of_y">Page X of Y</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Font Size
+                  </label>
+                  <input
+                    type="number"
+                    id="page-numbers-font-size"
+                    min="8"
+                    max="48"
+                    defaultValue="12"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Text Color
+                  </label>
+                  <input
+                    type="color"
+                    id="page-numbers-text-color"
+                    defaultValue="#000000"
+                    className="w-full h-10 px-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-center">
+                <button
+                  id="page-numbers-process-btn"
+                  className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
                 >
-                  <option value="bottom-center">Bottom Center</option>
-                  <option value="bottom-left">Bottom Left</option>
-                  <option value="bottom-right">Bottom Right</option>
-                  <option value="top-center">Top Center</option>
-                  <option value="top-left">Top Left</option>
-                  <option value="top-right">Top Right</option>
-                </select>
+                  Add Page Numbers
+                </button>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Start Number
-                </label>
-                <input
-                  type="number"
-                  id="page-number-start"
-                  min="1"
-                  defaultValue="1"
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-                />
-              </div>
-            </div>
-            <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
-                Add Page Numbers
-              </button>
             </div>
           </div>
         </div>
 
         {/* Page Dimensions Tool UI */}
-        <div id="page-dimensions-tool-container" className="hidden max-w-6xl mx-auto mt-8">
+        <div id="fix-page-size-container" className="hidden max-w-6xl mx-auto mt-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
@@ -2480,31 +2540,142 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
                 Standardize page dimensions in your PDF
               </p>
             </div>
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Target Size
-              </label>
-              <select
-                id="page-size"
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-              >
-                <option value="A4">A4</option>
-                <option value="Letter">Letter</option>
-                <option value="Legal">Legal</option>
-                <option value="A3">A3</option>
-                <option value="A5">A5</option>
-              </select>
-            </div>
-            <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
-                Fix Page Size
-              </button>
+
+            {/* File Display Area */}
+            <div id="fix-page-size-file-display-area" className="mb-4"></div>
+
+            {/* Tool Options */}
+            <div id="fix-page-size-tool-options" className="hidden">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Target Size
+                  </label>
+                  <select
+                    id="fix-page-size-target-size"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="A4">A4</option>
+                    <option value="Letter">Letter</option>
+                    <option value="Legal">Legal</option>
+                    <option value="A3">A3</option>
+                    <option value="A5">A5</option>
+                    <option value="Custom">Custom</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Orientation
+                  </label>
+                  <select
+                    id="fix-page-size-orientation"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="portrait">Portrait</option>
+                    <option value="landscape">Landscape</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Custom Size Options */}
+              <div id="fix-page-size-custom-size-wrapper" className="hidden mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Width
+                    </label>
+                    <input
+                      type="number"
+                      id="fix-page-size-custom-width"
+                      step="0.1"
+                      min="0"
+                      defaultValue="8.5"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Height
+                    </label>
+                    <input
+                      type="number"
+                      id="fix-page-size-custom-height"
+                      step="0.1"
+                      min="0"
+                      defaultValue="11"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Units
+                    </label>
+                    <select
+                      id="fix-page-size-custom-units"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    >
+                      <option value="in">Inches</option>
+                      <option value="mm">Millimeters</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Scaling Mode */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Scaling Mode
+                </label>
+                <div className="flex gap-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="fix-page-size-scaling-mode"
+                      value="fit"
+                      defaultChecked
+                      className="mr-2"
+                    />
+                    <span className="text-gray-700 dark:text-gray-300">Fit (preserve aspect ratio)</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="fix-page-size-scaling-mode"
+                      value="fill"
+                      className="mr-2"
+                    />
+                    <span className="text-gray-700 dark:text-gray-300">Fill (may crop)</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Background Color */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Background Color
+                </label>
+                <input
+                  type="color"
+                  id="fix-page-size-background-color"
+                  defaultValue="#ffffff"
+                  className="w-full h-10 px-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700"
+                />
+              </div>
+
+              <div className="flex justify-center">
+                <button
+                  id="fix-page-size-process-btn"
+                  className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+                >
+                  Fix Page Size
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
         {/* N-Up Tool UI */}
-        <div id="n-up-tool-container" className="hidden max-w-6xl mx-auto mt-8">
+        <div id="n-up-container" className="hidden max-w-6xl mx-auto mt-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">N-Up Layout</h2>
@@ -2512,25 +2683,99 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
                 Combine multiple pages onto one sheet
               </p>
             </div>
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Pages Per Sheet
-              </label>
-              <select
-                id="n-up-layout"
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-              >
-                <option value="2">2 Pages</option>
-                <option value="4">4 Pages</option>
-                <option value="6">6 Pages</option>
-                <option value="9">9 Pages</option>
-                <option value="16">16 Pages</option>
-              </select>
-            </div>
-            <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
-                Apply N-Up Layout
-              </button>
+
+            {/* File Display Area */}
+            <div id="n-up-file-display-area" className="mb-4"></div>
+
+            {/* Tool Options */}
+            <div id="n-up-tool-options" className="hidden">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Pages Per Sheet
+                  </label>
+                  <select
+                    id="n-up-pages-per-sheet"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="2">2 Pages</option>
+                    <option value="4">4 Pages</option>
+                    <option value="9">9 Pages</option>
+                    <option value="16">16 Pages</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Output Page Size
+                  </label>
+                  <select
+                    id="n-up-output-page-size"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="A4">A4</option>
+                    <option value="Letter">Letter</option>
+                    <option value="Legal">Legal</option>
+                    <option value="A3">A3</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Orientation
+                  </label>
+                  <select
+                    id="n-up-output-orientation"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="auto">Auto</option>
+                    <option value="portrait">Portrait</option>
+                    <option value="landscape">Landscape</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="n-up-add-margins"
+                    defaultChecked
+                    className="mr-2"
+                  />
+                  <span className="text-gray-700 dark:text-gray-300">Add margins and gutters</span>
+                </label>
+              </div>
+
+              <div className="mb-6">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="n-up-add-border"
+                    className="mr-2"
+                  />
+                  <span className="text-gray-700 dark:text-gray-300">Add borders around pages</span>
+                </label>
+              </div>
+
+              <div id="n-up-border-color-wrapper" className="hidden mb-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Border Color
+                </label>
+                <input
+                  type="color"
+                  id="n-up-border-color"
+                  defaultValue="#000000"
+                  className="w-full h-10 px-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700"
+                />
+              </div>
+
+              <div className="flex justify-center">
+                <button
+                  id="n-up-process-btn"
+                  className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+                >
+                  Apply N-Up Layout
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -3366,37 +3611,64 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               </h2>
               <p className="text-gray-600 dark:text-gray-400">Insert blank pages into PDF</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Position
-                </label>
-                <select
-                  id="blank-page-position"
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+
+            {/* File Display Area */}
+            <div id="add-blank-file-display-area" className="mb-4"></div>
+
+            {/* Tool Options */}
+            <div id="add-blank-tool-options" className="hidden">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Position (Page Number)
+                  </label>
+                  <input
+                    type="number"
+                    id="add-blank-page-position"
+                    min="0"
+                    defaultValue="0"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  />
+                  <p id="add-blank-page-position-hint" className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Enter 0 to insert at the beginning
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Number of Blank Pages
+                  </label>
+                  <input
+                    type="number"
+                    id="add-blank-page-count"
+                    min="1"
+                    defaultValue="1"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+                <div className="flex items-start">
+                  <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                  <div className="text-sm text-blue-800 dark:text-blue-200">
+                    <p className="font-semibold mb-1">How it works:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>Position 0 inserts at the beginning</li>
+                      <li>Position equal to page count inserts at the end</li>
+                      <li>Blank pages will match the size of existing pages</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-center">
+                <button
+                  id="add-blank-process-btn"
+                  className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
                 >
-                  <option value="beginning">Beginning</option>
-                  <option value="end">End</option>
-                  <option value="after">After Page</option>
-                </select>
+                  Add Blank Pages
+                </button>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Number of Pages
-                </label>
-                <input
-                  type="number"
-                  id="blank-page-count"
-                  min="1"
-                  defaultValue="1"
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-                />
-              </div>
-            </div>
-            <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
-                Add Blank Pages
-              </button>
             </div>
           </div>
         </div>
@@ -4081,12 +4353,60 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 Remove Blank Pages
               </h2>
-              <p className="text-gray-600 dark:text-gray-400">Automatically remove blank pages</p>
+              <p className="text-gray-600 dark:text-gray-400">Automatically detect and remove blank pages</p>
             </div>
-            <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
-                Remove Blank Pages
-              </button>
+
+            {/* File Display Area */}
+            <div id="remove-blank-file-display-area" className="mb-4"></div>
+
+            {/* Options Panel */}
+            <div id="remove-blank-options-panel" className="hidden">
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Detection Sensitivity
+                </label>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="range"
+                    id="remove-blank-sensitivity-slider"
+                    min="0"
+                    max="100"
+                    defaultValue="80"
+                    className="flex-1"
+                  />
+                  <span id="remove-blank-sensitivity-value" className="text-gray-700 dark:text-gray-300 font-medium min-w-[3ch]">80</span>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Higher values detect more pages as blank
+                </p>
+              </div>
+
+              <div className="flex justify-center mb-6">
+                <button
+                  id="remove-blank-detect-btn"
+                  className="px-8 py-3 bg-indigo-600 text-white text-lg font-semibold rounded-full shadow-lg hover:bg-indigo-700 transition-all hover:scale-105"
+                >
+                  Detect Blank Pages
+                </button>
+              </div>
+            </div>
+
+            {/* Preview Panel */}
+            <div id="remove-blank-preview-panel" className="hidden">
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+                <p id="remove-blank-preview-info" className="text-sm text-blue-800 dark:text-blue-200"></p>
+              </div>
+
+              <div id="remove-blank-pages-preview" className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6 max-h-[600px] overflow-y-auto"></div>
+
+              <div className="flex justify-center">
+                <button
+                  id="remove-blank-process-btn"
+                  className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+                >
+                  Remove Selected Pages
+                </button>
+              </div>
             </div>
           </div>
         </div>

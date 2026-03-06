@@ -41,7 +41,27 @@ export async function loadPyMuPDF(): Promise<any> {
 
     try {
       const wrapperUrl = `${normalizedPymupdf}dist/index.js`;
-      const module = await import(/* @vite-ignore */ wrapperUrl);
+      
+      // Use dynamic script loading for Next.js compatibility
+      const loadScriptModule = () => {
+        return new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.type = 'module';
+          script.onload = () => {
+            // Access the global PyMuPDF if available
+            if ((window as any).PyMuPDF) {
+              resolve({ PyMuPDF: (window as any).PyMuPDF });
+            } else {
+              reject(new Error('PyMuPDF not found on window object'));
+            }
+          };
+          script.onerror = () => reject(new Error('Failed to load PyMuPDF script'));
+          script.src = wrapperUrl;
+          document.head.appendChild(script);
+        });
+      };
+
+      const module: any = await loadScriptModule();
 
       if (typeof module.PyMuPDF !== 'function') {
         throw new Error('PyMuPDF module did not export expected PyMuPDF class.');
