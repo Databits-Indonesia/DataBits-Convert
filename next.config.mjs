@@ -1,9 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export', // Outputs a Single-Page Application (SPA)
+  // Removed 'output: export' to enable middleware support for Vercel deployment
   distDir: './dist', // Changes the build output directory to ./dist/
   images: {
-    unoptimized: true, // Required for static export
+    unoptimized: true,
   },
   turbopack: {
     resolveAlias: {

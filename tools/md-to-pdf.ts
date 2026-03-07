@@ -1,95 +1,308 @@
-// // note: this is a work in progress
-// import { showLoader, hideLoader, showAlert } from '../ui.js';
-// import { downloadFile } from '../utils/helpers.js';
-// import html2canvas from 'html2canvas';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile } from '../utils/helpers';
+import { getFiles } from '../state';
+import jsPDF from 'jspdf';
 
-// export async function mdToPdf() {
-//   // @ts-expect-error TS(2339) FIXME: Property 'jspdf' does not exist on type 'Window & ... Remove this comment to see the full error message
-//   if (
-//     typeof window.jspdf === 'undefined' ||
-//     typeof window.html2canvas === 'undefined'
-//   ) {
-//     showAlert(
-//       'Libraries Not Ready',
-//       'PDF generation libraries are loading. Please try again.'
-//     );
-//     return;
-//   }
-//   // @ts-expect-error TS(2339) FIXME: Property 'value' does not exist on type 'HTMLEleme... Remove this comment to see the full error message
-//   const markdownContent = document.getElementById('md-input').value.trim();
-//   if (!markdownContent) {
-//     showAlert('Input Required', 'Please enter some Markdown text.');
-//     return;
-//   }
-//   showLoader('Generating High-Quality PDF...');
+/**
+ * Main function to convert Markdown files to PDF
+ */
+export async function mdToPdf() {
+  const files = getFiles();
 
-//   try {
-//     // @ts-expect-error TS(2304) FIXME: Cannot find name 'marked'.
-//     const htmlContent = marked.parse(markdownContent);
-//     // @ts-expect-error TS(2339) FIXME: Property 'value' does not exist on type 'HTMLEleme... Remove this comment to see the full error message
-//     const pageFormat = document.getElementById('page-format').value;
-//     // @ts-expect-error TS(2339) FIXME: Property 'value' does not exist on type 'HTMLEleme... Remove this comment to see the full error message
-//     const orientation = document.getElementById('orientation').value;
-//     // @ts-expect-error TS(2339) FIXME: Property 'value' does not exist on type 'HTMLEleme... Remove this comment to see the full error message
-//     const marginSize = document.getElementById('margin-size').value;
+  // If no files in state, prompt user to select Markdown files
+  if (files.length === 0) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = '.md,.markdown,text/markdown';
 
-//     const tempContainer = document.createElement('div');
-//     tempContainer.style.cssText =
-//       'position: absolute; top: -9999px; left: -9999px; width: 800px; padding: 40px; background: white; color: black;';
-//     const styleSheet = document.createElement('style');
-//     styleSheet.textContent = `
-//             body { font-family: Helvetica, Arial, sans-serif; line-height: 1.6; font-size: 12px; }
-//             h1, h2, h3 { margin: 20px 0 10px 0; font-weight: 600; border-bottom: 1px solid #eaecef; padding-bottom: .3em; }
-//             h1 { font-size: 2em; } h2 { font-size: 1.5em; }
-//             p, blockquote, ul, ol, pre, table { margin: 0 0 16px 0; }
-//             blockquote { padding: 0 1em; color: #6a737d; border-left: .25em solid #dfe2e5; }
-//             pre { padding: 16px; overflow: auto; font-size: 85%; line-height: 1.45; background-color: #f6f8fa; border-radius: 6px; }
-//             code { font-family: 'Courier New', monospace; background-color: rgba(27,31,35,.05); border-radius: 3px; padding: .2em .4em; }
-//             table { width: 100%; border-collapse: collapse; } th, td { padding: 6px 13px; border: 1px solid #dfe2e5; }
-//             img { max-width: 100%; }
-//         `;
-//     tempContainer.appendChild(styleSheet);
-//     tempContainer.innerHTML += htmlContent;
-//     document.body.appendChild(tempContainer);
+    const filePromise = new Promise<FileList | null>((resolve) => {
+      input.onchange = () => resolve(input.files);
+      input.oncancel = () => resolve(null);
+    });
 
-//     const canvas = await html2canvas(tempContainer, {
-//       scale: 2,
-//       useCORS: true,
-//     });
-//     document.body.removeChild(tempContainer);
+    input.click();
 
-//     // @ts-expect-error TS(2339) FIXME: Property 'jspdf' does not exist on type 'Window & ... Remove this comment to see the full error message
-//     const { jsPDF } = window.jspdf;
-//     const pdf = new jsPDF({ orientation, unit: 'mm', format: pageFormat });
-//     const pageFormats = { a4: [210, 297], letter: [216, 279] };
-//     const format = pageFormats[pageFormat];
-//     const [pageWidth, pageHeight] =
-//       orientation === 'landscape' ? [format[1], format[0]] : format;
-//     const margins = { narrow: 10, normal: 20, wide: 30 };
-//     const margin = margins[marginSize];
-//     const contentWidth = pageWidth - margin * 2;
-//     const contentHeight = pageHeight - margin * 2;
-//     const imgData = canvas.toDataURL('image/png');
-//     const imgHeight = (canvas.height * contentWidth) / canvas.width;
+    const selectedFiles = await filePromise;
+    if (!selectedFiles || selectedFiles.length === 0) {
+      showAlert('No Files', 'Please select at least one Markdown file.', 'info');
+      return;
+    }
 
-//     let heightLeft = imgHeight;
-//     let position = margin;
-//     pdf.addImage(imgData, 'PNG', margin, position, contentWidth, imgHeight);
-//     heightLeft -= contentHeight;
+    // Validate Markdown files
+    const mdFiles = Array.from(selectedFiles).filter(
+      (file) => 
+        file.type === 'text/markdown' || 
+        file.name.toLowerCase().endsWith('.md') ||
+        file.name.toLowerCase().endsWith('.markdown')
+    );
 
-//     while (heightLeft > 0) {
-//       position = position - pageHeight;
-//       pdf.addPage();
-//       pdf.addImage(imgData, 'PNG', margin, position, contentWidth, imgHeight);
-//       heightLeft -= contentHeight;
-//     }
+    if (mdFiles.length === 0) {
+      showAlert('Invalid Files', 'Please select Markdown files only.', 'error');
+      return;
+    }
 
-//     const pdfBlob = pdf.output('blob');
-//     downloadFile(pdfBlob, 'markdown-document.pdf');
-//   } catch (error) {
-//     console.error('MD to PDF conversion error:', error);
-//     showAlert('Conversion Error', 'Failed to generate PDF.');
-//   } finally {
-//     hideLoader();
-//   }
-// }
+    if (mdFiles.length < selectedFiles.length) {
+      showAlert(
+        'Invalid Files',
+        `Only ${mdFiles.length} of ${selectedFiles.length} files were Markdown files.`,
+        'warning'
+      );
+    }
+
+    // Process the valid files
+    files.length = 0;
+    files.push(...mdFiles);
+  }
+
+  showLoader('Converting Markdown to PDF...');
+
+  try {
+    console.log('[MD2PDF] Starting conversion...');
+    console.log('[MD2PDF] Number of files:', files.length);
+
+    // Import marked for Markdown parsing
+    const { marked } = await import('marked');
+
+    if (files.length === 1) {
+      // Single file conversion
+      const originalFile = files[0];
+      console.log('[MD2PDF] Converting single file:', originalFile.name);
+
+      const text = await originalFile.text();
+      
+      if (!text.trim()) {
+        throw new Error('Markdown file is empty');
+      }
+
+      // Parse markdown to HTML
+      const htmlContent = await marked.parse(text);
+
+      // Create PDF
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      // Add icon and title
+      const title = originalFile.name.replace(/\.(md|markdown)$/i, '');
+      
+      // Add document icon (using text symbol)
+      pdf.setFontSize(16);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(59, 130, 246); // Blue color
+      pdf.text('[MD]', 14, 15);
+      
+      // Add title (filename without extension)
+      pdf.setTextColor(0, 0, 0); // Reset to black
+      pdf.text(title, 34, 15);
+
+      // Render HTML to PDF
+      await renderHTMLToPDF(pdf, htmlContent, 25);
+
+      const pdfBlob = pdf.output('blob');
+      const fileName = originalFile.name.replace(/\.(md|markdown)$/i, '') + '.pdf';
+      downloadFile(pdfBlob, fileName);
+
+      console.log('[MD2PDF] File downloaded:', fileName);
+
+      showAlert(
+        'Conversion Complete',
+        `Successfully converted ${originalFile.name} to PDF.`,
+        'success'
+      );
+    } else {
+      // Multiple files conversion - create a ZIP
+      console.log('[MD2PDF] Converting multiple files:', files.length);
+      showLoader('Preparing conversion...');
+
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        showLoader(`Converting ${i + 1}/${files.length}: ${file.name}...`);
+        console.log(`[MD2PDF] Converting file ${i + 1}/${files.length}:`, file.name);
+
+        try {
+          const text = await file.text();
+          
+          if (!text.trim()) {
+            console.warn(`[MD2PDF] Skipping empty file: ${file.name}`);
+            continue;
+          }
+
+          // Parse markdown to HTML
+          const htmlContent = await marked.parse(text);
+
+          // Create PDF
+          const pdf = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'a4',
+          });
+
+          // Add icon and title
+          const title = file.name.replace(/\.(md|markdown)$/i, '');
+          
+          // Add document icon (using text symbol)
+          pdf.setFontSize(16);
+          pdf.setFont('helvetica', 'bold');
+          pdf.setTextColor(59, 130, 246); // Blue color
+          pdf.text('[MD]', 14, 15);
+          
+          // Add title (filename without extension)
+          pdf.setTextColor(0, 0, 0); // Reset to black
+          pdf.text(title, 34, 15);
+
+          // Render HTML to PDF
+          await renderHTMLToPDF(pdf, htmlContent, 25);
+
+          const pdfBlob = pdf.output('blob');
+          console.log(`[MD2PDF] Converted ${file.name}, PDF size:`, pdfBlob.size);
+
+          const baseName = file.name.replace(/\.(md|markdown)$/i, '');
+          const pdfBuffer = await pdfBlob.arrayBuffer();
+          zip.file(`${baseName}.pdf`, pdfBuffer);
+        } catch (e) {
+          console.error(`[MD2PDF] Error converting ${file.name}:`, e);
+        }
+      }
+
+      console.log('[MD2PDF] Generating ZIP file...');
+      showLoader('Creating ZIP archive...');
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      console.log('[MD2PDF] ZIP size:', zipBlob.size);
+
+      downloadFile(zipBlob, 'markdown-converted.zip');
+
+      showAlert(
+        'Conversion Complete',
+        `Successfully converted ${files.length} Markdown file(s) to PDF.`,
+        'success'
+      );
+    }
+  } catch (e: any) {
+    console.error('[MD2PDF] ERROR:', e);
+    showAlert('Error', `An error occurred during conversion. Error: ${e.message}`);
+  } finally {
+    hideLoader();
+  }
+}
+
+/**
+ * Render HTML content to PDF with basic formatting
+ */
+async function renderHTMLToPDF(pdf: jsPDF, htmlContent: string, startY: number) {
+  // Create a temporary div to parse HTML
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = htmlContent;
+
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 14;
+  const maxWidth = pageWidth - (margin * 2);
+  let y = startY;
+
+  // Process each element
+  const elements = tempDiv.children;
+  for (let i = 0; i < elements.length; i++) {
+    const element = elements[i];
+    const tagName = element.tagName.toLowerCase();
+
+    // Check if we need a new page
+    if (y > pageHeight - 30) {
+      pdf.addPage();
+      y = margin;
+    }
+
+    switch (tagName) {
+      case 'h1':
+        pdf.setFontSize(18);
+        pdf.setFont('helvetica', 'bold');
+        y += 8;
+        break;
+      case 'h2':
+        pdf.setFontSize(16);
+        pdf.setFont('helvetica', 'bold');
+        y += 6;
+        break;
+      case 'h3':
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        y += 5;
+        break;
+      case 'h4':
+      case 'h5':
+      case 'h6':
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'bold');
+        y += 4;
+        break;
+      case 'p':
+        pdf.setFontSize(11);
+        pdf.setFont('helvetica', 'normal');
+        break;
+      case 'ul':
+      case 'ol':
+        pdf.setFontSize(11);
+        pdf.setFont('helvetica', 'normal');
+        // Process list items
+        const listItems = element.children;
+        for (let j = 0; j < listItems.length; j++) {
+          const li = listItems[j];
+          const bullet = tagName === 'ul' ? '•' : `${j + 1}.`;
+          const text = li.textContent || '';
+          const lines = pdf.splitTextToSize(`${bullet} ${text}`, maxWidth - 5);
+          
+          for (const line of lines) {
+            if (y > pageHeight - 20) {
+              pdf.addPage();
+              y = margin;
+            }
+            pdf.text(line, margin + 5, y);
+            y += 5;
+          }
+          y += 2;
+        }
+        continue;
+      case 'pre':
+      case 'code':
+        pdf.setFontSize(9);
+        pdf.setFont('courier', 'normal');
+        pdf.setFillColor(245, 245, 245);
+        break;
+      case 'blockquote':
+        pdf.setFontSize(11);
+        pdf.setFont('helvetica', 'italic');
+        pdf.setTextColor(100, 100, 100);
+        break;
+      default:
+        pdf.setFontSize(11);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(0, 0, 0);
+    }
+
+    // Get text content
+    const text = element.textContent || '';
+    if (text.trim()) {
+      const lines = pdf.splitTextToSize(text, maxWidth);
+      
+      for (const line of lines) {
+        if (y > pageHeight - 20) {
+          pdf.addPage();
+          y = margin;
+        }
+        pdf.text(line, margin, y);
+        y += 5;
+      }
+    }
+
+    // Reset formatting
+    pdf.setTextColor(0, 0, 0);
+    
+    // Add spacing after element
+    y += tagName.startsWith('h') ? 6 : 4;
+  }
+}

@@ -1,200 +1,141 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile, formatBytes, readFileAsArrayBuffer } from '../utils/helpers.js';
-import { createIcons, icons } from 'lucide';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile } from '../utils/helpers';
+import { getFiles } from '../state';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
 import { decode } from 'tiff';
 
-let files: File[] = [];
-
-const updateUI = () => {
-    const fileDisplayArea = document.getElementById('file-display-area');
-    const fileControls = document.getElementById('file-controls');
-    const processBtn = document.getElementById('process-btn');
-
-    if (!fileDisplayArea || !fileControls || !processBtn) return;
-
-    fileDisplayArea.innerHTML = '';
-
-    if (files.length > 0) {
-        fileControls.classList.remove('hidden');
-        processBtn.classList.remove('hidden');
-
-        files.forEach((file, index) => {
-            const fileDiv = document.createElement('div');
-            fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
-
-            const infoContainer = document.createElement('div');
-            infoContainer.className = 'flex items-center gap-2 overflow-hidden';
-
-            const nameSpan = document.createElement('span');
-            nameSpan.className = 'truncate font-medium text-gray-200';
-            nameSpan.textContent = file.name;
-
-            const sizeSpan = document.createElement('span');
-            sizeSpan.className = 'flex-shrink-0 text-gray-400 text-xs';
-            sizeSpan.textContent = `(${formatBytes(file.size)})`;
-
-            infoContainer.append(nameSpan, sizeSpan);
-
-            const removeBtn = document.createElement('button');
-            removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
-            removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
-            removeBtn.onclick = () => {
-                files = files.filter((_, i) => i !== index);
-                updateUI();
-            };
-
-            fileDiv.append(infoContainer, removeBtn);
-            fileDisplayArea.appendChild(fileDiv);
-        });
-        createIcons({ icons });
-    } else {
-        fileControls.classList.add('hidden');
-        processBtn.classList.add('hidden');
-    }
-};
-
-const resetState = () => {
-    files = [];
-    updateUI();
-};
-
-async function convert() {
-    if (files.length === 0) {
-        showAlert('No Files', 'Please select at least one TIFF file.');
-        return;
-    }
-    showLoader('Converting TIFF to PDF...');
+/**
+ * Convert TIFF to PNG using tiff.js decoder and canvas
+ */
+async function tiffToPng(file: File): Promise<Blob> {
+  return new Promise(async (resolve, reject) => {
     try {
-        const pdfDoc = await PDFLibDocument.create();
-        for (const file of files) {
-            const tiffBytes = await readFileAsArrayBuffer(file);
-            const ifds = decode(tiffBytes as ArrayBuffer);
+      const arrayBuffer = await file.arrayBuffer();
+      const tiffImages = decode(arrayBuffer);
+      
+      if (!tiffImages || tiffImages.length === 0) {
+        reject(new Error('No images found in TIFF file'));
+        return;
+      }
 
-            for (const ifd of ifds) {
-                const width = ifd.width;
-                const height = ifd.height;
-                const rgba = ifd.data;
+      // Use the first image in the TIFF
+      const tiffImage = tiffImages[0];
+      const canvas = document.createElement('canvas');
+      canvas.width = tiffImage.width;
+      canvas.height = tiffImage.height;
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('Could not get canvas context'));
+        return;
+      }
 
-                const canvas = document.createElement('canvas');
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                if (!ctx) continue;
+      // Create ImageData from TIFF data
+      const imageData = ctx.createImageData(tiffImage.width, tiffImage.height);
+      imageData.data.set(tiffImage.data);
+      ctx.putImageData(imageData, 0, 0);
 
-                const imageData = ctx.createImageData(width, height);
-                for (let i = 0; i < rgba.length; i++) {
-                    imageData.data[i] = rgba[i];
-                }
-                ctx.putImageData(imageData, 0, 0);
-
-                const pngBlob = await new Promise<Blob | null>((res) =>
-                    canvas.toBlob(res, 'image/png')
-                );
-                if (!pngBlob) continue;
-
-                const pngBytes = await pngBlob.arrayBuffer();
-                const pngImage = await pdfDoc.embedPng(pngBytes);
-                const page = pdfDoc.addPage([pngImage.width, pngImage.height]);
-                page.drawImage(pngImage, {
-                    x: 0,
-                    y: 0,
-                    width: pngImage.width,
-                    height: pngImage.height,
-                });
-            }
+      canvas.toBlob((blob) => {
+        if (blob) {
+          resolve(blob);
+        } else {
+          reject(new Error('Failed to create PNG blob'));
         }
-        const pdfBytes = await pdfDoc.save();
-        downloadFile(
-            new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' }),
-            'from_tiff.pdf'
-        );
-        showAlert('Success', 'PDF created successfully!', 'success', () => {
-            resetState();
-        });
+      }, 'image/png');
     } catch (e) {
-        console.error(e);
-        showAlert(
-            'Error',
-            'Failed to convert TIFF to PDF. One of the files may be invalid.'
-        );
-    } finally {
-        hideLoader();
+      reject(e);
     }
+  });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    const fileInput = document.getElementById('file-input') as HTMLInputElement;
-    const dropZone = document.getElementById('drop-zone');
-    const addMoreBtn = document.getElementById('add-more-btn');
-    const clearFilesBtn = document.getElementById('clear-files-btn');
-    const processBtn = document.getElementById('process-btn');
-    const backBtn = document.getElementById('back-to-tools');
+export async function tiffToPdf() {
+  const files = getFiles();
 
-    if (backBtn) {
-        backBtn.addEventListener('click', () => {
-            window.location.href = import.meta.env.BASE_URL;
-        });
+  // If no files in state, prompt user to select TIFF files
+  if (files.length === 0) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = '.tiff,.tif,image/tiff';
+
+    const filePromise = new Promise<FileList | null>((resolve) => {
+      input.onchange = () => resolve(input.files);
+      input.oncancel = () => resolve(null);
+    });
+
+    input.click();
+
+    const selectedFiles = await filePromise;
+    if (!selectedFiles || selectedFiles.length === 0) {
+      showAlert('No Files', 'Please select at least one TIFF file.', 'info');
+      return;
     }
 
-    const handleFileSelect = (newFiles: FileList | null) => {
-        if (!newFiles || newFiles.length === 0) return;
-        const validFiles = Array.from(newFiles).filter(
-            (file) =>
-                file.type === 'image/tiff' ||
-                file.name.toLowerCase().endsWith('.tiff') ||
-                file.name.toLowerCase().endsWith('.tif')
-        );
+    // Validate TIFF files
+    const tiffFiles = Array.from(selectedFiles).filter(
+      (file) => 
+        file.type === 'image/tiff' ||
+        file.type === 'image/tif' ||
+        file.name.toLowerCase().endsWith('.tiff') ||
+        file.name.toLowerCase().endsWith('.tif')
+    );
 
-        if (validFiles.length < newFiles.length) {
-            showAlert('Invalid Files', 'Some files were skipped. Only TIFF files are allowed.');
-        }
-
-        if (validFiles.length > 0) {
-            files = [...files, ...validFiles];
-            updateUI();
-        }
-    };
-
-    if (fileInput && dropZone) {
-        fileInput.addEventListener('change', (e) => {
-            handleFileSelect((e.target as HTMLInputElement).files);
-        });
-
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('bg-gray-700');
-        });
-
-        dropZone.addEventListener('dragleave', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('bg-gray-700');
-        });
-
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('bg-gray-700');
-            handleFileSelect(e.dataTransfer?.files ?? null);
-        });
-
-        fileInput.addEventListener('click', () => {
-            fileInput.value = '';
-        });
+    if (tiffFiles.length === 0) {
+      showAlert('Invalid Files', 'Please select TIFF image files only.', 'error');
+      return;
     }
 
-    if (addMoreBtn) {
-        addMoreBtn.addEventListener('click', () => {
-            fileInput?.click();
-        });
+    if (tiffFiles.length < selectedFiles.length) {
+      showAlert('Invalid Files', `Only ${tiffFiles.length} of ${selectedFiles.length} files were TIFF images.`, 'warning');
     }
 
-    if (clearFilesBtn) {
-        clearFilesBtn.addEventListener('click', () => {
-            resetState();
+    // Process the valid files
+    files.length = 0;
+    files.push(...tiffFiles);
+  }
+
+  showLoader('Converting TIFF images to PDF...');
+
+  try {
+    const pdfDoc = await PDFLibDocument.create();
+
+    for (const file of files) {
+      try {
+        // Convert TIFF to PNG
+        const pngBlob = await tiffToPng(file);
+        const pngBytes = new Uint8Array(await pngBlob.arrayBuffer());
+
+        // Embed the PNG image in the PDF
+        const image = await pdfDoc.embedPng(pngBytes);
+        const page = pdfDoc.addPage([image.width, image.height]);
+        page.drawImage(image, {
+          x: 0,
+          y: 0,
+          width: image.width,
+          height: image.height,
         });
+      } catch (e) {
+        console.error(`Failed to process ${file.name}:`, e);
+        showAlert('Error', `Failed to process ${file.name}. Skipping...`, 'warning');
+      }
     }
 
-    if (processBtn) {
-        processBtn.addEventListener('click', convert);
+    if (pdfDoc.getPageCount() === 0) {
+      throw new Error('No valid TIFF images could be processed. Please check your files.');
     }
-});
+
+    const pdfBytes = await pdfDoc.save();
+    downloadFile(
+      new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' }),
+      'tiffs-to-pdf.pdf'
+    );
+
+    showAlert('Success', `Successfully converted ${files.length} TIFF image(s) to PDF!`, 'success');
+  } catch (e) {
+    console.error(e);
+    const errorMsg = e instanceof Error ? e.message : 'Failed to create PDF from TIFF images.';
+    showAlert('Error', errorMsg, 'error');
+  } finally {
+    hideLoader();
+  }
+}

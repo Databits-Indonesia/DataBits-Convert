@@ -1,179 +1,106 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile, formatBytes } from '../utils/helpers.js';
-import { createIcons, icons } from 'lucide';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile } from '../utils/helpers';
+import { getFiles } from '../state';
 import heic2any from 'heic2any';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
 
-let files: File[] = [];
+export async function heicToPdf() {
+  const files = getFiles();
 
-const updateUI = () => {
-    const fileDisplayArea = document.getElementById('file-display-area');
-    const fileControls = document.getElementById('file-controls');
-    const processBtn = document.getElementById('process-btn');
+  // If no files in state, prompt user to select HEIC files
+  if (files.length === 0) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = '.heic,.heif,image/heic,image/heif';
 
-    if (!fileDisplayArea || !fileControls || !processBtn) return;
+    const filePromise = new Promise<FileList | null>((resolve) => {
+      input.onchange = () => resolve(input.files);
+      input.oncancel = () => resolve(null);
+    });
 
-    fileDisplayArea.innerHTML = '';
+    input.click();
 
-    if (files.length > 0) {
-        fileControls.classList.remove('hidden');
-        processBtn.classList.remove('hidden');
+    const selectedFiles = await filePromise;
+    if (!selectedFiles || selectedFiles.length === 0) {
+      showAlert('No Files', 'Please select at least one HEIC/HEIF file.', 'info');
+      return;
+    }
 
-        files.forEach((file, index) => {
-            const fileDiv = document.createElement('div');
-            fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+    // Validate HEIC/HEIF files
+    const heicFiles = Array.from(selectedFiles).filter(
+      (file) => 
+        file.name.toLowerCase().endsWith('.heic') || 
+        file.name.toLowerCase().endsWith('.heif') ||
+        file.type === 'image/heic' ||
+        file.type === 'image/heif'
+    );
 
-            const infoContainer = document.createElement('div');
-            infoContainer.className = 'flex items-center gap-2 overflow-hidden';
+    if (heicFiles.length === 0) {
+      showAlert('Invalid Files', 'Please select HEIC/HEIF image files only.', 'error');
+      return;
+    }
 
-            const nameSpan = document.createElement('span');
-            nameSpan.className = 'truncate font-medium text-gray-200';
-            nameSpan.textContent = file.name;
+    if (heicFiles.length < selectedFiles.length) {
+      showAlert('Invalid Files', `Only ${heicFiles.length} of ${selectedFiles.length} files were HEIC/HEIF images.`, 'warning');
+    }
 
-            const sizeSpan = document.createElement('span');
-            sizeSpan.className = 'flex-shrink-0 text-gray-400 text-xs';
-            sizeSpan.textContent = `(${formatBytes(file.size)})`;
+    // Process the valid files
+    files.length = 0;
+    files.push(...heicFiles);
+  }
 
-            infoContainer.append(nameSpan, sizeSpan);
+  showLoader('Converting HEIC images to PDF...');
 
-            const removeBtn = document.createElement('button');
-            removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
-            removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
-            removeBtn.onclick = () => {
-                files = files.filter((_, i) => i !== index);
-                updateUI();
-            };
+  try {
+    const pdfDoc = await PDFLibDocument.create();
 
-            fileDiv.append(infoContainer, removeBtn);
-            fileDisplayArea.appendChild(fileDiv);
+    for (const file of files) {
+      try {
+        // Convert HEIC to PNG using heic2any
+        const conversionResult = await heic2any({
+          blob: file,
+          toType: 'image/png',
+          quality: 0.92,
         });
-        createIcons({ icons });
-    } else {
-        fileControls.classList.add('hidden');
-        processBtn.classList.add('hidden');
-    }
-};
 
-const resetState = () => {
-    files = [];
-    updateUI();
-};
+        const pngBlob = Array.isArray(conversionResult)
+          ? conversionResult[0]
+          : conversionResult;
 
-async function convert() {
-    if (files.length === 0) {
-        showAlert('No Files', 'Please select at least one HEIC file.');
-        return;
-    }
-    showLoader('Converting HEIC to PDF...');
-    try {
-        const pdfDoc = await PDFLibDocument.create();
-        for (const file of files) {
-            const conversionResult = await heic2any({
-                blob: file,
-                toType: 'image/png',
-                quality: 0.92,
-            });
-            const pngBlob = Array.isArray(conversionResult)
-                ? conversionResult[0]
-                : conversionResult;
-            const pngBytes = await pngBlob.arrayBuffer();
-            const pngImage = await pdfDoc.embedPng(pngBytes);
-            const page = pdfDoc.addPage([pngImage.width, pngImage.height]);
-            page.drawImage(pngImage, {
-                x: 0,
-                y: 0,
-                width: pngImage.width,
-                height: pngImage.height,
-            });
-        }
-        const pdfBytes = await pdfDoc.save();
-        downloadFile(
-            new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' }),
-            'from_heic.pdf'
-        );
-        showAlert('Success', 'PDF created successfully!', 'success', () => {
-            resetState();
+        const pngBytes = new Uint8Array(await pngBlob.arrayBuffer());
+
+        // Embed the PNG image in the PDF
+        const image = await pdfDoc.embedPng(pngBytes);
+        const page = pdfDoc.addPage([image.width, image.height]);
+        page.drawImage(image, {
+          x: 0,
+          y: 0,
+          width: image.width,
+          height: image.height,
         });
-    } catch (e) {
-        console.error(e);
-        showAlert(
-            'Error',
-            'Failed to convert HEIC to PDF. One of the files may be invalid.'
-        );
-    } finally {
-        hideLoader();
+      } catch (e) {
+        console.error(`Failed to process ${file.name}:`, e);
+        showAlert('Error', `Failed to process ${file.name}. Skipping...`, 'warning');
+      }
     }
+
+    if (pdfDoc.getPageCount() === 0) {
+      throw new Error('No valid HEIC images could be processed. Please check your files.');
+    }
+
+    const pdfBytes = await pdfDoc.save();
+    downloadFile(
+      new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' }),
+      'heics-to-pdf.pdf'
+    );
+
+    showAlert('Success', `Successfully converted ${files.length} HEIC image(s) to PDF!`, 'success');
+  } catch (e) {
+    console.error(e);
+    const errorMsg = e instanceof Error ? e.message : 'Failed to create PDF from HEIC images.';
+    showAlert('Error', errorMsg, 'error');
+  } finally {
+    hideLoader();
+  }
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-    const fileInput = document.getElementById('file-input') as HTMLInputElement;
-    const dropZone = document.getElementById('drop-zone');
-    const addMoreBtn = document.getElementById('add-more-btn');
-    const clearFilesBtn = document.getElementById('clear-files-btn');
-    const processBtn = document.getElementById('process-btn');
-    const backBtn = document.getElementById('back-to-tools');
-
-    if (backBtn) {
-        backBtn.addEventListener('click', () => {
-            window.location.href = import.meta.env.BASE_URL;
-        });
-    }
-
-    const handleFileSelect = (newFiles: FileList | null) => {
-        if (!newFiles || newFiles.length === 0) return;
-        const validFiles = Array.from(newFiles).filter(
-            (file) => file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif')
-        );
-
-        if (validFiles.length < newFiles.length) {
-            showAlert('Invalid Files', 'Some files were skipped. Only HEIC/HEIF files are allowed.');
-        }
-
-        if (validFiles.length > 0) {
-            files = [...files, ...validFiles];
-            updateUI();
-        }
-    };
-
-    if (fileInput && dropZone) {
-        fileInput.addEventListener('change', (e) => {
-            handleFileSelect((e.target as HTMLInputElement).files);
-        });
-
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('bg-gray-700');
-        });
-
-        dropZone.addEventListener('dragleave', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('bg-gray-700');
-        });
-
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('bg-gray-700');
-            handleFileSelect(e.dataTransfer?.files ?? null);
-        });
-
-        fileInput.addEventListener('click', () => {
-            fileInput.value = '';
-        });
-    }
-
-    if (addMoreBtn) {
-        addMoreBtn.addEventListener('click', () => {
-            fileInput?.click();
-        });
-    }
-
-    if (clearFilesBtn) {
-        clearFilesBtn.addEventListener('click', () => {
-            resetState();
-        });
-    }
-
-    if (processBtn) {
-        processBtn.addEventListener('click', convert);
-    }
-});

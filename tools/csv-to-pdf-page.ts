@@ -1,231 +1,214 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import {
-    downloadFile,
-    readFileAsArrayBuffer,
-    formatBytes,
-} from '../utils/helpers.js';
-import { state } from '../state.js';
-import { createIcons, icons } from 'lucide';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile } from '../utils/helpers';
+import { getFiles } from '../state';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
-document.addEventListener('DOMContentLoaded', () => {
-    state.files = [];
+/**
+ * Main function to convert CSV files to PDF
+ */
+export async function csvToPdf() {
+  const files = getFiles();
 
-    const fileInput = document.getElementById('file-input') as HTMLInputElement;
-    const dropZone = document.getElementById('drop-zone');
-    const convertOptions = document.getElementById('convert-options');
-    const fileDisplayArea = document.getElementById('file-display-area');
-    const fileControls = document.getElementById('file-controls');
-    const addMoreBtn = document.getElementById('add-more-btn');
-    const clearFilesBtn = document.getElementById('clear-files-btn');
-    const backBtn = document.getElementById('back-to-tools');
-    const processBtn = document.getElementById('process-btn');
+  // If no files in state, prompt user to select CSV files
+  if (files.length === 0) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = '.csv,text/csv';
 
-    if (backBtn) {
-        backBtn.addEventListener('click', () => {
-            window.location.href = import.meta.env.BASE_URL;
-        });
+    const filePromise = new Promise<FileList | null>((resolve) => {
+      input.onchange = () => resolve(input.files);
+      input.oncancel = () => resolve(null);
+    });
+
+    input.click();
+
+    const selectedFiles = await filePromise;
+    if (!selectedFiles || selectedFiles.length === 0) {
+      showAlert('No Files', 'Please select at least one CSV file.', 'info');
+      return;
     }
 
-    const updateUI = async () => {
-        if (!convertOptions) return;
+    // Validate CSV files
+    const csvFiles = Array.from(selectedFiles).filter(
+      (file) => file.type === 'text/csv' || file.name.toLowerCase().endsWith('.csv')
+    );
 
-        if (state.files.length > 0) {
-            if (fileDisplayArea) {
-                fileDisplayArea.innerHTML = '';
+    if (csvFiles.length === 0) {
+      showAlert('Invalid Files', 'Please select CSV files only.', 'error');
+      return;
+    }
 
-                for (let index = 0; index < state.files.length; index++) {
-                    const file = state.files[index];
-                    const fileDiv = document.createElement('div');
-                    fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+    if (csvFiles.length < selectedFiles.length) {
+      showAlert(
+        'Invalid Files',
+        `Only ${csvFiles.length} of ${selectedFiles.length} files were CSV files.`,
+        'warning'
+      );
+    }
 
-                    const infoContainer = document.createElement('div');
-                    infoContainer.className = 'flex flex-col overflow-hidden';
+    // Process the valid files
+    files.length = 0;
+    files.push(...csvFiles);
+  }
 
-                    const nameSpan = document.createElement('div');
-                    nameSpan.className = 'truncate font-medium text-gray-200 text-sm mb-1';
-                    nameSpan.textContent = file.name;
+  showLoader('Converting CSV to PDF...');
 
-                    const metaSpan = document.createElement('div');
-                    metaSpan.className = 'text-xs text-gray-400';
-                    metaSpan.textContent = formatBytes(file.size);
+  try {
+    console.log('[CSV2PDF] Starting conversion...');
+    console.log('[CSV2PDF] Number of files:', files.length);
 
-                    infoContainer.append(nameSpan, metaSpan);
+    if (files.length === 1) {
+      // Single file conversion
+      const originalFile = files[0];
+      console.log('[CSV2PDF] Converting single file:', originalFile.name);
 
-                    const removeBtn = document.createElement('button');
-                    removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
-                    removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
-                    removeBtn.onclick = () => {
-                        state.files = state.files.filter((_, i) => i !== index);
-                        updateUI();
-                    };
+      const text = await originalFile.text();
+      const rows = parseCSV(text);
 
-                    fileDiv.append(infoContainer, removeBtn);
-                    fileDisplayArea.appendChild(fileDiv);
-                }
+      if (rows.length === 0) {
+        throw new Error('CSV file is empty or invalid');
+      }
 
-                createIcons({ icons });
-            }
-            if (fileControls) fileControls.classList.remove('hidden');
-            convertOptions.classList.remove('hidden');
-        } else {
-            if (fileDisplayArea) fileDisplayArea.innerHTML = '';
-            if (fileControls) fileControls.classList.add('hidden');
-            convertOptions.classList.add('hidden');
-        }
-    };
+      const pdf = new jsPDF({
+        orientation: rows[0].length > 5 ? 'landscape' : 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
 
-    const resetState = () => {
-        state.files = [];
-        state.pdfDoc = null;
-        updateUI();
-    };
+      // Add title
+      pdf.setFontSize(16);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(originalFile.name, 14, 15);
 
-    const convertToPdf = async () => {
+      // Add table
+      autoTable(pdf, {
+        head: [rows[0]],
+        body: rows.slice(1),
+        startY: 25,
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [66, 66, 66], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [245, 245, 245] },
+        margin: { top: 25, left: 14, right: 14 },
+      });
+
+      const pdfBlob = pdf.output('blob');
+      const fileName = originalFile.name.replace(/\.csv$/i, '') + '.pdf';
+      downloadFile(pdfBlob, fileName);
+
+      console.log('[CSV2PDF] File downloaded:', fileName);
+
+      showAlert(
+        'Conversion Complete',
+        `Successfully converted ${originalFile.name} to PDF.`,
+        'success'
+      );
+    } else {
+      // Multiple files conversion - create a ZIP
+      console.log('[CSV2PDF] Converting multiple files:', files.length);
+      showLoader('Preparing conversion...');
+
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        showLoader(`Converting ${i + 1}/${files.length}: ${file.name}...`);
+        console.log(`[CSV2PDF] Converting file ${i + 1}/${files.length}:`, file.name);
+
         try {
-            console.log('[CSV2PDF] Starting conversion...');
-            console.log('[CSV2PDF] Number of files:', state.files.length);
+          const text = await file.text();
+          const rows = parseCSV(text);
 
-            if (state.files.length === 0) {
-                showAlert('No Files', 'Please select at least one CSV file.');
-                hideLoader();
-                return;
-            }
+          if (rows.length === 0) {
+            console.warn(`[CSV2PDF] Skipping empty file: ${file.name}`);
+            continue;
+          }
 
-            const { convertCsvToPdf } = await import('../utils/csv-to-pdf.js');
+          const pdf = new jsPDF({
+            orientation: rows[0].length > 5 ? 'landscape' : 'portrait',
+            unit: 'mm',
+            format: 'a4',
+          });
 
-            if (state.files.length === 1) {
-                const originalFile = state.files[0];
-                console.log('[CSV2PDF] Converting single file:', originalFile.name, 'Size:', originalFile.size, 'bytes');
+          // Add title
+          pdf.setFontSize(16);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text(file.name, 14, 15);
 
-                const pdfBlob = await convertCsvToPdf(originalFile, {
-                    onProgress: (percent, message) => {
-                        console.log(`[CSV2PDF] Progress: ${percent}% - ${message}`);
-                        showLoader(message, percent);
-                    }
-                });
+          // Add table
+          autoTable(pdf, {
+            head: [rows[0]],
+            body: rows.slice(1),
+            startY: 25,
+            styles: { fontSize: 8, cellPadding: 2 },
+            headStyles: { fillColor: [66, 66, 66], fontStyle: 'bold' },
+            alternateRowStyles: { fillColor: [245, 245, 245] },
+            margin: { top: 25, left: 14, right: 14 },
+          });
 
-                console.log('[CSV2PDF] Conversion complete! PDF size:', pdfBlob.size, 'bytes');
+          const pdfBlob = pdf.output('blob');
+          console.log(`[CSV2PDF] Converted ${file.name}, PDF size:`, pdfBlob.size);
 
-                const fileName = originalFile.name.replace(/\.csv$/i, '') + '.pdf';
-                downloadFile(pdfBlob, fileName);
-                console.log('[CSV2PDF] File downloaded:', fileName);
-
-                hideLoader();
-
-                showAlert(
-                    'Conversion Complete',
-                    `Successfully converted ${originalFile.name} to PDF.`,
-                    'success',
-                    () => resetState()
-                );
-            } else {
-                console.log('[CSV2PDF] Converting multiple files:', state.files.length);
-                showLoader('Preparing conversion...');
-                const JSZip = (await import('jszip')).default;
-                const zip = new JSZip();
-
-                for (let i = 0; i < state.files.length; i++) {
-                    const file = state.files[i];
-                    console.log(`[CSV2PDF] Converting file ${i + 1}/${state.files.length}:`, file.name);
-
-                    const pdfBlob = await convertCsvToPdf(file, {
-                        onProgress: (percent, message) => {
-                            const overallPercent = ((i / state.files.length) * 100) + (percent / state.files.length);
-                            showLoader(`Converting ${i + 1}/${state.files.length}: ${file.name}...`, overallPercent);
-                        }
-                    });
-
-                    console.log(`[CSV2PDF] Converted ${file.name}, PDF size:`, pdfBlob.size);
-
-                    const baseName = file.name.replace(/\.csv$/i, '');
-                    const pdfBuffer = await pdfBlob.arrayBuffer();
-                    zip.file(`${baseName}.pdf`, pdfBuffer);
-                }
-
-                console.log('[CSV2PDF] Generating ZIP file...');
-                showLoader('Creating ZIP archive...');
-                const zipBlob = await zip.generateAsync({ type: 'blob' });
-                console.log('[CSV2PDF] ZIP size:', zipBlob.size);
-
-                downloadFile(zipBlob, 'csv-converted.zip');
-
-                hideLoader();
-
-                showAlert(
-                    'Conversion Complete',
-                    `Successfully converted ${state.files.length} CSV file(s) to PDF.`,
-                    'success',
-                    () => resetState()
-                );
-            }
-        } catch (e: any) {
-            console.error('[CSV2PDF] ERROR:', e);
-            console.error('[CSV2PDF] Error stack:', e.stack);
-            hideLoader();
-            showAlert(
-                'Error',
-                `An error occurred during conversion. Error: ${e.message}`
-            );
+          const baseName = file.name.replace(/\.csv$/i, '');
+          const pdfBuffer = await pdfBlob.arrayBuffer();
+          zip.file(`${baseName}.pdf`, pdfBuffer);
+        } catch (e) {
+          console.error(`[CSV2PDF] Error converting ${file.name}:`, e);
         }
-    };
+      }
 
-    const handleFileSelect = (files: FileList | null) => {
-        if (files && files.length > 0) {
-            state.files = [...state.files, ...Array.from(files)];
-            updateUI();
-        }
-    };
+      console.log('[CSV2PDF] Generating ZIP file...');
+      showLoader('Creating ZIP archive...');
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      console.log('[CSV2PDF] ZIP size:', zipBlob.size);
 
-    if (fileInput && dropZone) {
-        fileInput.addEventListener('change', (e) => {
-            handleFileSelect((e.target as HTMLInputElement).files);
-        });
+      downloadFile(zipBlob, 'csv-converted.zip');
 
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('bg-gray-700');
-        });
+      showAlert(
+        'Conversion Complete',
+        `Successfully converted ${files.length} CSV file(s) to PDF.`,
+        'success'
+      );
+    }
+  } catch (e: any) {
+    console.error('[CSV2PDF] ERROR:', e);
+    showAlert('Error', `An error occurred during conversion. Error: ${e.message}`);
+  } finally {
+    hideLoader();
+  }
+}
 
-        dropZone.addEventListener('dragleave', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('bg-gray-700');
-        });
+/**
+ * Simple CSV parser
+ */
+function parseCSV(text: string): string[][] {
+  const lines = text.split('\n').filter(line => line.trim());
+  const rows: string[][] = [];
 
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('bg-gray-700');
-            const files = e.dataTransfer?.files;
-            if (files && files.length > 0) {
-                const csvFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.csv') || f.type === 'text/csv');
-                if (csvFiles.length > 0) {
-                    const dataTransfer = new DataTransfer();
-                    csvFiles.forEach(f => dataTransfer.items.add(f));
-                    handleFileSelect(dataTransfer.files);
-                }
-            }
-        });
+  for (const line of lines) {
+    // Simple CSV parsing (handles basic quoted fields)
+    const row: string[] = [];
+    let current = '';
+    let inQuotes = false;
 
-        // Clear value on click to allow re-selecting the same file
-        fileInput.addEventListener('click', () => {
-            fileInput.value = '';
-        });
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        row.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
     }
 
-    if (addMoreBtn) {
-        addMoreBtn.addEventListener('click', () => {
-            fileInput.click();
-        });
-    }
+    row.push(current.trim());
+    rows.push(row);
+  }
 
-    if (clearFilesBtn) {
-        clearFilesBtn.addEventListener('click', () => {
-            resetState();
-        });
-    }
-
-    if (processBtn) {
-        processBtn.addEventListener('click', convertToPdf);
-    }
-
-    updateUI();
-});
+  return rows;
+}

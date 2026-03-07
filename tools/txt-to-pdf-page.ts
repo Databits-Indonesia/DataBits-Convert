@@ -1,280 +1,142 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile, formatBytes } from '../utils/helpers.js';
-import { createIcons, icons } from 'lucide';
-import { isWasmAvailable, getWasmBaseUrl } from '../config/wasm-cdn-config.js';
-import { showWasmRequiredDialog } from '../utils/wasm-provider';
-import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile } from '../utils/helpers';
+import { getFiles } from '../state';
+import { jsPDF } from 'jspdf';
 
-let files: File[] = [];
-let currentMode: 'upload' | 'text' = 'upload';
+/**
+ * Main function to convert text files to PDF
+ */
+export async function txtToPdf() {
+  const files = getFiles();
 
-// RTL character detection pattern (Arabic, Hebrew, Persian, etc.)
-const RTL_PATTERN =
-  /[\u0590-\u05FF\u0600-\u06FF\u0700-\u074F\u0750-\u077F\u0780-\u07BF\u07C0-\u07FF\u08A0-\u08FF\uFB1D-\uFB4F\uFB50-\uFDFF\uFE70-\uFEFF]/;
+  // If no files in state, prompt user to select text files
+  if (files.length === 0) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = '.txt,text/plain';
 
-function hasRtlCharacters(text: string): boolean {
-  return RTL_PATTERN.test(text);
-}
-
-const updateUI = () => {
-  const fileDisplayArea = document.getElementById('file-display-area');
-  const fileControls = document.getElementById('file-controls');
-  const dropZone = document.getElementById('drop-zone');
-
-  if (!fileDisplayArea || !fileControls || !dropZone) return;
-
-  fileDisplayArea.innerHTML = '';
-
-  if (files.length > 0 && currentMode === 'upload') {
-    dropZone.classList.add('hidden');
-    fileControls.classList.remove('hidden');
-
-    files.forEach((file, index) => {
-      const fileDiv = document.createElement('div');
-      fileDiv.className =
-        'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
-
-      const infoSpan = document.createElement('span');
-      infoSpan.className = 'truncate font-medium text-gray-200';
-      infoSpan.textContent = file.name;
-
-      const sizeSpan = document.createElement('span');
-      sizeSpan.className = 'text-gray-400 text-xs ml-2';
-      sizeSpan.textContent = `(${formatBytes(file.size)})`;
-
-      const removeBtn = document.createElement('button');
-      removeBtn.className = 'ml-4 text-red-400 hover:text-red-300';
-      removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
-      removeBtn.onclick = () => {
-        files = files.filter((_, i) => i !== index);
-        updateUI();
-      };
-
-      fileDiv.append(infoSpan, sizeSpan, removeBtn);
-      fileDisplayArea.appendChild(fileDiv);
+    const filePromise = new Promise<FileList | null>((resolve) => {
+      input.onchange = () => resolve(input.files);
+      input.oncancel = () => resolve(null);
     });
-    createIcons({ icons });
-  } else {
-    dropZone.classList.remove('hidden');
-    fileControls.classList.add('hidden');
-  }
-};
 
-const resetState = () => {
-  files = [];
-  const fileInput = document.getElementById('file-input') as HTMLInputElement;
-  const textInput = document.getElementById(
-    'text-input'
-  ) as HTMLTextAreaElement;
-  if (fileInput) fileInput.value = '';
-  if (textInput) textInput.value = '';
-  updateUI();
-};
+    input.click();
 
-async function convert() {
-  const fontSize =
-    parseInt(
-      (document.getElementById('font-size') as HTMLInputElement).value
-    ) || 12;
-  const pageSizeKey = (
-    document.getElementById('page-size') as HTMLSelectElement
-  ).value;
-  const fontName =
-    (document.getElementById('font-family') as HTMLSelectElement)?.value ||
-    'helv';
-  const textColor =
-    (document.getElementById('text-color') as HTMLInputElement)?.value ||
-    '#000000';
-
-  if (currentMode === 'upload' && files.length === 0) {
-    showAlert('No Files', 'Please select at least one text file.');
-    return;
-  }
-
-  if (currentMode === 'text') {
-    const textInput = document.getElementById(
-      'text-input'
-    ) as HTMLTextAreaElement;
-    if (!textInput.value.trim()) {
-      showAlert('No Text', 'Please enter some text to convert.');
+    const selectedFiles = await filePromise;
+    if (!selectedFiles || selectedFiles.length === 0) {
+      showAlert('No Files', 'Please select at least one text file.', 'info');
       return;
     }
-  }
 
-  showLoader('Loading engine...');
+    // Validate text files
+    const textFiles = Array.from(selectedFiles).filter(
+      (file) => file.type === 'text/plain' || file.name.toLowerCase().endsWith('.txt')
+    );
 
-  try {
-    const pymupdf = await loadPyMuPDF();
-
-    let textContent = '';
-
-    if (currentMode === 'upload') {
-      for (const file of files) {
-        const text = await file.text();
-        textContent += text + '\n\n';
-      }
-    } else {
-      const textInput = document.getElementById(
-        'text-input'
-      ) as HTMLTextAreaElement;
-      textContent = textInput.value;
+    if (textFiles.length === 0) {
+      showAlert('Invalid Files', 'Please select text files (.txt) only.', 'error');
+      return;
     }
 
-    showLoader('Creating PDF...');
+    if (textFiles.length < selectedFiles.length) {
+      showAlert(
+        'Invalid Files',
+        `Only ${textFiles.length} of ${selectedFiles.length} files were text files.`,
+        'warning'
+      );
+    }
 
-    const pdfBlob = await pymupdf.textToPdf(textContent, {
-      fontSize,
-      pageSize: pageSizeKey as 'a4' | 'letter' | 'legal' | 'a3' | 'a5',
-      fontName: fontName as 'helv' | 'tiro' | 'cour' | 'times',
-      textColor,
-      margins: 72,
+    // Process the valid files
+    files.length = 0;
+    files.push(...textFiles);
+  }
+
+  showLoader('Converting text files to PDF...');
+
+  try {
+    // Create PDF document
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
     });
 
-    downloadFile(pdfBlob, 'text_to_pdf.pdf');
+    // PDF settings
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 20;
+    const maxWidth = pageWidth - (margin * 2);
+    const lineHeight = 7;
+    const fontSize = 12;
 
-    showAlert(
-      'Success',
-      'Text converted to PDF successfully!',
-      'success',
-      () => {
-        resetState();
+    pdf.setFontSize(fontSize);
+    pdf.setFont('helvetica', 'normal');
+
+    let isFirstPage = true;
+
+    // Combine all text files
+    for (const file of files) {
+      try {
+        const text = await file.text();
+        
+        if (!text.trim()) {
+          continue;
+        }
+
+        // Add separator between files if not first
+        if (!isFirstPage) {
+          pdf.addPage();
+        }
+        isFirstPage = false;
+
+        // Add filename as header
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(file.name, margin, margin);
+        
+        pdf.setFontSize(fontSize);
+        pdf.setFont('helvetica', 'normal');
+
+        // Split text into lines
+        const lines = text.split('\n');
+        let y = margin + 10;
+
+        for (const line of lines) {
+          // Split long lines to fit page width
+          const wrappedLines = pdf.splitTextToSize(line || ' ', maxWidth);
+          
+          for (const wrappedLine of wrappedLines) {
+            // Check if we need a new page
+            if (y + lineHeight > pageHeight - margin) {
+              pdf.addPage();
+              y = margin;
+            }
+            
+            pdf.text(wrappedLine, margin, y);
+            y += lineHeight;
+          }
+        }
+      } catch (e) {
+        console.error(`Failed to read ${file.name}:`, e);
+        showAlert('Error', `Failed to read ${file.name}. Skipping...`, 'warning');
       }
-    );
-  } catch (e: any) {
-    console.error('[TxtToPDF] Error:', e);
-    showAlert('Error', `Failed to convert text to PDF. ${e.message || ''}`);
+    }
+
+    if (pdf.getNumberOfPages() === 0) {
+      throw new Error('No text content found in the selected files.');
+    }
+
+    // Save the PDF
+    const pdfBlob = pdf.output('blob');
+    downloadFile(pdfBlob, 'text-to-pdf.pdf');
+
+    showAlert('Success', `Successfully converted ${files.length} text file(s) to PDF!`, 'success');
+  } catch (e) {
+    console.error(e);
+    const errorMsg = e instanceof Error ? e.message : 'Failed to create PDF from text files.';
+    showAlert('Error', errorMsg, 'error');
   } finally {
     hideLoader();
   }
 }
-
-// Update textarea direction based on RTL detection
-function updateTextareaDirection(textarea: HTMLTextAreaElement) {
-  const text = textarea.value;
-  if (hasRtlCharacters(text)) {
-    textarea.style.direction = 'rtl';
-    textarea.style.textAlign = 'right';
-  } else {
-    textarea.style.direction = 'ltr';
-    textarea.style.textAlign = 'left';
-  }
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  const fileInput = document.getElementById('file-input') as HTMLInputElement;
-  const dropZone = document.getElementById('drop-zone');
-  const addMoreBtn = document.getElementById('add-more-btn');
-  const clearFilesBtn = document.getElementById('clear-files-btn');
-  const processBtn = document.getElementById('process-btn');
-  const backBtn = document.getElementById('back-to-tools');
-  const uploadModeBtn = document.getElementById('txt-mode-upload-btn');
-  const textModeBtn = document.getElementById('txt-mode-text-btn');
-  const uploadPanel = document.getElementById('txt-upload-panel');
-  const textPanel = document.getElementById('txt-text-panel');
-  const textInput = document.getElementById(
-    'text-input'
-  ) as HTMLTextAreaElement;
-
-  // Back to Tools
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
-    });
-  }
-
-  // Mode switching
-  if (uploadModeBtn && textModeBtn && uploadPanel && textPanel) {
-    uploadModeBtn.addEventListener('click', () => {
-      currentMode = 'upload';
-      uploadModeBtn.classList.remove('bg-gray-700', 'text-gray-300');
-      uploadModeBtn.classList.add('bg-indigo-600', 'text-white');
-      textModeBtn.classList.remove('bg-indigo-600', 'text-white');
-      textModeBtn.classList.add('bg-gray-700', 'text-gray-300');
-      uploadPanel.classList.remove('hidden');
-      textPanel.classList.add('hidden');
-    });
-
-    textModeBtn.addEventListener('click', () => {
-      currentMode = 'text';
-      textModeBtn.classList.remove('bg-gray-700', 'text-gray-300');
-      textModeBtn.classList.add('bg-indigo-600', 'text-white');
-      uploadModeBtn.classList.remove('bg-indigo-600', 'text-white');
-      uploadModeBtn.classList.add('bg-gray-700', 'text-gray-300');
-      textPanel.classList.remove('hidden');
-      uploadPanel.classList.add('hidden');
-    });
-  }
-
-  // RTL auto-detection for textarea
-  if (textInput) {
-    textInput.addEventListener('input', () => {
-      updateTextareaDirection(textInput);
-    });
-  }
-
-  // File handling
-  const handleFileSelect = (newFiles: FileList | null) => {
-    if (!newFiles || newFiles.length === 0) return;
-    const validFiles = Array.from(newFiles).filter(
-      (file) =>
-        file.name.toLowerCase().endsWith('.txt') || file.type === 'text/plain'
-    );
-
-    if (validFiles.length < newFiles.length) {
-      showAlert(
-        'Invalid Files',
-        'Some files were skipped. Only text files are allowed.'
-      );
-    }
-
-    if (validFiles.length > 0) {
-      files = [...files, ...validFiles];
-      updateUI();
-    }
-  };
-
-  if (fileInput && dropZone) {
-    fileInput.addEventListener('change', (e) => {
-      handleFileSelect((e.target as HTMLInputElement).files);
-    });
-
-    dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropZone.classList.add('bg-gray-700');
-    });
-
-    dropZone.addEventListener('dragleave', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-      handleFileSelect(e.dataTransfer?.files ?? null);
-    });
-
-    fileInput.addEventListener('click', () => {
-      fileInput.value = '';
-    });
-  }
-
-  if (addMoreBtn && fileInput) {
-    addMoreBtn.addEventListener('click', () => {
-      fileInput.click();
-    });
-  }
-
-  if (clearFilesBtn) {
-    clearFilesBtn.addEventListener('click', () => {
-      files = [];
-      updateUI();
-    });
-  }
-
-  if (processBtn) {
-    processBtn.addEventListener('click', convert);
-  }
-
-  createIcons({ icons });
-});

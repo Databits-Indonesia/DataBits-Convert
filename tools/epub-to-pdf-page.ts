@@ -1,217 +1,118 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile, formatBytes } from '../utils/helpers.js';
-import { state } from '../state.js';
-import { createIcons, icons } from 'lucide';
-import { isWasmAvailable, getWasmBaseUrl } from '../config/wasm-cdn-config.js';
-import { showWasmRequiredDialog } from '../utils/wasm-provider';
-import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile } from '../utils/helpers';
+import { getFiles } from '../state';
+import jsPDF from 'jspdf';
+import JSZip from 'jszip';
 
-const FILETYPE = 'epub';
-const EXTENSIONS = ['.epub'];
-const TOOL_NAME = 'EPUB';
-
-document.addEventListener('DOMContentLoaded', () => {
-  const fileInput = document.getElementById('file-input') as HTMLInputElement;
-  const dropZone = document.getElementById('drop-zone');
-  const processBtn = document.getElementById('process-btn');
-  const fileDisplayArea = document.getElementById('file-display-area');
-  const fileControls = document.getElementById('file-controls');
-  const addMoreBtn = document.getElementById('add-more-btn');
-  const clearFilesBtn = document.getElementById('clear-files-btn');
-  const backBtn = document.getElementById('back-to-tools');
-
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
-    });
+export async function epubToPdf() {
+  const files = getFiles();
+  
+  if (files.length === 0) {
+    showAlert('No Files', 'Please select at least one EPUB file.');
+    return;
   }
 
-  const convertOptions = document.getElementById('convert-options');
+  try {
+    showLoader('Converting EPUB to PDF...');
 
-  // ... (existing listeners)
+    // Import EPub.js library
+    const ePub = (await import('epubjs')).default;
 
-  const updateUI = async () => {
-    if (!fileDisplayArea || !processBtn || !fileControls) return;
+    if (files.length === 1) {
+      // Single file conversion
+      const file = files[0];
+      const arrayBuffer = await file.arrayBuffer();
+      
+      // Parse EPUB
+      const book = ePub(arrayBuffer);
+      await book.ready;
 
-    if (state.files.length > 0) {
-      fileDisplayArea.innerHTML = '';
+      // Create PDF
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
 
-      for (let index = 0; index < state.files.length; index++) {
-        const file = state.files[index];
-        const fileDiv = document.createElement('div');
-        fileDiv.className =
-          'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+      let firstPage = true;
 
-        const infoContainer = document.createElement('div');
-        infoContainer.className = 'flex flex-col overflow-hidden';
+      // Get all sections
+      const spine = await book.loaded.spine;
+      
+      for (const item of spine.items) {
+        const doc = await book.load(item.href);
+        const content = doc.body ? doc.body.textContent : '';
+        
+        if (content) {
+          if (!firstPage) {
+            pdf.addPage();
+          }
+          firstPage = false;
 
-        const nameSpan = document.createElement('div');
-        nameSpan.className = 'truncate font-medium text-gray-200 text-sm mb-1';
-        nameSpan.textContent = file.name;
-
-        const metaSpan = document.createElement('div');
-        metaSpan.className = 'text-xs text-gray-400';
-        metaSpan.textContent = formatBytes(file.size);
-
-        infoContainer.append(nameSpan, metaSpan);
-
-        const removeBtn = document.createElement('button');
-        removeBtn.className =
-          'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
-        removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
-        removeBtn.onclick = () => {
-          state.files = state.files.filter((_, i) => i !== index);
-          updateUI();
-        };
-
-        fileDiv.append(infoContainer, removeBtn);
-        fileDisplayArea.appendChild(fileDiv);
-      }
-
-      createIcons({ icons });
-      fileControls.classList.remove('hidden');
-      if (convertOptions) convertOptions.classList.remove('hidden');
-      (processBtn as HTMLButtonElement).disabled = false;
-    } else {
-      fileDisplayArea.innerHTML = '';
-      fileControls.classList.add('hidden');
-      if (convertOptions) convertOptions.classList.add('hidden');
-      (processBtn as HTMLButtonElement).disabled = true;
-    }
-  };
-
-  const resetState = () => {
-    state.files = [];
-    state.pdfDoc = null;
-    updateUI();
-  };
-
-  const convertToPdf = async () => {
-    try {
-      if (state.files.length === 0) {
-        showAlert('No Files', `Please select at least one ${TOOL_NAME} file.`);
-        return;
-      }
-
-      showLoader('Loading engine...');
-      const pymupdf = await loadPyMuPDF();
-
-      if (state.files.length === 1) {
-        const originalFile = state.files[0];
-        showLoader(`Converting ${originalFile.name}...`);
-
-        const pdfBlob = await pymupdf.convertToPdf(originalFile, {
-          filetype: FILETYPE,
-        });
-        const fileName = originalFile.name.replace(/\.[^.]+$/, '') + '.pdf';
-
-        downloadFile(pdfBlob, fileName);
-        hideLoader();
-
-        showAlert(
-          'Conversion Complete',
-          `Successfully converted ${originalFile.name} to PDF.`,
-          'success',
-          () => resetState()
-        );
-      } else {
-        showLoader('Converting files...');
-        const JSZip = (await import('jszip')).default;
-        const zip = new JSZip();
-
-        for (let i = 0; i < state.files.length; i++) {
-          const file = state.files[i];
-          showLoader(
-            `Converting ${i + 1}/${state.files.length}: ${file.name}...`
-          );
-
-          const pdfBlob = await pymupdf.convertToPdf(file, {
-            filetype: FILETYPE,
-          });
-          const baseName = file.name.replace(/\.[^.]+$/, '');
-          const pdfBuffer = await pdfBlob.arrayBuffer();
-          zip.file(`${baseName}.pdf`, pdfBuffer);
+          // Add content to PDF with word wrap
+          const lines = pdf.splitTextToSize(content, 180);
+          pdf.text(lines, 15, 20);
         }
-
-        const zipBlob = await zip.generateAsync({ type: 'blob' });
-        downloadFile(zipBlob, `${FILETYPE}-converted.zip`);
-
-        hideLoader();
-
-        showAlert(
-          'Conversion Complete',
-          `Successfully converted ${state.files.length} ${TOOL_NAME} file(s) to PDF.`,
-          'success',
-          () => resetState()
-        );
       }
-    } catch (e: any) {
-      console.error(`[${TOOL_NAME}2PDF] ERROR:`, e);
+
+      const pdfBlob = pdf.output('blob');
+      const fileName = file.name.replace(/\.epub$/i, '.pdf');
+      downloadFile(pdfBlob, fileName);
+
       hideLoader();
-      showAlert(
-        'Error',
-        `An error occurred during conversion. Error: ${e.message}`
-      );
-    }
-  };
+      showAlert('Success', `${file.name} converted successfully!`, 'success');
+    } else {
+      // Multiple files - create ZIP
+      const zip = new JSZip();
 
-  const handleFileSelect = (files: FileList | null) => {
-    if (files && files.length > 0) {
-      state.files = [...state.files, ...Array.from(files)];
-      updateUI();
-    }
-  };
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        showLoader(`Converting ${i + 1}/${files.length}: ${file.name}...`);
 
-  if (fileInput && dropZone) {
-    fileInput.addEventListener('change', (e) => {
-      handleFileSelect((e.target as HTMLInputElement).files);
-    });
+        const arrayBuffer = await file.arrayBuffer();
+        const book = ePub(arrayBuffer);
+        await book.ready;
 
-    dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropZone.classList.add('bg-gray-700');
-    });
-
-    dropZone.addEventListener('dragleave', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-      const files = e.dataTransfer?.files;
-      if (files && files.length > 0) {
-        const validFiles = Array.from(files).filter((f) => {
-          const name = f.name.toLowerCase();
-          return EXTENSIONS.some((ext) => name.endsWith(ext));
+        const pdf = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: 'a4',
         });
-        if (validFiles.length > 0) {
-          const dataTransfer = new DataTransfer();
-          validFiles.forEach((f) => dataTransfer.items.add(f));
-          handleFileSelect(dataTransfer.files);
+
+        let firstPage = true;
+        const spine = await book.loaded.spine;
+
+        for (const item of spine.items) {
+          const doc = await book.load(item.href);
+          const content = doc.body ? doc.body.textContent : '';
+          
+          if (content) {
+            if (!firstPage) {
+              pdf.addPage();
+            }
+            firstPage = false;
+
+            const lines = pdf.splitTextToSize(content, 180);
+            pdf.text(lines, 15, 20);
+          }
         }
+
+        const pdfBlob = pdf.output('blob');
+        const pdfBuffer = await pdfBlob.arrayBuffer();
+        const fileName = file.name.replace(/\.epub$/i, '.pdf');
+        zip.file(fileName, pdfBuffer);
       }
-    });
 
-    fileInput.addEventListener('click', () => {
-      fileInput.value = '';
-    });
-  }
+      showLoader('Creating ZIP file...');
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      downloadFile(zipBlob, 'epub-converted.zip');
 
-  if (addMoreBtn) {
-    addMoreBtn.addEventListener('click', () => {
-      fileInput.click();
-    });
+      hideLoader();
+      showAlert('Success', `${files.length} EPUB files converted successfully!`, 'success');
+    }
+  } catch (error: any) {
+    console.error('[EPUB2PDF] Error:', error);
+    hideLoader();
+    showAlert('Error', `An error occurred during conversion. ${error.message}`);
   }
-
-  if (clearFilesBtn) {
-    clearFilesBtn.addEventListener('click', () => {
-      resetState();
-    });
-  }
-
-  if (processBtn) {
-    processBtn.addEventListener('click', convertToPdf);
-  }
-});
+}

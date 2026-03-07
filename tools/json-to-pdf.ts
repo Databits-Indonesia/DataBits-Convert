@@ -1,198 +1,222 @@
-import JSZip from 'jszip';
-import {
-  downloadFile,
-  formatBytes,
-  readFileAsArrayBuffer,
-} from '../utils/helpers';
-import { initializeGlobalShortcuts } from '../utils/shortcuts-init';
-import { isCpdfAvailable } from '../utils/cpdf-helper';
-import {
-  showWasmRequiredDialog,
-  WasmProvider,
-} from '../utils/wasm-provider';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile } from '../utils/helpers';
+import { getFiles } from '../state';
+import jsPDF from 'jspdf';
 
-const worker = new Worker(
-  import.meta.env.BASE_URL + 'workers/json-to-pdf.worker.js'
-);
+/**
+ * Main function to convert JSON files to PDF
+ */
+export async function jsonToPdf() {
+  const files = getFiles();
 
-let selectedFiles: File[] = [];
+  // If no files in state, prompt user to select JSON files
+  if (files.length === 0) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = '.json,application/json';
 
-const jsonFilesInput = document.getElementById('jsonFiles') as HTMLInputElement;
-const convertBtn = document.getElementById('convertBtn') as HTMLButtonElement;
-const statusMessage = document.getElementById(
-  'status-message'
-) as HTMLDivElement;
-const fileListDiv = document.getElementById('fileList') as HTMLDivElement;
-const backToToolsBtn = document.getElementById(
-  'back-to-tools'
-) as HTMLButtonElement;
+    const filePromise = new Promise<FileList | null>((resolve) => {
+      input.onchange = () => resolve(input.files);
+      input.oncancel = () => resolve(null);
+    });
 
-function showStatus(
-  message: string,
-  type: 'success' | 'error' | 'info' = 'info'
-) {
-  statusMessage.textContent = message;
-  statusMessage.className = `mt-4 p-3 rounded-lg text-sm ${
-    type === 'success'
-      ? 'bg-green-900 text-green-200'
-      : type === 'error'
-        ? 'bg-red-900 text-red-200'
-        : 'bg-blue-900 text-blue-200'
-  }`;
-  statusMessage.classList.remove('hidden');
-}
+    input.click();
 
-function hideStatus() {
-  statusMessage.classList.add('hidden');
-}
+    const selectedFiles = await filePromise;
+    if (!selectedFiles || selectedFiles.length === 0) {
+      showAlert('No Files', 'Please select at least one JSON file.', 'info');
+      return;
+    }
 
-function updateFileList() {
-  fileListDiv.innerHTML = '';
-  if (selectedFiles.length === 0) {
-    fileListDiv.classList.add('hidden');
-    return;
-  }
+    // Validate JSON files
+    const jsonFiles = Array.from(selectedFiles).filter(
+      (file) => file.type === 'application/json' || file.name.toLowerCase().endsWith('.json')
+    );
 
-  fileListDiv.classList.remove('hidden');
-  selectedFiles.forEach((file) => {
-    const fileDiv = document.createElement('div');
-    fileDiv.className =
-      'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm mb-2';
+    if (jsonFiles.length === 0) {
+      showAlert('Invalid Files', 'Please select JSON files only.', 'error');
+      return;
+    }
 
-    const nameSpan = document.createElement('span');
-    nameSpan.className = 'truncate font-medium text-gray-200';
-    nameSpan.textContent = file.name;
-
-    const sizeSpan = document.createElement('span');
-    sizeSpan.className = 'flex-shrink-0 ml-4 text-gray-400';
-    sizeSpan.textContent = formatBytes(file.size);
-
-    fileDiv.append(nameSpan, sizeSpan);
-    fileListDiv.appendChild(fileDiv);
-  });
-}
-
-jsonFilesInput.addEventListener('change', (e) => {
-  const target = e.target as HTMLInputElement;
-  if (target.files && target.files.length > 0) {
-    selectedFiles = Array.from(target.files);
-    convertBtn.disabled = selectedFiles.length === 0;
-    updateFileList();
-
-    if (selectedFiles.length === 0) {
-      showStatus('Please select at least 1 JSON file', 'info');
-    } else {
-      showStatus(
-        `${selectedFiles.length} file(s) selected. Ready to convert!`,
-        'info'
+    if (jsonFiles.length < selectedFiles.length) {
+      showAlert(
+        'Invalid Files',
+        `Only ${jsonFiles.length} of ${selectedFiles.length} files were JSON files.`,
+        'warning'
       );
     }
-  }
-});
 
-async function convertJSONsToPDF() {
-  if (selectedFiles.length === 0) {
-    showStatus('Please select at least 1 JSON file', 'error');
-    return;
+    // Process the valid files
+    files.length = 0;
+    files.push(...jsonFiles);
   }
 
-  // Check if CPDF is configured
-  if (!isCpdfAvailable()) {
-    showWasmRequiredDialog('cpdf');
-    return;
-  }
+  showLoader('Converting JSON to PDF...');
 
   try {
-    convertBtn.disabled = true;
-    showStatus('Reading files (Main Thread)...', 'info');
+    console.log('[JSON2PDF] Starting conversion...');
+    console.log('[JSON2PDF] Number of files:', files.length);
 
-    const fileBuffers = await Promise.all(
-      selectedFiles.map((file) => readFileAsArrayBuffer(file))
-    );
+    if (files.length === 1) {
+      // Single file conversion
+      const originalFile = files[0];
+      console.log('[JSON2PDF] Converting single file:', originalFile.name);
 
-    showStatus('Converting JSONs to PDFs...', 'info');
+      const text = await originalFile.text();
+      let jsonData;
+      
+      try {
+        jsonData = JSON.parse(text);
+      } catch (e) {
+        throw new Error('Invalid JSON file');
+      }
 
-    worker.postMessage(
-      {
-        command: 'convert',
-        fileBuffers: fileBuffers,
-        fileNames: selectedFiles.map((f) => f.name),
-        cpdfUrl: WasmProvider.getUrl('cpdf')! + 'coherentpdf.browser.min.js',
-      },
-      fileBuffers
-    );
-  } catch (error) {
-    console.error('Error reading files:', error);
-    showStatus(
-      `❌ Error reading files: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      'error'
-    );
-    convertBtn.disabled = false;
-  }
-}
-
-worker.onmessage = async (e: MessageEvent) => {
-  convertBtn.disabled = false;
-
-  if (e.data.status === 'success') {
-    const pdfFiles = e.data.pdfFiles as Array<{
-      name: string;
-      data: ArrayBuffer;
-    }>;
-
-    try {
-      showStatus('Creating ZIP file...', 'info');
-
-      const zip = new JSZip();
-      pdfFiles.forEach(({ name, data }) => {
-        const pdfName = name.replace(/\.json$/i, '.pdf');
-        const uint8Array = new Uint8Array(data);
-        zip.file(pdfName, uint8Array);
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
       });
 
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      const url = URL.createObjectURL(zipBlob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'jsons-to-pdf.zip';
-      downloadFile(zipBlob, 'jsons-to-pdf.zip');
+      // Add title
+      pdf.setFontSize(16);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(originalFile.name, 14, 15);
 
-      showStatus(
-        '✅ JSONs converted to PDF successfully! ZIP download started.',
+      // Format and add JSON content
+      pdf.setFontSize(10);
+      pdf.setFont('courier', 'normal');
+      
+      const formattedJson = JSON.stringify(jsonData, null, 2);
+      const lines = formattedJson.split('\n');
+      
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 14;
+      const maxWidth = pageWidth - (margin * 2);
+      const lineHeight = 5;
+      let y = 25;
+
+      for (const line of lines) {
+        // Split long lines to fit page width
+        const wrappedLines = pdf.splitTextToSize(line, maxWidth);
+        
+        for (const wrappedLine of wrappedLines) {
+          // Check if we need a new page
+          if (y + lineHeight > pageHeight - margin) {
+            pdf.addPage();
+            y = margin;
+          }
+          
+          pdf.text(wrappedLine, margin, y);
+          y += lineHeight;
+        }
+      }
+
+      const pdfBlob = pdf.output('blob');
+      const fileName = originalFile.name.replace(/\.json$/i, '') + '.pdf';
+      downloadFile(pdfBlob, fileName);
+
+      console.log('[JSON2PDF] File downloaded:', fileName);
+
+      showAlert(
+        'Conversion Complete',
+        `Successfully converted ${originalFile.name} to PDF.`,
         'success'
       );
+    } else {
+      // Multiple files conversion - create a ZIP
+      console.log('[JSON2PDF] Converting multiple files:', files.length);
+      showLoader('Preparing conversion...');
 
-      selectedFiles = [];
-      jsonFilesInput.value = '';
-      fileListDiv.innerHTML = '';
-      fileListDiv.classList.add('hidden');
-      convertBtn.disabled = true;
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
 
-      setTimeout(() => {
-        hideStatus();
-      }, 3000);
-    } catch (error) {
-      console.error('Error creating ZIP:', error);
-      showStatus(
-        `❌ Error creating ZIP: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        'error'
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        showLoader(`Converting ${i + 1}/${files.length}: ${file.name}...`);
+        console.log(`[JSON2PDF] Converting file ${i + 1}/${files.length}:`, file.name);
+
+        try {
+          const text = await file.text();
+          let jsonData;
+          
+          try {
+            jsonData = JSON.parse(text);
+          } catch (e) {
+            console.warn(`[JSON2PDF] Skipping invalid JSON file: ${file.name}`);
+            continue;
+          }
+
+          const pdf = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'a4',
+          });
+
+          // Add title
+          pdf.setFontSize(16);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text(file.name, 14, 15);
+
+          // Format and add JSON content
+          pdf.setFontSize(10);
+          pdf.setFont('courier', 'normal');
+          
+          const formattedJson = JSON.stringify(jsonData, null, 2);
+          const lines = formattedJson.split('\n');
+          
+          const pageWidth = pdf.internal.pageSize.getWidth();
+          const pageHeight = pdf.internal.pageSize.getHeight();
+          const margin = 14;
+          const maxWidth = pageWidth - (margin * 2);
+          const lineHeight = 5;
+          let y = 25;
+
+          for (const line of lines) {
+            // Split long lines to fit page width
+            const wrappedLines = pdf.splitTextToSize(line, maxWidth);
+            
+            for (const wrappedLine of wrappedLines) {
+              // Check if we need a new page
+              if (y + lineHeight > pageHeight - margin) {
+                pdf.addPage();
+                y = margin;
+              }
+              
+              pdf.text(wrappedLine, margin, y);
+              y += lineHeight;
+            }
+          }
+
+          const pdfBlob = pdf.output('blob');
+          console.log(`[JSON2PDF] Converted ${file.name}, PDF size:`, pdfBlob.size);
+
+          const baseName = file.name.replace(/\.json$/i, '');
+          const pdfBuffer = await pdfBlob.arrayBuffer();
+          zip.file(`${baseName}.pdf`, pdfBuffer);
+        } catch (e) {
+          console.error(`[JSON2PDF] Error converting ${file.name}:`, e);
+        }
+      }
+
+      console.log('[JSON2PDF] Generating ZIP file...');
+      showLoader('Creating ZIP archive...');
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      console.log('[JSON2PDF] ZIP size:', zipBlob.size);
+
+      downloadFile(zipBlob, 'json-converted.zip');
+
+      showAlert(
+        'Conversion Complete',
+        `Successfully converted ${files.length} JSON file(s) to PDF.`,
+        'success'
       );
     }
-  } else if (e.data.status === 'error') {
-    const errorMessage = e.data.message || 'Unknown error occurred in worker.';
-    console.error('Worker Error:', errorMessage);
-    showStatus(`❌ Worker Error: ${errorMessage}`, 'error');
+  } catch (e: any) {
+    console.error('[JSON2PDF] ERROR:', e);
+    showAlert('Error', `An error occurred during conversion. Error: ${e.message}`);
+  } finally {
+    hideLoader();
   }
-};
-
-if (backToToolsBtn) {
-  backToToolsBtn.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL;
-  });
 }
-
-convertBtn.addEventListener('click', convertJSONsToPDF);
-
-// Initialize
-showStatus('Select JSON files to get started', 'info');
-initializeGlobalShortcuts();

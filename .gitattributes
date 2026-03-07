@@ -1,0 +1,2 @@
+public/libreoffice-wasm/*.wasm filter=lfs diff=lfs merge=lfs -text
+public/libreoffice-wasm/*.data filter=lfs diff=lfs merge=lfs -text

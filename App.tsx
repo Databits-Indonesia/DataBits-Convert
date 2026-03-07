@@ -23,6 +23,23 @@ import {
   deletePages,
   setupDeletePagesTool,
   imageToPdf,
+  pngToPdf,
+  bmpToPdf,
+  webpToPdf,
+  heicToPdf,
+  svgToPdf,
+  tiffToPdf,
+  emailToPdf,
+  txtToPdf,
+  csvToPdf,
+  jsonToPdf,
+  mdToPdf,
+  excelToPdf,
+  epubToPdf,
+  pdfToJpg,
+  setupPdfToJpgTool,
+  pdfToPng,
+  setupPdfToPngTool,
   setupEditPDFTool,
   pdfToWord,
   setupPdfToWordTool,
@@ -125,6 +142,7 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
     // PDF Conversions - From PDF
     'pdf-to-word': 'pdf-to-word-container',
     'pdf-to-jpg': 'pdf-to-jpg-container',
+    'pdf-to-png': 'pdf-to-png-container',
     'pdf-to-png': 'pdf-to-png-container',
     'pdf-to-bmp': 'pdf-to-bmp-container',
     'pdf-to-webp': 'pdf-to-webp-container',
@@ -702,6 +720,12 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
         case 'pdf-to-word':
           await setupPdfToWordTool();
           break;
+        case 'pdf-to-jpg':
+          await setupPdfToJpgTool();
+          break;
+        case 'pdf-to-png':
+          await setupPdfToPngTool();
+          break;
         case 'word-to-pdf':
           await setupWordToPdfTool();
           break;
@@ -728,6 +752,45 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
           break;
         case 'image-to-pdf':
           document.getElementById('image-to-pdf-container')?.classList.remove('hidden');
+          break;
+        case 'png-to-pdf':
+          document.getElementById('png-to-pdf-container')?.classList.remove('hidden');
+          break;
+        case 'bmp-to-pdf':
+          document.getElementById('bmp-to-pdf-container')?.classList.remove('hidden');
+          break;
+        case 'webp-to-pdf':
+          document.getElementById('webp-to-pdf-container')?.classList.remove('hidden');
+          break;
+        case 'heic-to-pdf':
+          document.getElementById('heic-to-pdf-container')?.classList.remove('hidden');
+          break;
+        case 'svg-to-pdf':
+          document.getElementById('svg-to-pdf-container')?.classList.remove('hidden');
+          break;
+        case 'tiff-to-pdf':
+          document.getElementById('tiff-to-pdf-container')?.classList.remove('hidden');
+          break;
+        case 'email-to-pdf':
+          document.getElementById('email-to-pdf-container')?.classList.remove('hidden');
+          break;
+        case 'txt-to-pdf':
+          document.getElementById('txt-to-pdf-container')?.classList.remove('hidden');
+          break;
+        case 'csv-to-pdf':
+          document.getElementById('csv-to-pdf-container')?.classList.remove('hidden');
+          break;
+        case 'json-to-pdf':
+          document.getElementById('json-to-pdf-container')?.classList.remove('hidden');
+          break;
+        case 'markdown-to-pdf':
+          document.getElementById('markdown-to-pdf-container')?.classList.remove('hidden');
+          break;
+        case 'excel-to-pdf':
+          document.getElementById('excel-to-pdf-container')?.classList.remove('hidden');
+          break;
+        case 'epub-to-pdf':
+          document.getElementById('epub-to-pdf-container')?.classList.remove('hidden');
           break;
         default:
           // For all other tools, use a generic approach
@@ -771,6 +834,12 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
           case 'pdf-to-word':
             await setupPdfToWordTool();
             break;
+          case 'pdf-to-jpg':
+            await setupPdfToJpgTool();
+            break;
+          case 'pdf-to-png':
+            await setupPdfToPngTool();
+            break;
           case 'word-to-pdf':
             await setupWordToPdfTool();
             break;
@@ -813,7 +882,7 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
             setupAddBlankPageTool();
             break;
           case 'remove-blank':
-            setupRemoveBlankTool();
+            setupRemoveBlankPagesTool();
             break;
           case 'page-numbers':
             setupPageNumbersTool();
@@ -2034,6 +2103,204 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
           </div>
         </div>
 
+        {/* PDF to JPG Tool UI */}
+        <div id="pdf-to-jpg-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Convert PDF to JPG
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Convert your PDF pages to high-quality JPG images
+              </p>
+            </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Conversion Info:</p>
+                  <p>
+                    Each page of your PDF will be converted to a separate JPG image. All images will be packaged in a ZIP file for easy download.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready to convert`
+                    : 'PDF file uploaded above will be converted'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Image Quality
+                </label>
+                <select
+                  id="pdf-to-jpg-quality"
+                  defaultValue="0.85"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="0.92">High Quality (Larger file size)</option>
+                  <option value="0.85">Medium Quality (Balanced)</option>
+                  <option value="0.75">Low Quality (Smaller file size)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Resolution (DPI)
+                </label>
+                <select
+                  id="pdf-to-jpg-dpi"
+                  defaultValue="150"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="72">72 DPI (Screen)</option>
+                  <option value="150">150 DPI (Standard)</option>
+                  <option value="300">300 DPI (High)</option>
+                  <option value="600">600 DPI (Print Quality)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-yellow-600 dark:text-yellow-400 mr-3">💡</span>
+                <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <p className="font-medium mb-1">Tips:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>Higher quality and DPI produce larger file sizes</li>
+                    <li>150 DPI is suitable for most web and screen uses</li>
+                    <li>Use 300 DPI or higher for printing</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Convert Button */}
+            <div className="flex justify-center">
+              <button
+                id="pdf-to-jpg-process-btn"
+                onClick={() => pdfToJpg()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={state.files.length === 0}
+              >
+                Convert to JPG
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* PDF to PNG Tool UI */}
+        <div id="pdf-to-png-container" className="hidden max-w-6xl mx-auto mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Convert PDF to PNG
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Convert your PDF pages to high-quality PNG images with transparency support
+              </p>
+            </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Conversion Info:</p>
+                  <p>
+                    Each page of your PDF will be converted to a separate PNG image. PNG format supports transparency and lossless compression. All images will be packaged in a ZIP file for easy download.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready to convert`
+                    : 'PDF file uploaded above will be converted'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Resolution (DPI)
+                </label>
+                <select
+                  id="pdf-to-png-dpi"
+                  defaultValue="150"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="72">72 DPI (Screen)</option>
+                  <option value="150">150 DPI (Standard)</option>
+                  <option value="300">300 DPI (High)</option>
+                  <option value="600">600 DPI (Print Quality)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-yellow-600 dark:text-yellow-400 mr-3">💡</span>
+                <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <p className="font-medium mb-1">Tips:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>PNG format provides lossless compression</li>
+                    <li>Ideal for images with transparency or text</li>
+                    <li>150 DPI is suitable for most web and screen uses</li>
+                    <li>Use 300 DPI or higher for printing</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Convert Button */}
+            <div className="flex justify-center">
+              <button
+                id="pdf-to-png-process-btn"
+                onClick={() => pdfToPng()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={state.files.length === 0}
+              >
+                Convert to PNG
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Word to PDF Tool UI */}
         <div id="word-to-pdf-container" className="hidden max-w-6xl mx-auto mt-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
@@ -2098,7 +2365,6 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
             <div className="flex justify-center">
               <button
                 id="word-to-pdf-process-btn"
-                onClick={() => wordToPdf()}
                 className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={state.files.length === 0}
               >
@@ -2289,7 +2555,10 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               </div>
 
               {/* Page Thumbnails */}
-              <div id="page-thumbnails" className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6"></div>
+              <div
+                id="page-thumbnails"
+                className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6"
+              ></div>
 
               {/* Process Button */}
               <div className="flex justify-center">
@@ -2367,7 +2636,9 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
         <div id="divide-tool-container" className="hidden max-w-6xl mx-auto mt-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Divide PDF Pages</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Divide PDF Pages
+              </h2>
               <p className="text-gray-600 dark:text-gray-400">
                 Split pages vertically or horizontally
               </p>
@@ -2635,7 +2906,9 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
                       defaultChecked
                       className="mr-2"
                     />
-                    <span className="text-gray-700 dark:text-gray-300">Fit (preserve aspect ratio)</span>
+                    <span className="text-gray-700 dark:text-gray-300">
+                      Fit (preserve aspect ratio)
+                    </span>
                   </label>
                   <label className="flex items-center">
                     <input
@@ -2735,23 +3008,14 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
 
               <div className="mb-6">
                 <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="n-up-add-margins"
-                    defaultChecked
-                    className="mr-2"
-                  />
+                  <input type="checkbox" id="n-up-add-margins" defaultChecked className="mr-2" />
                   <span className="text-gray-700 dark:text-gray-300">Add margins and gutters</span>
                 </label>
               </div>
 
               <div className="mb-6">
                 <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="n-up-add-border"
-                    className="mr-2"
-                  />
+                  <input type="checkbox" id="n-up-add-border" className="mr-2" />
                   <span className="text-gray-700 dark:text-gray-300">Add borders around pages</span>
                 </label>
               </div>
@@ -2803,10 +3067,16 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">PNG to PDF</h2>
-              <p className="text-gray-600 dark:text-gray-400">Convert PNG images to PDF</p>
+              <p className="text-gray-600 dark:text-gray-400">
+                Convert PNG images to PDF documents
+              </p>
             </div>
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="png-to-pdf-convert-btn"
+                onClick={() => void pngToPdf()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Convert to PDF
               </button>
             </div>
@@ -2817,10 +3087,16 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">BMP to PDF</h2>
-              <p className="text-gray-600 dark:text-gray-400">Convert BMP images to PDF</p>
+              <p className="text-gray-600 dark:text-gray-400">
+                Convert BMP images to PDF documents
+              </p>
             </div>
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="bmp-to-pdf-convert-btn"
+                onClick={() => void bmpToPdf()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Convert to PDF
               </button>
             </div>
@@ -2831,10 +3107,16 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">WebP to PDF</h2>
-              <p className="text-gray-600 dark:text-gray-400">Convert WebP images to PDF</p>
+              <p className="text-gray-600 dark:text-gray-400">
+                Convert WebP images to PDF documents
+              </p>
             </div>
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="webp-to-pdf-convert-btn"
+                onClick={() => void webpToPdf()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Convert to PDF
               </button>
             </div>
@@ -2845,10 +3127,16 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">HEIC to PDF</h2>
-              <p className="text-gray-600 dark:text-gray-400">Convert HEIC images to PDF</p>
+              <p className="text-gray-600 dark:text-gray-400">
+                Convert HEIC/HEIF images to PDF documents
+              </p>
             </div>
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="heic-to-pdf-convert-btn"
+                onClick={() => void heicToPdf()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Convert to PDF
               </button>
             </div>
@@ -2859,10 +3147,16 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">SVG to PDF</h2>
-              <p className="text-gray-600 dark:text-gray-400">Convert SVG images to PDF</p>
+              <p className="text-gray-600 dark:text-gray-400">
+                Convert SVG vector graphics to PDF documents
+              </p>
             </div>
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="svg-to-pdf-convert-btn"
+                onClick={() => void svgToPdf()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Convert to PDF
               </button>
             </div>
@@ -2873,10 +3167,16 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">TIFF to PDF</h2>
-              <p className="text-gray-600 dark:text-gray-400">Convert TIFF images to PDF</p>
+              <p className="text-gray-600 dark:text-gray-400">
+                Convert TIFF images to PDF documents
+              </p>
             </div>
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="tiff-to-pdf-convert-btn"
+                onClick={() => void tiffToPdf()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Convert to PDF
               </button>
             </div>
@@ -2890,10 +3190,16 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 Email to PDF
               </h2>
-              <p className="text-gray-600 dark:text-gray-400">Convert email files to PDF</p>
+              <p className="text-gray-600 dark:text-gray-400">
+                Convert email files (.eml, .msg) to PDF documents
+              </p>
             </div>
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="email-to-pdf-convert-btn"
+                onClick={() => void emailToPdf()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Convert to PDF
               </button>
             </div>
@@ -2904,10 +3210,16 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Text to PDF</h2>
-              <p className="text-gray-600 dark:text-gray-400">Convert text files to PDF</p>
+              <p className="text-gray-600 dark:text-gray-400">
+                Convert text files to PDF documents
+              </p>
             </div>
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="txt-to-pdf-convert-btn"
+                onClick={() => void txtToPdf()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Convert to PDF
               </button>
             </div>
@@ -2918,10 +3230,14 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">CSV to PDF</h2>
-              <p className="text-gray-600 dark:text-gray-400">Convert CSV files to PDF</p>
+              <p className="text-gray-600 dark:text-gray-400">Convert CSV spreadsheet files to PDF tables</p>
             </div>
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="csv-to-pdf-convert-btn"
+                onClick={() => void csvToPdf()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Convert to PDF
               </button>
             </div>
@@ -2932,10 +3248,14 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">JSON to PDF</h2>
-              <p className="text-gray-600 dark:text-gray-400">Convert JSON files to PDF</p>
+              <p className="text-gray-600 dark:text-gray-400">Convert JSON data files to formatted PDF documents</p>
             </div>
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="json-to-pdf-convert-btn"
+                onClick={() => void jsonToPdf()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Convert to PDF
               </button>
             </div>
@@ -2948,10 +3268,14 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 Markdown to PDF
               </h2>
-              <p className="text-gray-600 dark:text-gray-400">Convert Markdown files to PDF</p>
+              <p className="text-gray-600 dark:text-gray-400">Convert Markdown documents to formatted PDF files</p>
             </div>
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="markdown-to-pdf-convert-btn"
+                onClick={() => void mdToPdf()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Convert to PDF
               </button>
             </div>
@@ -2964,10 +3288,14 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 Excel to PDF
               </h2>
-              <p className="text-gray-600 dark:text-gray-400">Convert Excel files to PDF</p>
+              <p className="text-gray-600 dark:text-gray-400">Convert Excel spreadsheets to formatted PDF documents</p>
             </div>
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="excel-to-pdf-convert-btn"
+                onClick={() => void excelToPdf()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Convert to PDF
               </button>
             </div>
@@ -3011,7 +3339,11 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               <p className="text-gray-600 dark:text-gray-400">Convert EPUB ebooks to PDF</p>
             </div>
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="epub-to-pdf-convert-btn"
+                onClick={() => void epubToPdf()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Convert to PDF
               </button>
             </div>
@@ -3629,7 +3961,10 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
                     defaultValue="0"
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
                   />
-                  <p id="add-blank-page-position-hint" className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <p
+                    id="add-blank-page-position-hint"
+                    className="text-xs text-gray-500 dark:text-gray-400 mt-1"
+                  >
                     Enter 0 to insert at the beginning
                   </p>
                 </div>
@@ -4353,7 +4688,9 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 Remove Blank Pages
               </h2>
-              <p className="text-gray-600 dark:text-gray-400">Automatically detect and remove blank pages</p>
+              <p className="text-gray-600 dark:text-gray-400">
+                Automatically detect and remove blank pages
+              </p>
             </div>
 
             {/* File Display Area */}
@@ -4374,7 +4711,12 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
                     defaultValue="80"
                     className="flex-1"
                   />
-                  <span id="remove-blank-sensitivity-value" className="text-gray-700 dark:text-gray-300 font-medium min-w-[3ch]">80</span>
+                  <span
+                    id="remove-blank-sensitivity-value"
+                    className="text-gray-700 dark:text-gray-300 font-medium min-w-[3ch]"
+                  >
+                    80
+                  </span>
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   Higher values detect more pages as blank
@@ -4394,10 +4736,16 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
             {/* Preview Panel */}
             <div id="remove-blank-preview-panel" className="hidden">
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
-                <p id="remove-blank-preview-info" className="text-sm text-blue-800 dark:text-blue-200"></p>
+                <p
+                  id="remove-blank-preview-info"
+                  className="text-sm text-blue-800 dark:text-blue-200"
+                ></p>
               </div>
 
-              <div id="remove-blank-pages-preview" className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6 max-h-[600px] overflow-y-auto"></div>
+              <div
+                id="remove-blank-pages-preview"
+                className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6 max-h-[600px] overflow-y-auto"
+              ></div>
 
               <div className="flex justify-center">
                 <button

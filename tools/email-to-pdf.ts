@@ -6,8 +6,13 @@ import {
   uint8ArrayToBase64,
   sanitizeEmailHtml,
   formatRawDate,
+  downloadFile,
 } from '../utils/helpers';
 import type { EmailAttachment, ParsedEmail, EmailRenderOptions } from '@/types';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { getFiles } from '../state';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 
 export type { EmailAttachment, ParsedEmail, EmailRenderOptions };
 
@@ -283,5 +288,142 @@ export async function parseEmailFile(file: File): Promise<ParsedEmail> {
     return parseMsgFile(file);
   } else {
     throw new Error(`Unsupported file type: .${ext}`);
+  }
+}
+
+/**
+ * Main function to convert email files to PDF
+ */
+export async function emailToPdf() {
+  const files = getFiles();
+
+  // If no files in state, prompt user to select email files
+  if (files.length === 0) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = '.eml,.msg';
+
+    const filePromise = new Promise<FileList | null>((resolve) => {
+      input.onchange = () => resolve(input.files);
+      input.oncancel = () => resolve(null);
+    });
+
+    input.click();
+
+    const selectedFiles = await filePromise;
+    if (!selectedFiles || selectedFiles.length === 0) {
+      showAlert('No Files', 'Please select at least one email file (.eml or .msg).', 'info');
+      return;
+    }
+
+    // Validate email files
+    const emailFiles = Array.from(selectedFiles).filter((file) => {
+      const ext = file.name.toLowerCase().split('.').pop();
+      return ext === 'eml' || ext === 'msg';
+    });
+
+    if (emailFiles.length === 0) {
+      showAlert('Invalid Files', 'Please select email files (.eml or .msg) only.', 'error');
+      return;
+    }
+
+    if (emailFiles.length < selectedFiles.length) {
+      showAlert(
+        'Invalid Files',
+        `Only ${emailFiles.length} of ${selectedFiles.length} files were valid email files.`,
+        'warning'
+      );
+    }
+
+    // Process the valid files
+    files.length = 0;
+    files.push(...emailFiles);
+  }
+
+  showLoader('Converting email(s) to PDF...');
+
+  try {
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    });
+
+    let isFirstPage = true;
+
+    for (const file of files) {
+      try {
+        // Parse the email file
+        const parsedEmail = await parseEmailFile(file);
+
+        // Render email to HTML
+        const html = renderEmailToHtml(parsedEmail, {
+          includeCcBcc: true,
+          includeAttachments: true,
+        });
+
+        // Create a temporary div to render HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.style.position = 'absolute';
+        tempDiv.style.left = '-9999px';
+        tempDiv.style.width = '800px';
+        tempDiv.innerHTML = html;
+        document.body.appendChild(tempDiv);
+
+        try {
+          // Convert HTML to canvas
+          const canvas = await html2canvas(tempDiv, {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+          });
+
+          const imgData = canvas.toDataURL('image/png');
+          const imgWidth = 210; // A4 width in mm
+          const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+          // Add new page for subsequent emails
+          if (!isFirstPage) {
+            pdf.addPage();
+          }
+          isFirstPage = false;
+
+          // Add image to PDF
+          let position = 0;
+          const pageHeight = 297; // A4 height in mm
+
+          while (position < imgHeight) {
+            if (position > 0) {
+              pdf.addPage();
+            }
+            pdf.addImage(imgData, 'PNG', 0, -position, imgWidth, imgHeight);
+            position += pageHeight;
+          }
+        } finally {
+          // Clean up temporary div
+          document.body.removeChild(tempDiv);
+        }
+      } catch (e) {
+        console.error(`Failed to process ${file.name}:`, e);
+        showAlert('Error', `Failed to process ${file.name}. Skipping...`, 'warning');
+      }
+    }
+
+    if (pdf.getNumberOfPages() === 0) {
+      throw new Error('No valid email files could be processed. Please check your files.');
+    }
+
+    // Save the PDF
+    const pdfBlob = pdf.output('blob');
+    downloadFile(pdfBlob, 'emails-to-pdf.pdf');
+
+    showAlert('Success', `Successfully converted ${files.length} email(s) to PDF!`, 'success');
+  } catch (e) {
+    console.error(e);
+    const errorMsg = e instanceof Error ? e.message : 'Failed to create PDF from email files.';
+    showAlert('Error', errorMsg, 'error');
+  } finally {
+    hideLoader();
   }
 }

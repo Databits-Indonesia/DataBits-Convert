@@ -1,216 +1,188 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import {
-    downloadFile,
-    readFileAsArrayBuffer,
-    formatBytes,
-} from '../utils/helpers.js';
-import { state } from '../state.js';
-import { createIcons, icons } from 'lucide';
-import { getLibreOfficeConverter, type LoadProgress } from '../utils/libreoffice-loader.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile } from '../utils/helpers';
+import { state } from '../state';
+import JSZip from 'jszip';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
-document.addEventListener('DOMContentLoaded', () => {
-    state.files = [];
-
-    const fileInput = document.getElementById('file-input') as HTMLInputElement;
-    const dropZone = document.getElementById('drop-zone');
-    const convertOptions = document.getElementById('convert-options');
-    const fileDisplayArea = document.getElementById('file-display-area');
-    const fileControls = document.getElementById('file-controls');
-    const addMoreBtn = document.getElementById('add-more-btn');
-    const clearFilesBtn = document.getElementById('clear-files-btn');
-    const backBtn = document.getElementById('back-to-tools');
-    const processBtn = document.getElementById('process-btn');
-
-    if (backBtn) {
-        backBtn.addEventListener('click', () => {
-            window.location.href = import.meta.env.BASE_URL;
-        });
+/**
+ * Excel to PDF conversion tool
+ * Converts Excel files (.xlsx, .xls) to PDF format
+ */
+export async function excelToPdf() {
+  try {
+    // Get files from state
+    const filesToConvert = state.files;
+    
+    if (!filesToConvert || filesToConvert.length === 0) {
+      showAlert('No Files', 'Please upload Excel files first.');
+      return;
     }
 
-    const updateUI = async () => {
-        if (!convertOptions) return;
+    // Validate files
+    for (const file of filesToConvert) {
+      if (!file.name.match(/\.(xlsx|xls|xlsm|xlsb)$/i)) {
+        showAlert('Invalid File', `${file.name} is not a valid Excel file.`);
+        return;
+      }
+    }
 
-        if (state.files.length > 0) {
-            if (fileDisplayArea) {
-                fileDisplayArea.innerHTML = '';
+    showLoader('Converting Excel to PDF...');
 
-                for (let index = 0; index < state.files.length; index++) {
-                    const file = state.files[index];
-                    const fileDiv = document.createElement('div');
-                    fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+    if (filesToConvert.length === 1) {
+      // Single file conversion
+      const file = filesToConvert[0];
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
 
-                    const infoContainer = document.createElement('div');
-                    infoContainer.className = 'flex flex-col overflow-hidden';
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4',
+      });
 
-                    const nameSpan = document.createElement('div');
-                    nameSpan.className = 'truncate font-medium text-gray-200 text-sm mb-1';
-                    nameSpan.textContent = file.name;
+      let isFirstSheet = true;
 
-                    const metaSpan = document.createElement('div');
-                    metaSpan.className = 'text-xs text-gray-400';
-                    metaSpan.textContent = formatBytes(file.size);
-
-                    infoContainer.append(nameSpan, metaSpan);
-
-                    const removeBtn = document.createElement('button');
-                    removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
-                    removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
-                    removeBtn.onclick = () => {
-                        state.files = state.files.filter((_, i) => i !== index);
-                        updateUI();
-                    };
-
-                    fileDiv.append(infoContainer, removeBtn);
-                    fileDisplayArea.appendChild(fileDiv);
-                }
-
-                createIcons({ icons });
-            }
-            if (fileControls) fileControls.classList.remove('hidden');
-            convertOptions.classList.remove('hidden');
-        } else {
-            if (fileDisplayArea) fileDisplayArea.innerHTML = '';
-            if (fileControls) fileControls.classList.add('hidden');
-            convertOptions.classList.add('hidden');
+      // Convert each sheet
+      for (const sheetName of workbook.SheetNames) {
+        if (!isFirstSheet) {
+          pdf.addPage();
         }
-    };
+        isFirstSheet = false;
 
-    const resetState = () => {
-        state.files = [];
-        state.pdfDoc = null;
-        updateUI();
-    };
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
 
-    const convertToPdf = async () => {
-        try {
-            if (state.files.length === 0) {
-                showAlert('No Files', 'Please select at least one Excel file.');
-                hideLoader();
-                return;
-            }
+        if (jsonData.length === 0) continue;
 
-            const converter = getLibreOfficeConverter();
+        // Add sheet title
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(59, 130, 246); // Blue color
+        pdf.text('[XLS]', 14, 15);
+        pdf.setTextColor(0, 0, 0);
+        pdf.text(sheetName, 30, 15);
 
-            // Initialize LibreOffice if not already done
-            await converter.initialize((progress: LoadProgress) => {
-                showLoader(progress.message, progress.percent);
-            });
+        // Add table
+        const headers = jsonData[0] || [];
+        const body = jsonData.slice(1);
 
-            if (state.files.length === 1) {
-                const originalFile = state.files[0];
+        autoTable(pdf, {
+          head: [headers],
+          body: body,
+          startY: 22,
+          styles: {
+            fontSize: 8,
+            cellPadding: 2,
+          },
+          headStyles: {
+            fillColor: [59, 130, 246],
+            textColor: [255, 255, 255],
+            fontStyle: 'bold',
+          },
+          alternateRowStyles: {
+            fillColor: [245, 245, 245],
+          },
+          margin: { top: 22, left: 14, right: 14 },
+        });
+      }
 
-                showLoader('Processing...');
+      // Download PDF
+      const pdfBlob = pdf.output('blob');
+      const pdfFileName = file.name.replace(/\.(xlsx|xls|xlsm|xlsb)$/i, '.pdf');
+      downloadFile(pdfBlob, pdfFileName);
 
-                const pdfBlob = await converter.convertToPdf(originalFile);
+      hideLoader();
+      showAlert(
+        'Success',
+        'Excel file successfully converted to PDF.',
+        'success'
+      );
+    } else {
+      // Multiple files conversion - create ZIP
+      const zip = new JSZip();
 
-                const fileName = originalFile.name.replace(/\.(xls|xlsx|ods|csv)$/i, '') + '.pdf';
+      for (const file of filesToConvert) {
+        showLoader(`Converting ${file.name}...`);
 
-                downloadFile(pdfBlob, fileName);
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
 
-                hideLoader();
+        const pdf = new jsPDF({
+          orientation: 'landscape',
+          unit: 'mm',
+          format: 'a4',
+        });
 
-                showAlert(
-                    'Conversion Complete',
-                    `Successfully converted ${originalFile.name} to PDF.`,
-                    'success',
-                    () => resetState()
-                );
-            } else {
-                showLoader('Processing...');
-                const JSZip = (await import('jszip')).default;
-                const zip = new JSZip();
+        let isFirstSheet = true;
 
-                for (let i = 0; i < state.files.length; i++) {
-                    const file = state.files[i];
-                    showLoader(`Converting ${i + 1}/${state.files.length}: ${file.name}...`);
+        // Convert each sheet
+        for (const sheetName of workbook.SheetNames) {
+          if (!isFirstSheet) {
+            pdf.addPage();
+          }
+          isFirstSheet = false;
 
-                    const pdfBlob = await converter.convertToPdf(file);
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
 
-                    const baseName = file.name.replace(/\.(xls|xlsx|ods|csv)$/i, '');
-                    const pdfBuffer = await pdfBlob.arrayBuffer();
-                    zip.file(`${baseName}.pdf`, pdfBuffer);
-                }
+          if (jsonData.length === 0) continue;
 
-                const zipBlob = await zip.generateAsync({ type: 'blob' });
+          // Add sheet title
+          pdf.setFontSize(14);
+          pdf.setFont('helvetica', 'bold');
+          pdf.setTextColor(59, 130, 246); // Blue color
+          pdf.text('[XLS]', 14, 15);
+          pdf.setTextColor(0, 0, 0);
+          pdf.text(sheetName, 30, 15);
 
-                downloadFile(zipBlob, 'excel-converted.zip');
+          // Add table
+          const headers = jsonData[0] || [];
+          const body = jsonData.slice(1);
 
-                hideLoader();
-
-                showAlert(
-                    'Conversion Complete',
-                    `Successfully converted ${state.files.length} Excel file(s) to PDF.`,
-                    'success',
-                    () => resetState()
-                );
-            }
-        } catch (e: any) {
-            hideLoader();
-            showAlert(
-                'Error',
-                `An error occurred during conversion. Error: ${e.message}`
-            );
+          (pdf as any).autoTable({
+            head: [headers],
+            body: body,
+            startY: 22,
+            styles: {
+              fontSize: 8,
+              cellPadding: 2,
+            },
+            headStyles: {
+              fillColor: [59, 130, 246],
+              textColor: [255, 255, 255],
+              fontStyle: 'bold',
+            },
+            alternateRowStyles: {
+              fillColor: [245, 245, 245],
+            },
+            margin: { top: 22, left: 14, right: 14 },
+          });
         }
-    };
 
-    const handleFileSelect = (files: FileList | null) => {
-        if (files && files.length > 0) {
-            state.files = [...state.files, ...Array.from(files)];
-            updateUI();
-        }
-    };
+        // Add to ZIP
+        const pdfBlob = pdf.output('blob');
+        const pdfFileName = file.name.replace(/\.(xlsx|xls|xlsm|xlsb)$/i, '.pdf');
+        zip.file(pdfFileName, pdfBlob);
+      }
 
-    if (fileInput && dropZone) {
-        fileInput.addEventListener('change', (e) => {
-            handleFileSelect((e.target as HTMLInputElement).files);
-        });
+      // Download ZIP
+      showLoader('Creating ZIP file...');
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      downloadFile(zipBlob, 'excel-converted.zip');
 
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('bg-gray-700');
-        });
-
-        dropZone.addEventListener('dragleave', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('bg-gray-700');
-        });
-
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('bg-gray-700');
-            const files = e.dataTransfer?.files;
-            if (files && files.length > 0) {
-                const excelFiles = Array.from(files).filter(f => {
-                    const name = f.name.toLowerCase();
-                    return name.endsWith('.xls') || name.endsWith('.xlsx') || name.endsWith('.ods') || name.endsWith('.csv');
-                });
-                if (excelFiles.length > 0) {
-                    const dataTransfer = new DataTransfer();
-                    excelFiles.forEach(f => dataTransfer.items.add(f));
-                    handleFileSelect(dataTransfer.files);
-                }
-            }
-        });
-
-        // Clear value on click to allow re-selecting the same file
-        fileInput.addEventListener('click', () => {
-            fileInput.value = '';
-        });
+      hideLoader();
+      showAlert(
+        'Success',
+        `Successfully converted ${filesToConvert.length} Excel file(s) to PDF.`,
+        'success'
+      );
     }
-
-    if (addMoreBtn) {
-        addMoreBtn.addEventListener('click', () => {
-            fileInput.click();
-        });
-    }
-
-    if (clearFilesBtn) {
-        clearFilesBtn.addEventListener('click', () => {
-            resetState();
-        });
-    }
-
-    if (processBtn) {
-        processBtn.addEventListener('click', convertToPdf);
-    }
-});
+  } catch (e: any) {
+    console.error('[Excel2PDF] ERROR:', e);
+    showAlert('Error', `An error occurred during conversion. Error: ${e.message}`);
+  } finally {
+    hideLoader();
+  }
+}

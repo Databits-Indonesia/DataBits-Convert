@@ -158,7 +158,8 @@ async function loadPdfInViewer(file: File) {
   iframe.className = 'w-full h-full border-0'
   iframe.allowFullscreen = true
 
-  const viewerUrl = new URL(import.meta.env.BASE_URL + 'pdfjs-annotation-viewer/web/viewer.html', window.location.origin)
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+  const viewerUrl = new URL('pdfjs-annotation-viewer/web/viewer.html', baseUrl)
   const stampUserName = usernameInput?.value?.trim() || ''
   // ae_username is the hash parameter used by pdfjs-annotation-extension to set the username
   const hashParams = stampUserName ? `#ae_username=${encodeURIComponent(stampUserName)}` : ''
@@ -283,7 +284,7 @@ if (saveStampedBtn) {
 
 if (backToToolsBtn) {
   backToToolsBtn.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL
+    window.location.href = '/'
   })
 }
 

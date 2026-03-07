@@ -1,11 +1,6 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import {
-  downloadFile,
-  formatBytes,
-  readFileAsArrayBuffer,
-  getPDFDocument,
-} from '../utils/helpers.js';
-import { createIcons, icons } from 'lucide';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile, readFileAsArrayBuffer } from '../utils/helpers';
+import { getFiles } from '../state';
 import JSZip from 'jszip';
 import * as pdfjsLib from 'pdfjs-dist';
 
@@ -14,182 +9,72 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url
 ).toString();
 
-let files: File[] = [];
-
-const updateUI = () => {
-  const fileDisplayArea = document.getElementById('file-display-area');
-  const optionsPanel = document.getElementById('options-panel');
-  const dropZone = document.getElementById('drop-zone');
-
-  if (!fileDisplayArea || !optionsPanel || !dropZone) return;
-
-  fileDisplayArea.innerHTML = '';
-
-  if (files.length > 0) {
-    optionsPanel.classList.remove('hidden');
-
-    files.forEach((file) => {
-      const fileDiv = document.createElement('div');
-      fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
-
-      const infoContainer = document.createElement('div');
-      infoContainer.className = 'flex flex-col overflow-hidden';
-
-      const nameSpan = document.createElement('div');
-      nameSpan.className = 'truncate font-medium text-gray-200 text-sm mb-1';
-      nameSpan.textContent = file.name;
-
-      const metaSpan = document.createElement('div');
-      metaSpan.className = 'text-xs text-gray-400';
-      metaSpan.textContent = `${formatBytes(file.size)} • Loading pages...`; // Initial state
-
-      infoContainer.append(nameSpan, metaSpan);
-
-      const removeBtn = document.createElement('button');
-      removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
-      removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
-      removeBtn.onclick = () => {
-        files = [];
-        updateUI();
-      };
-
-      fileDiv.append(infoContainer, removeBtn);
-      fileDisplayArea.appendChild(fileDiv);
-
-      // Fetch page count asynchronously
-      readFileAsArrayBuffer(file)
-        .then((buffer) => {
-          return getPDFDocument(buffer).promise;
-        })
-        .then((pdf) => {
-          metaSpan.textContent = `${formatBytes(file.size)} • ${pdf.numPages} page${pdf.numPages !== 1 ? 's' : ''}`;
-        })
-        .catch((e) => {
-          console.warn('Error loading PDF page count:', e);
-          metaSpan.textContent = formatBytes(file.size);
-        });
-    });
-
-    // Initialize icons immediately after synchronous render
-    createIcons({ icons });
-  } else {
-    optionsPanel.classList.add('hidden');
-  }
-};
-
-const resetState = () => {
-  files = [];
-  const fileInput = document.getElementById('file-input') as HTMLInputElement;
-  if (fileInput) fileInput.value = '';
-  const scaleSlider = document.getElementById('png-scale') as HTMLInputElement;
-  const scaleValue = document.getElementById('png-scale-value');
-  if (scaleSlider) scaleSlider.value = '2.0';
-  if (scaleValue) scaleValue.textContent = '2.0x';
-  updateUI();
-};
-
-async function convert() {
+export async function pdfToPng() {
+  const files = getFiles();
+  
   if (files.length === 0) {
     showAlert('No File', 'Please upload a PDF file first.');
     return;
   }
-  showLoader('Converting to PNG...');
-  try {
-    const pdf = await getPDFDocument(await readFileAsArrayBuffer(files[0])).promise;
-    const zip = new JSZip();
 
-    const scaleInput = document.getElementById('png-scale') as HTMLInputElement;
+  showLoader('Converting PDF to PNG...');
+
+  try {
+    const file = files[0];
+    const arrayBuffer = await readFileAsArrayBuffer(file);
+    
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    const pdf = await loadingTask.promise;
+    
+    const zip = new JSZip();
+    
+    const scaleInput = document.getElementById('pdf-to-png-scale') as HTMLInputElement;
     const scale = scaleInput ? parseFloat(scaleInput.value) : 2.0;
 
     for (let i = 1; i <= pdf.numPages; i++) {
+      showLoader(`Converting page ${i} of ${pdf.numPages}...`);
+      
       const page = await pdf.getPage(i);
       const viewport = page.getViewport({ scale });
+      
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
+      
+      if (!context) {
+        throw new Error('Could not get canvas context');
+      }
+      
       canvas.height = viewport.height;
       canvas.width = viewport.width;
 
-      await page.render({ canvasContext: context!, viewport: viewport, canvas }).promise;
+      await page.render({
+        canvasContext: context,
+        viewport: viewport
+      }).promise;
 
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, 'image/png');
+      });
+      
       if (blob) {
         zip.file(`page_${i}.png`, blob);
       }
     }
 
+    showLoader('Creating ZIP file...');
     const zipBlob = await zip.generateAsync({ type: 'blob' });
-    downloadFile(zipBlob, 'converted_images.zip');
-    showAlert('Success', 'PDF converted to PNGs successfully!', 'success', () => {
-      resetState();
-    });
-  } catch (e) {
-    console.error(e);
-    showAlert('Error', 'Failed to convert PDF to PNG. The file might be corrupted.');
-  } finally {
+    const fileName = file.name.replace(/\.pdf$/i, '_images.zip');
+    
+    downloadFile(zipBlob, fileName);
+    
     hideLoader();
+    showAlert('Success', 'PDF converted to PNG images successfully!', 'success');
+  } catch (error: any) {
+    console.error('[PDF2PNG] Error:', error);
+    hideLoader();
+    showAlert(
+      'Error',
+      `An error occurred during conversion. ${error.message}`
+    );
   }
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-  const fileInput = document.getElementById('file-input') as HTMLInputElement;
-  const dropZone = document.getElementById('drop-zone');
-  const processBtn = document.getElementById('process-btn');
-  const backBtn = document.getElementById('back-to-tools');
-  const scaleSlider = document.getElementById('png-scale') as HTMLInputElement;
-  const scaleValue = document.getElementById('png-scale-value');
-
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env?.BASE_URL || '/';
-    });
-  }
-
-  if (scaleSlider && scaleValue) {
-    scaleSlider.addEventListener('input', () => {
-      scaleValue.textContent = `${parseFloat(scaleSlider.value).toFixed(1)}x`;
-    });
-  }
-
-  const handleFileSelect = (newFiles: FileList | null) => {
-    if (!newFiles || newFiles.length === 0) return;
-    const validFiles = Array.from(newFiles).filter((file) => file.type === 'application/pdf');
-
-    if (validFiles.length === 0) {
-      showAlert('Invalid File', 'Please upload a PDF file.');
-      return;
-    }
-
-    files = [validFiles[0]];
-    updateUI();
-  };
-
-  if (fileInput && dropZone) {
-    fileInput.addEventListener('change', (e) => {
-      handleFileSelect((e.target as HTMLInputElement).files);
-    });
-
-    dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropZone.classList.add('bg-gray-700');
-    });
-
-    dropZone.addEventListener('dragleave', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-      handleFileSelect(e.dataTransfer?.files ?? null);
-    });
-
-    fileInput.addEventListener('click', () => {
-      fileInput.value = '';
-    });
-  }
-
-  if (processBtn) {
-    processBtn.addEventListener('click', convert);
-  }
-});

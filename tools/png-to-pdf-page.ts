@@ -1,239 +1,109 @@
-import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui.js';
-import { downloadFile, readFileAsArrayBuffer, formatBytes } from '../utils/helpers.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile } from '../utils/helpers';
+import { getFiles } from '../state';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
-import { getSelectedQuality, compressImageBytes } from '../utils/image-compress';
 
-let files: File[] = [];
+export async function pngToPdf() {
+  const files = getFiles();
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initializePage);
-} else {
-  initializePage();
-}
-
-function initializePage() {
-  createIcons({ icons });
-
-  const fileInput = document.getElementById('file-input') as HTMLInputElement;
-  const dropZone = document.getElementById('drop-zone');
-  const addMoreBtn = document.getElementById('add-more-btn');
-  const clearFilesBtn = document.getElementById('clear-files-btn');
-  const processBtn = document.getElementById('process-btn');
-
-  if (fileInput) {
-    fileInput.addEventListener('change', handleFileUpload);
-  }
-
-  if (dropZone) {
-    dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropZone.classList.add('bg-gray-700');
-    });
-
-    dropZone.addEventListener('dragleave', () => {
-      dropZone.classList.remove('bg-gray-700');
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-      const droppedFiles = e.dataTransfer?.files;
-      if (droppedFiles && droppedFiles.length > 0) {
-        handleFiles(droppedFiles);
-      }
-    });
-
-    // Clear value on click to allow re-selecting the same file
-    fileInput?.addEventListener('click', () => {
-      if (fileInput) fileInput.value = '';
-    });
-  }
-
-  if (addMoreBtn) {
-    addMoreBtn.addEventListener('click', () => {
-      fileInput?.click();
-    });
-  }
-
-  if (clearFilesBtn) {
-    clearFilesBtn.addEventListener('click', () => {
-      files = [];
-      updateUI();
-    });
-  }
-
-  if (processBtn) {
-    processBtn.addEventListener('click', convertToPdf);
-  }
-
-  document.getElementById('back-to-tools')?.addEventListener('click', () => {
-    window.location.href = import.meta.env?.BASE_URL || '/';
-  });
-}
-
-function handleFileUpload(e: Event) {
-  const input = e.target as HTMLInputElement;
-  if (input.files && input.files.length > 0) {
-    handleFiles(input.files);
-  }
-}
-
-function handleFiles(newFiles: FileList) {
-  const validFiles = Array.from(newFiles).filter(
-    (file) => file.type === 'image/png' || file.name.toLowerCase().endsWith('.png')
-  );
-
-  if (validFiles.length < newFiles.length) {
-    showAlert('Invalid Files', 'Some files were skipped. Only PNG images are allowed.');
-  }
-
-  if (validFiles.length > 0) {
-    files = [...files, ...validFiles];
-    updateUI();
-  }
-}
-
-const resetState = () => {
-  files = [];
-  updateUI();
-};
-
-function updateUI() {
-  const fileDisplayArea = document.getElementById('file-display-area');
-  const fileControls = document.getElementById('file-controls');
-  const optionsDiv = document.getElementById('jpg-to-pdf-options');
-
-  if (!fileDisplayArea || !fileControls || !optionsDiv) return;
-
-  fileDisplayArea.innerHTML = '';
-
-  if (files.length > 0) {
-    fileControls.classList.remove('hidden');
-    optionsDiv.classList.remove('hidden');
-
-    files.forEach((file, index) => {
-      const fileDiv = document.createElement('div');
-      fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
-
-      const infoContainer = document.createElement('div');
-      infoContainer.className = 'flex items-center gap-2 overflow-hidden';
-
-      const nameSpan = document.createElement('span');
-      nameSpan.className = 'truncate font-medium text-gray-200';
-      nameSpan.textContent = file.name;
-
-      const sizeSpan = document.createElement('span');
-      sizeSpan.className = 'flex-shrink-0 text-gray-400 text-xs';
-      sizeSpan.textContent = `(${formatBytes(file.size)})`;
-
-      infoContainer.append(nameSpan, sizeSpan);
-
-      const removeBtn = document.createElement('button');
-      removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
-      removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
-      removeBtn.onclick = () => {
-        files = files.filter((_, i) => i !== index);
-        updateUI();
-      };
-
-      fileDiv.append(infoContainer, removeBtn);
-      fileDisplayArea.appendChild(fileDiv);
-    });
-    createIcons({ icons });
-  } else {
-    fileControls.classList.add('hidden');
-    optionsDiv.classList.add('hidden');
-  }
-}
-
-function sanitizeImageAsJpeg(imageBytes: any) {
-  return new Promise((resolve, reject) => {
-    const blob = new Blob([imageBytes]);
-    const imageUrl = URL.createObjectURL(blob);
-    const img = new Image();
-
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-
-      canvas.toBlob(
-        async (jpegBlob) => {
-          if (!jpegBlob) {
-            return reject(new Error('Canvas toBlob conversion failed.'));
-          }
-          const arrayBuffer = await jpegBlob.arrayBuffer();
-          resolve(new Uint8Array(arrayBuffer));
-        },
-        'image/jpeg',
-        0.9
-      );
-      URL.revokeObjectURL(imageUrl);
-    };
-
-    img.onerror = () => {
-      URL.revokeObjectURL(imageUrl);
-      reject(new Error('The provided file could not be loaded as an image. It may be corrupted.'));
-    };
-
-    img.src = imageUrl;
-  });
-}
-
-async function convertToPdf() {
+  // If no files in state, prompt user to select PNG files
   if (files.length === 0) {
-    showAlert('No Files', 'Please select at least one JPG file.');
-    return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = 'image/png,.png';
+
+    const filePromise = new Promise<FileList | null>((resolve) => {
+      input.onchange = () => resolve(input.files);
+      input.oncancel = () => resolve(null);
+    });
+
+    input.click();
+
+    const selectedFiles = await filePromise;
+    if (!selectedFiles || selectedFiles.length === 0) {
+      showAlert('No Files', 'Please select at least one PNG file.', 'info');
+      return;
+    }
+
+    // Validate PNG files
+    const pngFiles = Array.from(selectedFiles).filter(
+      (file) => file.type === 'image/png' || file.name.toLowerCase().endsWith('.png')
+    );
+
+    if (pngFiles.length === 0) {
+      showAlert('Invalid Files', 'Please select PNG image files only.', 'error');
+      return;
+    }
+
+    if (pngFiles.length < selectedFiles.length) {
+      showAlert('Invalid Files', `Only ${pngFiles.length} of ${selectedFiles.length} files were PNG images.`, 'warning');
+    }
+
+    // Process the valid files
+    files.length = 0;
+    files.push(...pngFiles);
   }
 
-  showLoader('Creating PDF from JPGs...');
+  showLoader('Converting PNG images to PDF...');
 
   try {
     const pdfDoc = await PDFLibDocument.create();
-    const quality = getSelectedQuality();
 
     for (const file of files) {
-      const originalBytes = await readFileAsArrayBuffer(file);
-      const compressed = await compressImageBytes(
-        new Uint8Array(originalBytes as ArrayBuffer),
-        quality
-      );
-      let embeddedImage;
+      try {
+        // Create an image bitmap from the file
+        const imageBitmap = await createImageBitmap(file);
+        const canvas = document.createElement('canvas');
+        canvas.width = imageBitmap.width;
+        canvas.height = imageBitmap.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Could not get canvas context');
+        
+        ctx.drawImage(imageBitmap, 0, 0);
 
-      if (compressed.type === 'jpeg') {
-        embeddedImage = await pdfDoc.embedJpg(compressed.bytes);
-      } else {
-        try {
-          embeddedImage = await pdfDoc.embedPng(compressed.bytes);
-        } catch {
-          const fallback = await sanitizeImageAsJpeg(originalBytes);
-          embeddedImage = await pdfDoc.embedJpg(fallback as Uint8Array);
-        }
+        // Convert to PNG
+        const pngBlob = await new Promise<Blob>((resolve, reject) => {
+          canvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error('Failed to create PNG blob'));
+          }, 'image/png');
+        });
+        
+        const pngBytes = new Uint8Array(await pngBlob.arrayBuffer());
+
+        // Embed the PNG image in the PDF
+        const image = await pdfDoc.embedPng(pngBytes);
+        const page = pdfDoc.addPage([image.width, image.height]);
+        page.drawImage(image, {
+          x: 0,
+          y: 0,
+          width: image.width,
+          height: image.height,
+        });
+
+        imageBitmap.close();
+      } catch (e) {
+        console.error(`Failed to process ${file.name}:`, e);
+        showAlert('Error', `Failed to process ${file.name}. Skipping...`, 'warning');
       }
+    }
 
-      const page = pdfDoc.addPage([embeddedImage.width, embeddedImage.height]);
-      page.drawImage(embeddedImage, {
-        x: 0,
-        y: 0,
-        width: embeddedImage.width,
-        height: embeddedImage.height,
-      });
+    if (pdfDoc.getPageCount() === 0) {
+      throw new Error('No valid PNG images could be processed. Please check your files.');
     }
 
     const pdfBytes = await pdfDoc.save();
     downloadFile(
       new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' }),
-      'from_jpgs.pdf'
+      'pngs-to-pdf.pdf'
     );
-    showAlert('Success', 'PDF created successfully!', 'success', () => {
-      resetState();
-    });
-  } catch (e: any) {
+
+    showAlert('Success', `Successfully converted ${files.length} PNG image(s) to PDF!`, 'success');
+  } catch (e) {
     console.error(e);
-    showAlert('Conversion Error', e.message);
+    const errorMsg = e instanceof Error ? e.message : 'Failed to create PDF from PNG images.';
+    showAlert('Error', errorMsg, 'error');
   } finally {
     hideLoader();
   }

@@ -165,9 +165,8 @@ async function addBlankPages(pdfDoc: PDFLibDocument, totalPages: number) {
             `${originalName}_blank-pages-added.pdf`
         );
 
-        showAlert('Success', `Added ${insertCount} blank page${insertCount > 1 ? 's' : ''} successfully!`, 'success', function () {
-            resetState();
-        });
+        showAlert('Success', `Added ${insertCount} blank page${insertCount > 1 ? 's' : ''} successfully!`, 'success');
+        resetState();
     } catch (e) {
         console.error(e);
         showAlert('Error', `Could not add blank page${insertCount > 1 ? 's' : ''}.`);

@@ -1,232 +1,175 @@
-// NOTE: This is a work in progress and does not work correctly as of yet
-import { showLoader, hideLoader, showAlert } from '../ui';
-import { readFileAsArrayBuffer } from '../utils/helpers';
-import { state } from '../state';
-import mammoth from 'mammoth';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
+/**
+ * Word to PDF Converter
+ *
+ * Uses @matbee/libreoffice-converter/browser for client-side conversion.
+ * Uses the browser-compatible API that works without Node.js modules.
+ *
+ * Features:
+ * - Browser-compatible conversion
+ * - High-quality LibreOffice-based conversion
+ * - Preserves formatting, images, and layout
+ * - Single file and batch conversion support
+ * - Automatic ZIP creation for multiple files
+ */
 
-export async function wordToPdf() {
-  const file = state.files[0];
-  if (!file) {
-    showAlert('No File', 'Please upload a .docx file first.');
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile, readFileAsArrayBuffer } from '../utils/helpers';
+import { getFiles } from '../state';
+import { BrowserConverter, createWasmPaths } from '@matbee/libreoffice-converter/browser';
+
+const WORD_EXTENSION_REGEX = /\.(doc|docx)$/i;
+
+// Use local path for WASM files
+const WASM_BASE_PATH = '/libreoffice-wasm/';
+
+// Global singleton to prevent multiple instances
+let converterInstance: BrowserConverter | null = null;
+let isInitializing = false;
+
+function toPdfFileName(name: string): string {
+  return name.replace(WORD_EXTENSION_REGEX, '') + '.pdf';
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return 'Unknown error';
+}
+
+async function getConverter(): Promise<BrowserConverter> {
+  // Return existing instance if available
+  if (converterInstance) {
+    return converterInstance;
+  }
+
+  // Wait if already initializing
+  while (isInitializing) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    if (converterInstance) {
+      return converterInstance;
+    }
+  }
+
+  try {
+    isInitializing = true;
+
+    const wasmPaths = createWasmPaths(WASM_BASE_PATH);
+    converterInstance = new BrowserConverter({
+      ...wasmPaths,
+      onProgress: (progress: any) => {
+        const message = progress.message || 'Loading...';
+        showLoader(message);
+      },
+    });
+
+    await converterInstance.initialize();
+
+    return converterInstance;
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(`Failed to initialize LibreOffice:`, error);
+    converterInstance = null;
+
+    // Provide helpful error message
+    if (errorMsg.includes('SharedArrayBuffer') || errorMsg.includes('crossOriginIsolated')) {
+      throw new Error(
+        'Cross-Origin Isolation not enabled. Please restart the dev server to apply security headers.'
+      );
+    }
+
+    throw new Error(`Failed to load LibreOffice: ${errorMsg}`);
+  } finally {
+    isInitializing = false;
+  }
+}
+
+async function convertWordToPdf(file: File): Promise<Blob> {
+  // Get or create converter instance
+  const converter = await getConverter();
+
+  // Read file as ArrayBuffer
+  const arrayBuffer = await readFileAsArrayBuffer(file);
+  const uint8Array = new Uint8Array(arrayBuffer);
+
+  // Convert using BrowserConverter
+  const result = await converter.convertFile(file, { outputFormat: 'pdf' });
+
+  // Convert result to Blob
+  const pdfBlob = new Blob([result.data], { type: 'application/pdf' });
+  return pdfBlob;
+}
+
+export async function wordToPdf(filesOverride?: File[]) {
+  const files = filesOverride && filesOverride.length > 0 ? filesOverride : getFiles();
+
+  if (files.length === 0) {
+    showAlert('No Files', 'Please select at least one Word file.');
     return;
   }
 
-  showLoader('Preparing preview...');
+  const hasUnsupportedFile = files.some((file) => !WORD_EXTENSION_REGEX.test(file.name));
+  if (hasUnsupportedFile) {
+    showAlert('Invalid File Type', 'Please upload only .doc or .docx files.', 'error');
+    return;
+  }
 
   try {
-    const arrayBuffer = await readFileAsArrayBuffer(file);
-    const { value: html } = await mammoth.convertToHtml({ arrayBuffer });
+    if (files.length === 1) {
+      const file = files[0];
+      showLoader(`Converting ${file.name}...`);
 
-    // Get references to our modal elements from index.html
-    let previewModal = document.getElementById('preview-modal');
-    let previewContent = document.getElementById('preview-content');
-    let downloadBtn = document.getElementById('preview-download-btn');
-    let closeBtn = document.getElementById('preview-close-btn');
+      const pdfBlob = await convertWordToPdf(file);
+      downloadFile(pdfBlob, toPdfFileName(file.name));
 
-    // Create modal if it doesn't exist
-    if (!previewModal) {
-      previewModal = document.createElement('div');
-      previewModal.id = 'preview-modal';
-      previewModal.className =
-        'hidden fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center';
-
-      const modalContent = document.createElement('div');
-      modalContent.className = 'bg-white rounded-lg shadow-lg w-11/12 h-5/6 flex flex-col';
-
-      const header = document.createElement('div');
-      header.className = 'flex justify-between items-center p-4 border-b';
-      header.innerHTML = '<h2 class="text-xl font-bold">Preview</h2>';
-
-      previewContent = document.createElement('div');
-      previewContent.id = 'preview-content';
-      previewContent.className = 'flex-1 overflow-auto p-4';
-
-      const footer = document.createElement('div');
-      footer.className = 'flex justify-end gap-2 p-4 border-t';
-
-      downloadBtn = document.createElement('button');
-      downloadBtn.id = 'preview-download-btn';
-      downloadBtn.className = 'px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700';
-      downloadBtn.textContent = 'Download PDF';
-
-      closeBtn = document.createElement('button');
-      closeBtn.id = 'preview-close-btn';
-      closeBtn.className = 'px-4 py-2 bg-gray-400 text-white rounded hover:bg-gray-500';
-      closeBtn.textContent = 'Close';
-
-      footer.appendChild(downloadBtn);
-      footer.appendChild(closeBtn);
-
-      modalContent.appendChild(header);
-      modalContent.appendChild(previewContent);
-      modalContent.appendChild(footer);
-      previewModal.appendChild(modalContent);
-      document.body.appendChild(previewModal);
+      hideLoader();
+      showAlert('Conversion Complete', `Successfully converted ${file.name} to PDF.`, 'success');
+      return;
     }
 
-    const styledHtml = `
-            <style>
-                * { margin: 0; padding: 0; box-sizing: border-box; }
-                body { font-family: 'Calibri', 'Arial', sans-serif; }
-                #preview-content { 
-                    font-family: 'Calibri', 'Arial', sans-serif; 
-                    font-size: 12pt; 
-                    line-height: 1.5; 
-                    color: #000; 
-                    padding: 20mm;
-                    width: 210mm;
-                    page-break-after: always;
-                }
-                #preview-content h1, #preview-content h2, #preview-content h3 { 
-                    margin-top: 12pt; 
-                    margin-bottom: 6pt; 
-                    font-weight: bold;
-                }
-                #preview-content p { 
-                    margin-bottom: 12pt; 
-                    text-align: justify;
-                }
-                #preview-content table { 
-                    border-collapse: collapse; 
-                    width: 100%; 
-                    margin-bottom: 12pt;
-                }
-                #preview-content td, #preview-content th { 
-                    border: 1px solid #000; 
-                    text-align: left; 
-                    padding: 6pt;
-                    vertical-align: top;
-                }
-                #preview-content th {
-                    background-color: #f2f2f2;
-                    font-weight: bold;
-                }
-                #preview-content img { 
-                    max-width: 100%; 
-                    height: auto;
-                    margin: 12pt 0;
-                    display: block;
-                }
-                #preview-content a { 
-                    color: #0563c1; 
-                    text-decoration: underline;
-                }
-                #preview-content ul, #preview-content ol {
-                    margin-left: 24pt;
-                    margin-bottom: 12pt;
-                }
-                #preview-content li {
-                    margin-bottom: 6pt;
-                }
-            </style>
-            ${html}
-        `;
-    previewContent.innerHTML = styledHtml;
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
 
-    const marginDiv = document.createElement('div');
-    marginDiv.style.height = '100px';
-    previewContent.appendChild(marginDiv);
+    for (let index = 0; index < files.length; index++) {
+      const file = files[index];
+      showLoader(`Converting ${index + 1}/${files.length}: ${file.name}...`);
 
-    const images = previewContent.querySelectorAll('img');
-    const imagePromises = Array.from(images).map((img) => {
-      return new Promise((resolve) => {
-        // @ts-expect-error TS(2794) FIXME: Expected 1 arguments, but got 0. Did you forget to... Remove this comment to see the full error message
-        if (img.complete) resolve();
-        else img.onload = resolve;
-      });
-    });
-    await Promise.all(imagePromises);
+      const pdfBlob = await convertWordToPdf(file);
+      const pdfBuffer = await pdfBlob.arrayBuffer();
+      zip.file(toPdfFileName(file.name), pdfBuffer);
+    }
 
-    previewModal.classList.remove('hidden');
-    hideLoader();
+    showLoader('Preparing ZIP file...');
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
 
-    const downloadHandler = async () => {
-      showLoader('Generating High-Quality PDF...');
-
-      try {
-        // Create a temporary container for accurate rendering
-        const tempContainer = document.createElement('div');
-        tempContainer.style.position = 'absolute';
-        tempContainer.style.left = '-9999px';
-        tempContainer.style.width = '210mm'; // A4 width
-        tempContainer.style.fontSize = '14px';
-        tempContainer.innerHTML = previewContent.innerHTML;
-        document.body.appendChild(tempContainer);
-
-        const canvas = await html2canvas(tempContainer, {
-          scale: 3, // Higher quality
-          useCORS: true,
-          logging: false,
-          backgroundColor: '#ffffff',
-          windowHeight: tempContainer.scrollHeight,
-        });
-
-        document.body.removeChild(tempContainer);
-
-        const imgData = canvas.toDataURL('image/png');
-        const doc = new jsPDF({
-          orientation: 'p',
-          unit: 'mm',
-          format: 'a4',
-        });
-
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        const canvasWidth = canvas.width;
-        const canvasHeight = canvas.height;
-
-        // Calculate aspect ratio and dimensions
-        const ratio = canvasHeight / canvasWidth;
-        let imgWidth = pageWidth;
-        let imgHeight = imgWidth * ratio;
-
-        let position = 0;
-
-        // Add first page
-        doc.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-
-        // Add additional pages if needed
-        while (imgHeight > pageHeight * position + pageHeight) {
-          position++;
-          doc.addPage();
-          doc.addImage(imgData, 'PNG', 0, -imgHeight + pageHeight * position, imgWidth, imgHeight);
-        }
-
-        const outputFileName = `${file.name.replace(/\.[^/.]+$/, '')}.pdf`;
-        doc.save(outputFileName);
-        hideLoader();
-      } catch (e) {
-        console.error('PDF generation error:', e);
-        hideLoader();
-        showAlert('PDF Error', `Failed to generate PDF: ${e.message}`);
-      }
-    };
-
-    const closeHandler = () => {
-      previewModal.classList.add('hidden');
-      previewContent.innerHTML = '';
-      downloadBtn.removeEventListener('click', downloadHandler);
-      closeBtn.removeEventListener('click', closeHandler);
-    };
-
-    downloadBtn.addEventListener('click', downloadHandler);
-    closeBtn.addEventListener('click', closeHandler);
-  } catch (e) {
-    console.error(e);
+    downloadFile(zipBlob, 'word-converted.zip');
     hideLoader();
     showAlert(
-      'Preview Error',
-      `Could not generate a preview. The file may be corrupt or contain unsupported features. Error: ${e.message}`
+      'Conversion Complete',
+      `Successfully converted ${files.length} Word file(s) to PDF.`,
+      'success'
+    );
+  } catch (error) {
+    hideLoader();
+    showAlert(
+      'Error',
+      `An error occurred during conversion. Error: ${getErrorMessage(error)}`,
+      'error'
     );
   }
 }
 
 export async function setupWordToPdfTool() {
-  // Show the word-to-pdf container
   const container = document.getElementById('word-to-pdf-container');
-  if (container) {
-    container.classList.remove('hidden');
+  if (!container) return;
+
+  container.classList.remove('hidden');
+
+  const convertBtn = document.getElementById('word-to-pdf-process-btn');
+  if (convertBtn) {
+    convertBtn.onclick = () => {
+      void wordToPdf();
+    };
   }
 }
