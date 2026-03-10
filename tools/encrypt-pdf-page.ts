@@ -28,26 +28,35 @@ export async function encryptPdfDocument(file: File, options: EncryptOptions): P
 
     const pyMuPDF = await loadPyMuPDF();
     
-    // Check if PyMuPDF supports encryption
-    if (typeof pyMuPDF.encryptPdf !== 'function') {
-      throw new Error('PDF encryption is not supported by the current PyMuPDF version. This feature may require a different PDF library or server-side processing.');
-    }
+    // Open the PDF document
+    const doc = await pyMuPDF.open(file);
     
-    // PyMuPDF encryption options
-    const encryptOptions = {
+    // Prepare encryption options
+    const encryptionOptions: any = {
       userPassword: userPassword,
       ownerPassword: ownerPassword || userPassword,
-      encrypt: true,
-      permissions: addRestrictions ? {
+    };
+    
+    // Add permissions if restrictions are enabled
+    if (addRestrictions) {
+      encryptionOptions.permissions = {
         print: false,
         modify: false,
         copy: false,
         annotate: false,
-      } : undefined
-    };
+      };
+    }
     
-    // Use PyMuPDF to encrypt the PDF
-    const encryptedBlob = await pyMuPDF.encryptPdf(file, encryptOptions);
+    // Save the document with encryption
+    const encryptedBlob = await doc.saveAsBlob({
+      encryption: encryptionOptions,
+      garbage: 4,
+      deflate: true,
+      clean: true,
+    });
+    
+    // Close the document
+    doc.close();
     
     return encryptedBlob;
   } catch (error: any) {

@@ -86,6 +86,14 @@ import { flattenPdf } from './tools/flatten-pdf-page';
 import { linearizePdf } from './tools/linearize-pdf-page';
 import { sanitizePdfDocument, type SanitizeOptions } from './tools/sanitize-pdf-page';
 import { encryptPdfDocument, type EncryptOptions } from './tools/encrypt-pdf-page';
+import { decryptPdfDocument, type DecryptOptions } from './tools/decrypt-pdf-page';
+import { changePermissionsPdf, type ChangePermissionsOptions } from './tools/change-permissions-page';
+import { removeMetadataPdf, type RemoveMetadataOptions } from './tools/remove-metadata-page';
+import { editMetadataPdf, getMetadataPdf, type EditMetadataOptions } from './tools/edit-metadata-page';
+import { viewMetadataPdf, displayMetadataInUI, type ViewMetadataResult } from './tools/view-metadata-page';
+import { removeRestrictionsPdf, type RemoveRestrictionsOptions } from './tools/remove-restrictions-page';
+import { removeAnnotationsPdf, type RemoveAnnotationsOptions } from './tools/remove-annotations-page';
+import { extractImagesPdf, downloadImagesAsZip, displayExtractedImages, type ExtractedImage, type ExtractImagesOptions } from './tools/extract-images-page';
 import type { AdjustColorsSettings } from './types/adjust-colors-type';
 import { state, setFiles } from './state';
 import { showAlert, showLoader, hideLoader } from './ui';
@@ -941,6 +949,386 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
     }
   };
 
+  const processDecrypt = async () => {
+    if (state.files.length === 0) {
+      showAlert('No File', 'Please upload a PDF file first.');
+      return;
+    }
+
+    const file = state.files[0];
+    
+    // Get password from UI
+    const password = (document.getElementById('decrypt-password') as HTMLInputElement)?.value || '';
+
+    if (!password) {
+      showAlert('Password Required', 'Please enter the PDF password.');
+      return;
+    }
+
+    showLoader('Decrypting PDF...');
+
+    try {
+      const options: DecryptOptions = {
+        password
+      };
+
+      const decryptedBlob = await decryptPdfDocument(file, options);
+
+      // Download the result
+      const url = URL.createObjectURL(decryptedBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `decrypted_${file.name}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      hideLoader();
+      showAlert('Success', 'PDF decrypted successfully! Password protection has been removed.', 'success');
+    } catch (error: any) {
+      hideLoader();
+      console.error('Decrypt error:', error);
+      showAlert('Error', `Failed to decrypt PDF: ${error.message}`);
+    }
+  };
+
+  const processChangePermissions = async () => {
+    if (state.files.length === 0) {
+      showAlert('No File', 'Please upload a PDF file first.');
+      return;
+    }
+
+    const file = state.files[0];
+    
+    // Get passwords and permissions from UI
+    const currentPassword = (document.getElementById('permissions-current-password') as HTMLInputElement)?.value || '';
+    const newUserPassword = (document.getElementById('permissions-user-password') as HTMLInputElement)?.value || '';
+    const newOwnerPassword = (document.getElementById('permissions-owner-password') as HTMLInputElement)?.value || '';
+    
+    const allowPrint = (document.getElementById('permissions-allow-print') as HTMLInputElement)?.checked !== false;
+    const allowModify = (document.getElementById('permissions-allow-modify') as HTMLInputElement)?.checked !== false;
+    const allowCopy = (document.getElementById('permissions-allow-copy') as HTMLInputElement)?.checked !== false;
+    const allowAnnotate = (document.getElementById('permissions-allow-annotate') as HTMLInputElement)?.checked !== false;
+
+    showLoader('Updating PDF permissions...');
+
+    try {
+      const options: ChangePermissionsOptions = {
+        currentPassword: currentPassword || undefined,
+        newUserPassword: newUserPassword || undefined,
+        newOwnerPassword: newOwnerPassword || undefined,
+        permissions: {
+          print: allowPrint,
+          modify: allowModify,
+          copy: allowCopy,
+          annotate: allowAnnotate,
+        }
+      };
+
+      const resultBlob = await changePermissionsPdf(file, options);
+
+      // Download the result
+      const url = URL.createObjectURL(resultBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `permissions_${file.name}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      hideLoader();
+      
+      let successMessage = 'PDF permissions updated successfully!';
+      if (!newUserPassword && !newOwnerPassword) {
+        successMessage = 'PDF decrypted successfully! All encryption and restrictions have been removed.';
+      }
+      
+      showAlert('Success', successMessage, 'success');
+    } catch (error: any) {
+      hideLoader();
+      console.error('Change permissions error:', error);
+      showAlert('Error', `Failed to change PDF permissions: ${error.message}`);
+    }
+  };
+
+  const processRemoveMetadata = async () => {
+    if (state.files.length === 0) {
+      showAlert('No File', 'Please upload a PDF file first.');
+      return;
+    }
+
+    const file = state.files[0];
+    
+    // Get options from UI
+    const removeDocumentInfo = (document.getElementById('remove-document-info') as HTMLInputElement)?.checked !== false;
+    const removeXmpMetadata = (document.getElementById('remove-xmp-metadata') as HTMLInputElement)?.checked !== false;
+    const removePieceInfo = (document.getElementById('remove-piece-info') as HTMLInputElement)?.checked !== false;
+    const removeDocumentIds = (document.getElementById('remove-document-ids') as HTMLInputElement)?.checked !== false;
+
+    showLoader('Removing metadata from PDF...');
+
+    try {
+      const options: RemoveMetadataOptions = {
+        removeDocumentInfo,
+        removeXmpMetadata,
+        removePieceInfo,
+        removeDocumentIds
+      };
+
+      const resultBlob = await removeMetadataPdf(file, options);
+
+      // Download the result
+      const url = URL.createObjectURL(resultBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `no-metadata_${file.name}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      hideLoader();
+      showAlert('Success', 'Metadata removed successfully! Hidden information has been cleaned from the PDF.', 'success');
+    } catch (error: any) {
+      hideLoader();
+      console.error('Remove metadata error:', error);
+      showAlert('Error', `Failed to remove metadata: ${error.message}`);
+    }
+  };
+
+  const processEditMetadata = async () => {
+    if (state.files.length === 0) {
+      showAlert('No File', 'Please upload a PDF file first.');
+      return;
+    }
+
+    const file = state.files[0];
+    
+    // Get metadata from UI
+    const title = (document.getElementById('edit-meta-title') as HTMLInputElement)?.value || '';
+    const author = (document.getElementById('edit-meta-author') as HTMLInputElement)?.value || '';
+    const subject = (document.getElementById('edit-meta-subject') as HTMLInputElement)?.value || '';
+    const keywordsStr = (document.getElementById('edit-meta-keywords') as HTMLInputElement)?.value || '';
+    const creator = (document.getElementById('edit-meta-creator') as HTMLInputElement)?.value || '';
+    const producer = (document.getElementById('edit-meta-producer') as HTMLInputElement)?.value || '';
+
+    const keywords = keywordsStr
+      .split(',')
+      .map(k => k.trim())
+      .filter(Boolean);
+
+    showLoader('Updating PDF metadata...');
+
+    try {
+      const options: EditMetadataOptions = {
+        title,
+        author,
+        subject,
+        keywords,
+        creator,
+        producer,
+        modificationDate: new Date()
+      };
+
+      const resultBlob = await editMetadataPdf(file, options);
+
+      // Download the result
+      const url = URL.createObjectURL(resultBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `edited_${file.name}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      hideLoader();
+      showAlert('Success', 'PDF metadata updated successfully!', 'success');
+    } catch (error: any) {
+      hideLoader();
+      console.error('Edit metadata error:', error);
+      showAlert('Error', `Failed to update metadata: ${error.message}`);
+    }
+  };
+
+  const processViewMetadata = async () => {
+    if (state.files.length === 0) {
+      showAlert('No File', 'Please upload a PDF file first.');
+      return;
+    }
+
+    const file = state.files[0];
+
+    showLoader('Reading PDF metadata...');
+
+    try {
+      const result: ViewMetadataResult = await viewMetadataPdf(file);
+      
+      hideLoader();
+      
+      // Display the metadata in the UI
+      displayMetadataInUI(result);
+      
+      showAlert('Success', 'PDF metadata loaded successfully!', 'success');
+    } catch (error: any) {
+      hideLoader();
+      console.error('View metadata error:', error);
+      showAlert('Error', `Failed to read metadata: ${error.message}`);
+    }
+  };
+
+  const processRemoveRestrictions = async () => {
+    if (state.files.length === 0) {
+      showAlert('No File', 'Please upload a PDF file first.');
+      return;
+    }
+
+    const file = state.files[0];
+    
+    // Get password from UI
+    const password = (document.getElementById('restrictions-password') as HTMLInputElement)?.value || '';
+
+    showLoader('Removing PDF restrictions...');
+
+    try {
+      const options: RemoveRestrictionsOptions = {
+        password: password || undefined
+      };
+
+      const resultBlob = await removeRestrictionsPdf(file, options);
+
+      // Download the result
+      const url = URL.createObjectURL(resultBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `unrestricted_${file.name}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      hideLoader();
+      showAlert('Success', 'PDF restrictions removed successfully! The file is now fully editable and printable.', 'success');
+    } catch (error: any) {
+      hideLoader();
+      console.error('Remove restrictions error:', error);
+      showAlert('Error', `Failed to remove restrictions: ${error.message}`);
+    }
+  };
+
+  const processRemoveAnnotations = async () => {
+    if (state.files.length === 0) {
+      showAlert('No File', 'Please upload a PDF file first.');
+      return;
+    }
+
+    const file = state.files[0];
+
+    showLoader('Removing annotations from PDF...');
+
+    try {
+      const options: RemoveAnnotationsOptions = {
+        removeAllAnnotations: true
+      };
+
+      const resultBlob = await removeAnnotationsPdf(file, options);
+
+      // Download the result
+      const url = URL.createObjectURL(resultBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `no-annotations_${file.name}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      hideLoader();
+      showAlert('Success', 'All annotations removed successfully!', 'success');
+    } catch (error: any) {
+      hideLoader();
+      console.error('Remove annotations error:', error);
+      showAlert('Error', `Failed to remove annotations: ${error.message}`);
+    }
+  };
+
+  // State for extracted images
+  let extractedImages: ExtractedImage[] = [];
+
+  const processExtractImages = async () => {
+    if (state.files.length === 0) {
+      showAlert('No File', 'Please upload a PDF file first.');
+      return;
+    }
+
+    const file = state.files[0];
+    
+    // Get options from UI
+    const format = (document.getElementById('image-format') as HTMLSelectElement)?.value as 'original' | 'png' | 'jpg' || 'original';
+    const minWidth = parseInt((document.getElementById('min-width') as HTMLInputElement)?.value || '0');
+    const minHeight = parseInt((document.getElementById('min-height') as HTMLInputElement)?.value || '0');
+
+    showLoader('Extracting images from PDF...');
+
+    try {
+      const options: ExtractImagesOptions = {
+        format,
+        minWidth,
+        minHeight
+      };
+
+      extractedImages = await extractImagesPdf(file, options);
+
+      hideLoader();
+
+      if (extractedImages.length === 0) {
+        showAlert('No Images Found', 'No images were found in this PDF that match the filter criteria.');
+        return;
+      }
+
+      // Display extracted images
+      displayExtractedImages(extractedImages);
+      
+      showAlert('Success', `Successfully extracted ${extractedImages.length} image(s) from the PDF!`, 'success');
+    } catch (error: any) {
+      hideLoader();
+      console.error('Extract images error:', error);
+      showAlert('Error', `Failed to extract images: ${error.message}`);
+    }
+  };
+
+  const processDownloadImagesZip = async () => {
+    if (extractedImages.length === 0) {
+      showAlert('No Images', 'Please extract images first.');
+      return;
+    }
+
+    showLoader('Creating ZIP archive...');
+
+    try {
+      const filename = state.files[0] ? `${state.files[0].name.replace('.pdf', '')}_images.zip` : 'extracted_images.zip';
+      await downloadImagesAsZip(extractedImages, filename);
+      
+      hideLoader();
+      showAlert('Success', 'Images downloaded as ZIP file!', 'success');
+    } catch (error: any) {
+      hideLoader();
+      console.error('Download ZIP error:', error);
+      showAlert('Error', `Failed to download ZIP: ${error.message}`);
+    }
+  };
+
+  const processWordToPdf = async () => {
+    if (state.files.length === 0) {
+      showAlert('No File', 'Please upload a Word document first.');
+      return;
+    }
+
+    await wordToPdf(state.files);
+  };
+
   // Generic setup function for tools
   const setupGenericTool = (containerId: string) => {
     const container = document.getElementById(containerId);
@@ -1034,16 +1422,40 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
     const { setupEncryptPdfPage } = require('./tools/encrypt-pdf-page');
     setupEncryptPdfPage();
   };
-  const setupDecryptTool = () => setupGenericTool('decrypt-container');
-  const setupChangePermissionsTool = () => setupGenericTool('change-permissions-container');
-  const setupRemoveMetadataTool = () => setupGenericTool('remove-metadata-container');
-  const setupEditMetadataTool = () => setupGenericTool('edit-metadata-container');
-  const setupViewMetadataTool = () => setupGenericTool('view-metadata-container');
-  const setupRemoveRestrictionsTool = () => setupGenericTool('remove-restrictions-container');
-  const setupRemoveAnnotationsTool = () => setupGenericTool('remove-annotations-container');
+  const setupDecryptTool = () => {
+    const { setupDecryptPdfPage } = require('./tools/decrypt-pdf-page');
+    setupDecryptPdfPage();
+  };
+  const setupChangePermissionsTool = () => {
+    const { setupChangePermissionsPage } = require('./tools/change-permissions-page');
+    setupChangePermissionsPage();
+  };
+  const setupRemoveMetadataTool = () => {
+    const { setupRemoveMetadataPage } = require('./tools/remove-metadata-page');
+    setupRemoveMetadataPage();
+  };
+  const setupEditMetadataTool = () => {
+    const { setupEditMetadataPage } = require('./tools/edit-metadata-page');
+    setupEditMetadataPage();
+  };
+  const setupViewMetadataTool = () => {
+    const { setupViewMetadataPage } = require('./tools/view-metadata-page');
+    setupViewMetadataPage();
+  };
+  const setupRemoveRestrictionsTool = () => {
+    const { setupRemoveRestrictionsPage } = require('./tools/remove-restrictions-page');
+    setupRemoveRestrictionsPage();
+  };
+  const setupRemoveAnnotationsTool = () => {
+    const { setupRemoveAnnotationsPage } = require('./tools/remove-annotations-page');
+    setupRemoveAnnotationsPage();
+  };
 
   // PDF Analysis & Extraction Setup Functions
-  const setupExtractImagesTool = () => setupGenericTool('extract-images-container');
+  const setupExtractImagesTool = () => {
+    const { setupExtractImagesPage } = require('./tools/extract-images-page');
+    setupExtractImagesPage();
+  };
   const setupExtractTablesTool = () => setupGenericTool('extract-tables-container');
   const setupOcrTool = () => setupGenericTool('ocr-container');
   const setupPrepareForAiTool = () => setupGenericTool('prepare-for-ai-container');
@@ -1168,6 +1580,22 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
           break;
         case 'word-to-pdf':
           await setupWordToPdfTool();
+          // Attach event listener after setup
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              const convertBtn = document.getElementById('word-to-pdf-process-btn');
+              if (convertBtn) {
+                console.log('Word to PDF button found, attaching listener');
+                convertBtn.onclick = (e) => {
+                  e.preventDefault();
+                  console.log('Word to PDF button clicked');
+                  processWordToPdf();
+                };
+              } else {
+                console.error('Word to PDF button not found');
+              }
+            });
+          });
           break;
         case 'powerpoint-to-pdf':
           await setupPowerpointToPdfTool();
@@ -1278,6 +1706,18 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
             break;
           case 'word-to-pdf':
             await setupWordToPdfTool();
+            // Attach event listener after setup
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                const convertBtn = document.getElementById('word-to-pdf-process-btn');
+                if (convertBtn) {
+                  convertBtn.onclick = (e) => {
+                    e.preventDefault();
+                    processWordToPdf();
+                  };
+                }
+              });
+            });
             break;
           case 'sign':
             await setupSignTool();
@@ -1551,6 +1991,31 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
           // PDF Analysis & Extraction
           case 'extract-images':
             setupExtractImagesTool();
+            // Attach event listeners after a brief delay to ensure DOM is ready
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                const extractBtn = document.getElementById('extract-images-btn');
+                const downloadZipBtn = document.getElementById('download-zip-btn');
+                
+                if (extractBtn) {
+                  console.log('Extract Images button found, attaching listener');
+                  extractBtn.onclick = (e) => {
+                    e.preventDefault();
+                    console.log('Extract Images button clicked');
+                    processExtractImages();
+                  };
+                } else {
+                  console.error('Extract Images button not found');
+                }
+                
+                if (downloadZipBtn) {
+                  downloadZipBtn.onclick = (e) => {
+                    e.preventDefault();
+                    processDownloadImagesZip();
+                  };
+                }
+              });
+            });
             break;
           case 'extract-tables':
             setupExtractTablesTool();
@@ -2472,7 +2937,7 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
                 Convert PDF to Word
               </h2>
               <p className="text-gray-600 dark:text-gray-400">
-                Convert your PDF document to an editable Word file (DOCX)
+                Convert your PDF documents to editable Word files using PyMuPDF
               </p>
             </div>
 
@@ -2480,11 +2945,10 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               <div className="flex items-start">
                 <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
                 <div className="text-sm text-blue-800 dark:text-blue-200">
-                  <p className="font-semibold mb-1">Conversion Info:</p>
+                  <p className="font-semibold mb-1">High-Quality Conversion:</p>
                   <p>
-                    Text content will be extracted from your PDF and converted to an editable Word
-                    document. The original formatting and layout may vary based on the PDF
-                    structure.
+                    Uses PyMuPDF WASM for professional PDF to Word conversion. Preserves text,
+                    formatting, images, and layout with high accuracy.
                   </p>
                 </div>
               </div>
@@ -2494,18 +2958,20 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
                 <p className="text-gray-600 dark:text-gray-400 mb-2">
                   {state.files.length > 0
-                    ? `${state.files[0].name} ready to convert`
-                    : 'PDF file uploaded above will be converted'}
+                    ? `${state.files.length} PDF file(s) ready to convert`
+                    : 'PDF files uploaded above will be converted'}
                 </p>
                 {state.files.length > 0 && (
-                  <div className="mt-4">
-                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
-                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
-                      <span className="truncate">{state.files[0].name}</span>
-                      <span className="ml-4 text-gray-500 text-xs">
-                        {(state.files[0].size / 1024).toFixed(1)} KB
-                      </span>
-                    </div>
+                  <div className="mt-4 space-y-2">
+                    {state.files.map((file, index) => (
+                      <div key={index} className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                        <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                        <span className="truncate">{file.name}</span>
+                        <span className="ml-4 text-gray-500 text-xs">
+                          {(file.size / 1024).toFixed(1)} KB
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -2515,11 +2981,12 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               <div className="flex items-start">
                 <span className="text-yellow-600 dark:text-yellow-400 mr-3">💡</span>
                 <div className="text-sm text-yellow-800 dark:text-yellow-200">
-                  <p className="font-medium mb-1">Tips:</p>
+                  <p className="font-medium mb-1">Features:</p>
                   <ul className="list-disc list-inside space-y-1 ml-2">
-                    <li>Text-based PDFs work best for conversion</li>
-                    <li>Scanned PDFs (images) may require OCR for accurate text extraction</li>
-                    <li>Complex layouts may need manual adjustment in Word</li>
+                    <li>Preserves text formatting and layout</li>
+                    <li>Extracts embedded images</li>
+                    <li>Supports batch conversion with ZIP output</li>
+                    <li>Works with complex PDF documents</li>
                   </ul>
                 </div>
               </div>
@@ -7718,7 +8185,10 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               />
             </div>
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button 
+                onClick={() => processDecrypt()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Decrypt PDF
               </button>
             </div>
@@ -7731,24 +8201,107 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 Change Permissions
               </h2>
-              <p className="text-gray-600 dark:text-gray-400">Modify PDF security permissions</p>
+              <p className="text-gray-600 dark:text-gray-400">Modify PDF security permissions and encryption</p>
             </div>
-            <div className="space-y-3 mb-6">
-              <label className="flex items-center space-x-3">
-                <input type="checkbox" className="w-5 h-5 text-primary focus:ring-primary" />
-                <span className="text-gray-700 dark:text-gray-300">Allow Printing</span>
+            
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Current Password (if encrypted)
               </label>
-              <label className="flex items-center space-x-3">
-                <input type="checkbox" className="w-5 h-5 text-primary focus:ring-primary" />
-                <span className="text-gray-700 dark:text-gray-300">Allow Copy</span>
-              </label>
-              <label className="flex items-center space-x-3">
-                <input type="checkbox" className="w-5 h-5 text-primary focus:ring-primary" />
-                <span className="text-gray-700 dark:text-gray-300">Allow Modifications</span>
-              </label>
+              <input
+                type="password"
+                id="permissions-current-password"
+                placeholder="Enter current password"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Required only if the PDF is already password-protected
+              </p>
             </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  New User Password
+                </label>
+                <input
+                  type="password"
+                  id="permissions-user-password"
+                  placeholder="Enter new user password (optional)"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Leave blank to remove encryption
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  New Owner Password
+                </label>
+                <input
+                  type="password"
+                  id="permissions-owner-password"
+                  placeholder="Enter new owner password (optional)"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Defaults to user password if not set
+                </p>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                Document Permissions
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Set what users can do with this PDF (requires owner password)
+              </p>
+              <div className="space-y-3">
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="permissions-allow-print"
+                    defaultChecked
+                    className="w-5 h-5 text-primary focus:ring-primary"
+                  />
+                  <span className="text-gray-700 dark:text-gray-300">Allow Printing</span>
+                </label>
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="permissions-allow-modify"
+                    defaultChecked
+                    className="w-5 h-5 text-primary focus:ring-primary"
+                  />
+                  <span className="text-gray-700 dark:text-gray-300">Allow Modifications</span>
+                </label>
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="permissions-allow-copy"
+                    defaultChecked
+                    className="w-5 h-5 text-primary focus:ring-primary"
+                  />
+                  <span className="text-gray-700 dark:text-gray-300">Allow Content Copying</span>
+                </label>
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="permissions-allow-annotate"
+                    defaultChecked
+                    className="w-5 h-5 text-primary focus:ring-primary"
+                  />
+                  <span className="text-gray-700 dark:text-gray-300">Allow Annotations</span>
+                </label>
+              </div>
+            </div>
+
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button 
+                onClick={() => processChangePermissions()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Update Permissions
               </button>
             </div>
@@ -7762,11 +8315,80 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
                 Remove Metadata
               </h2>
               <p className="text-gray-600 dark:text-gray-400">
-                Remove metadata and hidden information
+                Remove metadata and hidden information from your PDF
               </p>
             </div>
+
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                Metadata Removal Options
+              </h3>
+              <div className="space-y-3">
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="remove-document-info"
+                    defaultChecked
+                    className="w-5 h-5 text-primary focus:ring-primary"
+                  />
+                  <div className="flex-1">
+                    <span className="text-gray-700 dark:text-gray-300 font-medium">Remove Document Information</span>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Title, Author, Subject, Keywords, Creator, Producer</p>
+                  </div>
+                </label>
+                
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="remove-xmp-metadata"
+                    defaultChecked
+                    className="w-5 h-5 text-primary focus:ring-primary"
+                  />
+                  <div className="flex-1">
+                    <span className="text-gray-700 dark:text-gray-300 font-medium">Remove XMP Metadata</span>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Extended metadata streams and custom properties</p>
+                  </div>
+                </label>
+                
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="remove-piece-info"
+                    defaultChecked
+                    className="w-5 h-5 text-primary focus:ring-primary"
+                  />
+                  <div className="flex-1">
+                    <span className="text-gray-700 dark:text-gray-300 font-medium">Remove Private Application Data</span>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">PieceInfo and application-specific data</p>
+                  </div>
+                </label>
+                
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="remove-document-ids"
+                    defaultChecked
+                    className="w-5 h-5 text-primary focus:ring-primary"
+                  />
+                  <div className="flex-1">
+                    <span className="text-gray-700 dark:text-gray-300 font-medium">Remove Document IDs</span>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Unique identifiers for tracking</p>
+                  </div>
+                </label>
+              </div>
+
+              <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                  ⚠️ This will permanently remove selected metadata from the PDF. This action cannot be undone.
+                </p>
+              </div>
+            </div>
+
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button 
+                onClick={() => processRemoveMetadata()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Remove Metadata
               </button>
             </div>
@@ -7779,52 +8401,91 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 Edit Metadata
               </h2>
-              <p className="text-gray-600 dark:text-gray-400">Edit PDF document properties</p>
+              <p className="text-gray-600 dark:text-gray-400">Modify document properties and information</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Title
-                </label>
-                <input
-                  type="text"
-                  id="meta-title"
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Author
-                </label>
-                <input
-                  type="text"
-                  id="meta-author"
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Subject
-                </label>
-                <input
-                  type="text"
-                  id="meta-subject"
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Keywords
-                </label>
-                <input
-                  type="text"
-                  id="meta-keywords"
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-                />
+
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Document Information
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Title
+                  </label>
+                  <input
+                    type="text"
+                    id="edit-meta-title"
+                    placeholder="Document title"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Author
+                  </label>
+                  <input
+                    type="text"
+                    id="edit-meta-author"
+                    placeholder="Author name"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Subject
+                  </label>
+                  <input
+                    type="text"
+                    id="edit-meta-subject"
+                    placeholder="Document subject"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Keywords
+                  </label>
+                  <input
+                    type="text"
+                    id="edit-meta-keywords"
+                    placeholder="keyword1, keyword2, keyword3"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Separate keywords with commas
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Creator
+                  </label>
+                  <input
+                    type="text"
+                    id="edit-meta-creator"
+                    placeholder="Creating application"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Producer
+                  </label>
+                  <input
+                    type="text"
+                    id="edit-meta-producer"
+                    placeholder="PDF producer"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
               </div>
             </div>
+
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button 
+                onClick={() => processEditMetadata()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Update Metadata
               </button>
             </div>
@@ -7837,13 +8498,51 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 View Metadata
               </h2>
-              <p className="text-gray-600 dark:text-gray-400">View PDF document properties</p>
+              <p className="text-gray-600 dark:text-gray-400">View all PDF document properties and information</p>
             </div>
-            <div id="metadata-display" className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 mb-6">
-              <p className="text-gray-500">Upload a PDF to view metadata</p>
+
+            <div id="metadata-empty" className="text-center py-8 text-gray-500">
+              <svg className="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <p>Upload a PDF and click "View Metadata" to see document properties</p>
             </div>
+
+            <div id="metadata-result" className="hidden mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Document Information
+              </h3>
+              <div id="metadata-basic" className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 mb-6"></div>
+            </div>
+
+            <div id="metadata-custom" className="hidden mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                </svg>
+                Custom Fields
+              </h3>
+              <div id="metadata-custom-fields" className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 mb-6"></div>
+            </div>
+
+            <div id="metadata-document" className="hidden mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                File Information
+              </h3>
+              <div id="metadata-document-info" className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4"></div>
+            </div>
+
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button 
+                onClick={() => processViewMetadata()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 View Metadata
               </button>
             </div>
@@ -7857,11 +8556,42 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
                 Remove Restrictions
               </h2>
               <p className="text-gray-600 dark:text-gray-400">
-                Remove editing and printing restrictions
+                Remove editing, printing, and copying restrictions from your PDF
               </p>
             </div>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Password (if required)
+              </label>
+              <input
+                type="password"
+                id="restrictions-password"
+                placeholder="Enter owner or user password"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Required only if the PDF is password-protected
+              </p>
+            </div>
+
+            <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+              <p className="text-sm text-yellow-800 dark:text-yellow-200 font-medium mb-2">
+                ⚠️ Note: This will remove all security restrictions including:
+              </p>
+              <ul className="text-sm text-yellow-700 dark:text-yellow-300 ml-4 space-y-1">
+                <li>• Printing restrictions</li>
+                <li>• Content copying restrictions</li>
+                <li>• Editing restrictions</li>
+                <li>• Annotation restrictions</li>
+              </ul>
+            </div>
+
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button 
+                onClick={() => processRemoveRestrictions()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Remove Restrictions
               </button>
             </div>
@@ -7875,12 +8605,54 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
                 Remove Annotations
               </h2>
               <p className="text-gray-600 dark:text-gray-400">
-                Remove all comments and annotations
+                Remove all comments, highlights, and markups from your PDF
               </p>
             </div>
+
+            <div className="mb-6 bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+                What Will Be Removed:
+              </h3>
+              <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-2 ml-4">
+                <li className="flex items-start">
+                  <span className="text-primary mr-2">•</span>
+                  <span>Text comments and notes</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="text-primary mr-2">•</span>
+                  <span>Highlights and underlines</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="text-primary mr-2">•</span>
+                  <span>Stamps and signatures</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="text-primary mr-2">•</span>
+                  <span>Drawing markups (lines, shapes, freehand)</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="text-primary mr-2">•</span>
+                  <span>Sticky notes and callouts</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="text-primary mr-2">•</span>
+                  <span>All other annotation types</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                ⚠️ <strong>Warning:</strong> This action cannot be undone. All annotations will be permanently removed from the PDF.
+              </p>
+            </div>
+
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
-                Remove Annotations
+              <button 
+                onClick={() => processRemoveAnnotations()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
+                Remove All Annotations
               </button>
             </div>
           </div>

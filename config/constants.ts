@@ -418,8 +418,8 @@ export const POPULAR_TOOLS: Tool[] = [
   {
     id: 'pdf-to-word',
     name: 'PDF to Word',
-    icon: 'description',
-    description: 'Convert PDF to Word document.',
+    icon: 'file-text',
+    description: 'Convert PDF to DOCX using PyMuPDF.',
     category: 'convert-from-pdf',
   },
   {

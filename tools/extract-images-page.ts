@@ -1,295 +1,236 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
-import {
-  downloadFile,
-  readFileAsArrayBuffer,
-  formatBytes,
-  getPDFDocument,
-} from '../utils/helpers';
-import { state } from '../state';
+import { showAlert } from '../ui';
+import { downloadFile } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
-import { isWasmAvailable, getWasmBaseUrl } from '../config/wasm-cdn-config';
-import { showWasmRequiredDialog } from '../utils/wasm-provider';
 import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';
+import { showWasmRequiredDialog } from '../utils/wasm-provider';
+import JSZip from 'jszip';
 
-interface ExtractedImage {
+export interface ExtractedImage {
   data: Uint8Array;
   name: string;
   ext: string;
+  width: number;
+  height: number;
 }
 
-let extractedImages: ExtractedImage[] = [];
+export interface ExtractImagesOptions {
+  format?: 'original' | 'png' | 'jpg';
+  minWidth?: number;
+  minHeight?: number;
+}
 
-document.addEventListener('DOMContentLoaded', () => {
-  const fileInput = document.getElementById('file-input') as HTMLInputElement;
-  const dropZone = document.getElementById('drop-zone');
-  const processBtn = document.getElementById('process-btn');
-  const fileDisplayArea = document.getElementById('file-display-area');
-  const extractOptions = document.getElementById('extract-options');
-  const fileControls = document.getElementById('file-controls');
-  const addMoreBtn = document.getElementById('add-more-btn');
-  const clearFilesBtn = document.getElementById('clear-files-btn');
-  const backBtn = document.getElementById('back-to-tools');
-  const imagesContainer = document.getElementById('images-container');
-  const imagesGrid = document.getElementById('images-grid');
-  const downloadAllBtn = document.getElementById('download-all-btn');
+export async function extractImagesPdf(file: File, options: ExtractImagesOptions = {}): Promise<ExtractedImage[]> {
+  const {
+    format = 'original',
+    minWidth = 0,
+    minHeight = 0
+  } = options;
 
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = (process.env.BASE_URL || '/');
-    });
-  }
-
-  const updateUI = async () => {
-    if (!fileDisplayArea || !extractOptions || !processBtn || !fileControls)
-      return;
-
-    // Clear extracted images when files change
-    extractedImages = [];
-    if (imagesContainer) imagesContainer.classList.add('hidden');
-    if (imagesGrid) imagesGrid.innerHTML = '';
-
-    if (state.files.length > 0) {
-      fileDisplayArea.innerHTML = '';
-
-      for (let index = 0; index < state.files.length; index++) {
-        const file = state.files[index];
-        const fileDiv = document.createElement('div');
-        fileDiv.className =
-          'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
-
-        const infoContainer = document.createElement('div');
-        infoContainer.className = 'flex flex-col overflow-hidden';
-
-        const nameSpan = document.createElement('div');
-        nameSpan.className = 'truncate font-medium text-gray-200 text-sm mb-1';
-        nameSpan.textContent = file.name;
-
-        const metaSpan = document.createElement('div');
-        metaSpan.className = 'text-xs text-gray-400';
-        metaSpan.textContent = `${formatBytes(file.size)} • Loading pages...`;
-
-        infoContainer.append(nameSpan, metaSpan);
-
-        const removeBtn = document.createElement('button');
-        removeBtn.className =
-          'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
-        removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
-        removeBtn.onclick = () => {
-          state.files = state.files.filter((_: File, i: number) => i !== index);
-          updateUI();
-        };
-
-        fileDiv.append(infoContainer, removeBtn);
-        fileDisplayArea.appendChild(fileDiv);
-
-        try {
-          const arrayBuffer = await readFileAsArrayBuffer(file);
-          const pdfDoc = await getPDFDocument({ data: arrayBuffer }).promise;
-          metaSpan.textContent = `${formatBytes(file.size)} • ${pdfDoc.numPages} pages`;
-        } catch (error) {
-          metaSpan.textContent = `${formatBytes(file.size)} • Could not load page count`;
-        }
-      }
-
-      createIcons({ icons });
-      fileControls.classList.remove('hidden');
-      extractOptions.classList.remove('hidden');
-      (processBtn as HTMLButtonElement).disabled = false;
-    } else {
-      fileDisplayArea.innerHTML = '';
-      fileControls.classList.add('hidden');
-      extractOptions.classList.add('hidden');
-      (processBtn as HTMLButtonElement).disabled = true;
+  try {
+    if (!isPyMuPDFAvailable()) {
+      showWasmRequiredDialog('pymupdf', () => {
+        window.location.reload();
+      });
+      throw new Error('PyMuPDF is required for image extraction. Please configure it in Advanced Settings.');
     }
-  };
 
-  const resetState = () => {
-    state.files = [];
-    state.pdfDoc = null;
-    extractedImages = [];
-    if (imagesContainer) imagesContainer.classList.add('hidden');
-    if (imagesGrid) imagesGrid.innerHTML = '';
-    updateUI();
-  };
+    const pymupdf = await loadPyMuPDF();
+    const extractedImages: ExtractedImage[] = [];
+    let imgCounter = 0;
 
-  const displayImages = () => {
-    if (!imagesGrid || !imagesContainer) return;
-    imagesGrid.innerHTML = '';
+    const doc = await pymupdf.open(file);
+    const pageCount = doc.pageCount;
 
-    extractedImages.forEach((img, index) => {
-      const blob = new Blob([new Uint8Array(img.data)]);
-      const url = URL.createObjectURL(blob);
+    for (let pageIdx = 0; pageIdx < pageCount; pageIdx++) {
+      const page = doc.getPage(pageIdx);
+      const images = page.getImages();
 
-      const card = document.createElement('div');
-      card.className = 'bg-gray-700 rounded-lg overflow-hidden';
+      for (const imgInfo of images) {
+        try {
+          const imgData = page.extractImage(imgInfo.xref);
+          if (imgData && imgData.data) {
+            const width = imgData.width || 0;
+            const height = imgData.height || 0;
 
-      const imgEl = document.createElement('img');
-      imgEl.src = url;
-      imgEl.className = 'w-full h-32 object-cover';
-
-      const info = document.createElement('div');
-      info.className = 'p-2 flex justify-between items-center';
-
-      const name = document.createElement('span');
-      name.className = 'text-xs text-gray-300 truncate';
-      name.textContent = img.name;
-
-      const downloadBtn = document.createElement('button');
-      downloadBtn.className = 'text-indigo-400 hover:text-indigo-300';
-      downloadBtn.innerHTML = '<i data-lucide="download" class="w-4 h-4"></i>';
-      downloadBtn.onclick = () => {
-        downloadFile(blob, img.name);
-      };
-
-      info.append(name, downloadBtn);
-      card.append(imgEl, info);
-      imagesGrid.appendChild(card);
-    });
-
-    createIcons({ icons });
-    imagesContainer.classList.remove('hidden');
-  };
-
-  const extract = async () => {
-    try {
-      if (state.files.length === 0) {
-        showAlert('No Files', 'Please select at least one PDF file.');
-        return;
-      }
-
-      showLoader('Loading PDF processor...');
-      const pymupdf = await loadPyMuPDF();
-
-      extractedImages = [];
-      let imgCounter = 0;
-
-      for (let i = 0; i < state.files.length; i++) {
-        const file = state.files[i];
-        showLoader(`Extracting images from ${file.name}...`);
-
-        const doc = await pymupdf.open(file);
-        const pageCount = doc.pageCount;
-
-        for (let pageIdx = 0; pageIdx < pageCount; pageIdx++) {
-          const page = doc.getPage(pageIdx);
-          const images = page.getImages();
-
-          for (const imgInfo of images) {
-            try {
-              const imgData = page.extractImage(imgInfo.xref);
-              if (imgData && imgData.data) {
-                imgCounter++;
-                extractedImages.push({
-                  data: imgData.data,
-                  name: `image_${imgCounter}.${imgData.ext || 'png'}`,
-                  ext: imgData.ext || 'png',
-                });
-              }
-            } catch (e) {
-              console.warn('Failed to extract image:', e);
+            // Filter by minimum dimensions
+            if (width >= minWidth && height >= minHeight) {
+              imgCounter++;
+              const ext = format === 'original' ? (imgData.ext || 'png') : format;
+              
+              extractedImages.push({
+                data: imgData.data,
+                name: `image_${imgCounter}_page${pageIdx + 1}.${ext}`,
+                ext: ext,
+                width: width,
+                height: height
+              });
             }
           }
+        } catch (e) {
+          console.warn(`Failed to extract image from page ${pageIdx + 1}:`, e);
         }
-        doc.close();
       }
-
-      hideLoader();
-
-      if (extractedImages.length === 0) {
-        showAlert(
-          'No Images Found',
-          'No embedded images were found in the selected PDF(s).'
-        );
-      } else {
-        displayImages();
-        showAlert(
-          'Extraction Complete',
-          `Found ${extractedImages.length} image(s) in ${state.files.length} PDF(s).`,
-          'success'
-        );
-      }
-    } catch (e: any) {
-      hideLoader();
-      showAlert(
-        'Error',
-        `An error occurred during extraction. Error: ${e.message}`
-      );
     }
-  };
+    
+    doc.close();
+    return extractedImages;
+  } catch (error: any) {
+    console.error('Extract images error:', error);
+    throw error;
+  }
+}
 
-  const downloadAll = async () => {
-    if (extractedImages.length === 0) return;
-
-    showLoader('Creating ZIP archive...');
-    const JSZip = (await import('jszip')).default;
+export async function downloadImagesAsZip(images: ExtractedImage[], filename: string = 'extracted_images.zip'): Promise<void> {
+  try {
     const zip = new JSZip();
+    const folder = zip.folder('images');
 
-    extractedImages.forEach((img) => {
-      zip.file(img.name, img.data);
-    });
-
-    const zipBlob = await zip.generateAsync({ type: 'blob' });
-    downloadFile(zipBlob, 'extracted-images.zip');
-    hideLoader();
-  };
-
-  const handleFileSelect = (files: FileList | null) => {
-    if (files && files.length > 0) {
-      const pdfFiles = Array.from(files).filter(
-        (f) =>
-          f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
-      );
-      state.files = [...state.files, ...pdfFiles];
-      updateUI();
+    if (!folder) {
+      throw new Error('Failed to create zip folder');
     }
-  };
 
-  if (fileInput && dropZone) {
-    fileInput.addEventListener('change', (e) => {
-      handleFileSelect((e.target as HTMLInputElement).files);
+    images.forEach((img) => {
+      folder.file(img.name, img.data);
     });
 
-    dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropZone.classList.add('bg-gray-700');
-    });
-
-    dropZone.addEventListener('dragleave', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-      const files = e.dataTransfer?.files;
-      if (files && files.length > 0) {
-        handleFileSelect(files);
-      }
-    });
-
-    fileInput.addEventListener('click', () => {
-      fileInput.value = '';
-    });
+    const blob = await zip.generateAsync({ type: 'blob' });
+    downloadFile(blob, filename);
+  } catch (error: any) {
+    console.error('Download zip error:', error);
+    throw error;
   }
+}
 
-  if (addMoreBtn) {
-    addMoreBtn.addEventListener('click', () => {
-      fileInput.click();
+export function setupExtractImagesPage() {
+  const container = document.getElementById('extract-images-container');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="tool-content">
+      <div class="alert alert-info">
+        <i data-lucide="info"></i>
+        <div>
+          <strong>Extract Images from PDF</strong>
+          <p>Extract all embedded images from your PDF files. Requires PyMuPDF to be configured in Advanced Settings.</p>
+        </div>
+      </div>
+
+      <div class="settings-panel">
+        <h3><i data-lucide="image"></i> Extraction Options</h3>
+        
+        <div class="form-group">
+          <label for="image-format">Output Format</label>
+          <select id="image-format" class="form-select">
+            <option value="original">Original Format</option>
+            <option value="png">PNG</option>
+            <option value="jpg">JPG</option>
+          </select>
+          <small>Choose the format for extracted images</small>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div class="form-group">
+            <label for="min-width">Minimum Width (px)</label>
+            <input type="number" id="min-width" value="0" min="0" placeholder="0">
+            <small>Filter images by minimum width</small>
+          </div>
+          
+          <div class="form-group">
+            <label for="min-height">Minimum Height (px)</label>
+            <input type="number" id="min-height" value="0" min="0" placeholder="0">
+            <small>Filter images by minimum height</small>
+          </div>
+        </div>
+      </div>
+
+      <div id="extracted-images-preview" class="hidden settings-panel">
+        <h3><i data-lucide="image"></i> Extracted Images (<span id="image-count">0</span>)</h3>
+        <div id="images-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-96 overflow-y-auto"></div>
+      </div>
+
+      <div class="action-buttons">
+        <button id="extract-images-btn" class="btn btn-primary">
+          <i data-lucide="image-plus"></i>
+          Extract Images
+        </button>
+        <button id="download-zip-btn" class="btn btn-secondary hidden">
+          <i data-lucide="download"></i>
+          Download as ZIP
+        </button>
+      </div>
+    </div>
+  `;
+
+  createIcons({
+    icons,
+    nameAttr: 'data-lucide',
+    attrs: {
+      'stroke-width': 2,
+      width: 20,
+      height: 20,
+    },
+  });
+
+  // Return the container so event listeners can be attached
+  return container;
+}
+
+export function displayExtractedImages(images: ExtractedImage[]) {
+  const previewContainer = document.getElementById('extracted-images-preview');
+  const imagesGrid = document.getElementById('images-grid');
+  const imageCount = document.getElementById('image-count');
+  const downloadZipBtn = document.getElementById('download-zip-btn');
+
+  if (!imagesGrid || !previewContainer || !imageCount) return;
+
+  imageCount.textContent = images.length.toString();
+  imagesGrid.innerHTML = '';
+
+  images.forEach((img, index) => {
+    const blob = new Blob([img.data]);
+    const url = URL.createObjectURL(blob);
+
+    const card = document.createElement('div');
+    card.className = 'bg-white dark:bg-gray-700 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 hover:shadow-lg transition-shadow';
+
+    card.innerHTML = `
+      <div class="relative group">
+        <img src="${url}" alt="${img.name}" class="w-full h-32 object-cover">
+        <div class="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+          <button class="download-single-btn text-white hover:text-gray-200 p-2" data-index="${index}">
+            <i data-lucide="download" class="w-6 h-6"></i>
+          </button>
+        </div>
+      </div>
+      <div class="p-2">
+        <p class="text-xs text-gray-700 dark:text-gray-300 truncate" title="${img.name}">${img.name}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400">${img.width}×${img.height}px</p>
+      </div>
+    `;
+
+    imagesGrid.appendChild(card);
+  });
+
+  // Add click handlers for individual downloads
+  document.querySelectorAll('.download-single-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const index = parseInt((e.currentTarget as HTMLElement).dataset.index || '0');
+      const img = images[index];
+      const blob = new Blob([img.data]);
+      downloadFile(blob, img.name);
     });
-  }
+  });
 
-  if (clearFilesBtn) {
-    clearFilesBtn.addEventListener('click', () => {
-      resetState();
-    });
-  }
+  createIcons({
+    icons,
+    nameAttr: 'data-lucide',
+    attrs: {
+      'stroke-width': 2,
+      width: 20,
+      height: 20,
+    },
+  });
 
-  if (processBtn) {
-    processBtn.addEventListener('click', extract);
-  }
-
-  if (downloadAllBtn) {
-    downloadAllBtn.addEventListener('click', downloadAll);
-  }
-});
+  previewContainer.classList.remove('hidden');
+  if (downloadZipBtn) downloadZipBtn.classList.remove('hidden');
+}

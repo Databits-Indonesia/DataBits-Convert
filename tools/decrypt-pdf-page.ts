@@ -1,358 +1,104 @@
 import { showAlert } from '../ui';
-import {
-  downloadFile,
-  formatBytes,
-  initializeQpdf,
-  readFileAsArrayBuffer,
-} from '../utils/helpers';
+import { downloadFile, formatBytes } from '../utils/helpers';
 import { icons, createIcons } from 'lucide';
-import JSZip from 'jszip';
-import { DecryptPdfState } from '@/types';
+import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';
+import { showWasmRequiredDialog } from '../utils/wasm-provider';
 
-const pageState: DecryptPdfState = {
-  files: [],
-};
-
-function resetState() {
-  pageState.files = [];
-
-  const fileDisplayArea = document.getElementById('file-display-area');
-  if (fileDisplayArea) fileDisplayArea.innerHTML = '';
-
-  const toolOptions = document.getElementById('tool-options');
-  if (toolOptions) toolOptions.classList.add('hidden');
-
-  const fileControls = document.getElementById('file-controls');
-  if (fileControls) fileControls.classList.add('hidden');
-
-  const fileInput = document.getElementById('file-input') as HTMLInputElement;
-  if (fileInput) fileInput.value = '';
-
-  const passwordInput = document.getElementById(
-    'password-input'
-  ) as HTMLInputElement;
-  if (passwordInput) passwordInput.value = '';
+export interface DecryptOptions {
+  password: string;
 }
 
-async function updateUI() {
-  const fileDisplayArea = document.getElementById('file-display-area');
-  const toolOptions = document.getElementById('tool-options');
-  const fileControls = document.getElementById('file-controls');
-
-  if (!fileDisplayArea) return;
-
-  fileDisplayArea.innerHTML = '';
-
-  if (pageState.files.length > 0) {
-    pageState.files.forEach((file, index) => {
-      const fileDiv = document.createElement('div');
-      fileDiv.className =
-        'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
-
-      const infoContainer = document.createElement('div');
-      infoContainer.className = 'flex flex-col overflow-hidden';
-
-      const nameSpan = document.createElement('div');
-      nameSpan.className = 'truncate font-medium text-gray-200 text-sm mb-1';
-      nameSpan.textContent = file.name;
-
-      const metaSpan = document.createElement('div');
-      metaSpan.className = 'text-xs text-gray-400';
-      metaSpan.textContent = formatBytes(file.size);
-
-      infoContainer.append(nameSpan, metaSpan);
-
-      const removeBtn = document.createElement('button');
-      removeBtn.className =
-        'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
-      removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
-      removeBtn.onclick = function () {
-        pageState.files.splice(index, 1);
-        updateUI();
-      };
-
-      fileDiv.append(infoContainer, removeBtn);
-      fileDisplayArea.appendChild(fileDiv);
-    });
-
-    createIcons({ icons });
-
-    if (toolOptions) toolOptions.classList.remove('hidden');
-    if (fileControls) fileControls.classList.remove('hidden');
-  } else {
-    if (toolOptions) toolOptions.classList.add('hidden');
-    if (fileControls) fileControls.classList.add('hidden');
-  }
-}
-
-function handleFileSelect(files: FileList | null) {
-  if (files && files.length > 0) {
-    const pdfFiles = Array.from(files).filter(
-      (f) =>
-        f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
-    );
-    if (pdfFiles.length > 0) {
-      pageState.files.push(...pdfFiles);
-      updateUI();
-    }
-  }
-}
-
-async function decryptPdf() {
-  if (pageState.files.length === 0) {
-    showAlert('No File', 'Please upload at least one PDF file.');
-    return;
-  }
-
-  const password = (
-    document.getElementById('password-input') as HTMLInputElement
-  )?.value;
+export async function decryptPdfDocument(file: File, options: DecryptOptions): Promise<Blob> {
+  const { password } = options;
 
   if (!password) {
-    showAlert('Input Required', 'Please enter the PDF password.');
-    return;
+    throw new Error('Password is required');
   }
 
-  const loaderModal = document.getElementById('loader-modal');
-  const loaderText = document.getElementById('loader-text');
-  let qpdf: any;
-
   try {
-    if (loaderModal) loaderModal.classList.remove('hidden');
-    if (loaderText) loaderText.textContent = 'Initializing decryption...';
-
-    qpdf = await initializeQpdf();
-
-    if (pageState.files.length === 1) {
-      // Single file: decrypt and download directly
-      const file = pageState.files[0];
-      const inputPath = '/input.pdf';
-      const outputPath = '/output.pdf';
-
-      try {
-        if (loaderText) loaderText.textContent = 'Reading encrypted PDF...';
-        const fileBuffer = await readFileAsArrayBuffer(file);
-        const uint8Array = new Uint8Array(fileBuffer as ArrayBuffer);
-        qpdf.FS.writeFile(inputPath, uint8Array);
-
-        if (loaderText) loaderText.textContent = 'Decrypting PDF...';
-        const args = [
-          inputPath,
-          '--password=' + password,
-          '--decrypt',
-          outputPath,
-        ];
-
-        try {
-          qpdf.callMain(args);
-        } catch (qpdfError: any) {
-          if (
-            qpdfError.message?.includes('invalid password') ||
-            qpdfError.message?.includes('password')
-          ) {
-            throw new Error('INVALID_PASSWORD');
-          }
-          throw qpdfError;
-        }
-
-        if (loaderText) loaderText.textContent = 'Preparing download...';
-        const outputFile = qpdf.FS.readFile(outputPath, { encoding: 'binary' });
-
-        if (outputFile.length === 0) {
-          throw new Error('Decryption resulted in an empty file.');
-        }
-
-        const blob = new Blob([new Uint8Array(outputFile)], {
-          type: 'application/pdf',
-        });
-        downloadFile(blob, `unlocked-${file.name}`);
-
-        if (loaderModal) loaderModal.classList.add('hidden');
-        showAlert(
-          'Success',
-          'PDF decrypted successfully! Your download has started.',
-          'success',
-          () => {
-            resetState();
-          }
-        );
-      } finally {
-        try {
-          if (qpdf?.FS) {
-            if (qpdf.FS.analyzePath(inputPath).exists)
-              qpdf.FS.unlink(inputPath);
-            if (qpdf.FS.analyzePath(outputPath).exists)
-              qpdf.FS.unlink(outputPath);
-          }
-        } catch (cleanupError) {
-          console.warn('Failed to cleanup WASM FS:', cleanupError);
-        }
-      }
-    } else {
-      // Multiple files: decrypt all and download as ZIP
-      const zip = new JSZip();
-      let successCount = 0;
-      let errorCount = 0;
-
-      for (let i = 0; i < pageState.files.length; i++) {
-        const file = pageState.files[i];
-        const inputPath = `/input_${i}.pdf`;
-        const outputPath = `/output_${i}.pdf`;
-
-        if (loaderText)
-          loaderText.textContent = `Decrypting ${file.name} (${i + 1}/${pageState.files.length})...`;
-
-        try {
-          const fileBuffer = await readFileAsArrayBuffer(file);
-          const uint8Array = new Uint8Array(fileBuffer as ArrayBuffer);
-          qpdf.FS.writeFile(inputPath, uint8Array);
-
-          const args = [
-            inputPath,
-            '--password=' + password,
-            '--decrypt',
-            outputPath,
-          ];
-
-          try {
-            qpdf.callMain(args);
-          } catch (qpdfError: any) {
-            if (
-              qpdfError.message?.includes('invalid password') ||
-              qpdfError.message?.includes('password')
-            ) {
-              throw new Error(`Invalid password for ${file.name}`);
-            }
-            throw qpdfError;
-          }
-
-          const outputFile = qpdf.FS.readFile(outputPath, {
-            encoding: 'binary',
-          });
-          if (!outputFile || outputFile.length === 0) {
-            throw new Error(
-              `Decryption resulted in an empty file for ${file.name}.`
-            );
-          }
-
-          zip.file(`unlocked-${file.name}`, outputFile, { binary: true });
-          successCount++;
-        } catch (fileError: any) {
-          errorCount++;
-          console.error(`Failed to decrypt ${file.name}:`, fileError);
-        } finally {
-          try {
-            if (qpdf?.FS) {
-              if (qpdf.FS.analyzePath(inputPath).exists)
-                qpdf.FS.unlink(inputPath);
-              if (qpdf.FS.analyzePath(outputPath).exists)
-                qpdf.FS.unlink(outputPath);
-            }
-          } catch (cleanupError) {
-            console.warn(
-              `Failed to cleanup WASM FS for ${file.name}:`,
-              cleanupError
-            );
-          }
-        }
-      }
-
-      if (successCount === 0) {
-        throw new Error(
-          'No PDF files could be decrypted. The password may be incorrect.'
-        );
-      }
-
-      if (loaderText) loaderText.textContent = 'Generating ZIP file...';
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      downloadFile(zipBlob, 'decrypted-pdfs.zip');
-
-      let alertMessage = `${successCount} PDF(s) decrypted successfully.`;
-      if (errorCount > 0) {
-        alertMessage += ` ${errorCount} file(s) failed.`;
-      }
-      showAlert('Processing Complete', alertMessage, 'success', () => {
-        resetState();
+    if (!isPyMuPDFAvailable()) {
+      showWasmRequiredDialog('pymupdf', () => {
+        window.location.reload();
       });
+      throw new Error('PyMuPDF is required for PDF decryption. Please configure it in Advanced Settings.');
     }
-  } catch (error: any) {
-    console.error('Error during PDF decryption:', error);
 
-    if (error.message === 'INVALID_PASSWORD') {
-      showAlert(
-        'Incorrect Password',
-        'The password you entered is incorrect. Please try again.'
-      );
-    } else if (error.message?.includes('password')) {
-      showAlert(
-        'Password Error',
-        'Unable to decrypt the PDF with the provided password.'
-      );
-    } else {
-      showAlert(
-        'Decryption Failed',
-        `An error occurred: ${error.message || 'The password you entered is wrong or the file is corrupted.'}`
-      );
+    const pyMuPDF = await loadPyMuPDF();
+    
+    // Open the encrypted PDF document with password
+    const doc = await pyMuPDF.open(file);
+    
+    // Check if the document is encrypted
+    if (!doc.isEncrypted) {
+      doc.close();
+      throw new Error('This PDF is not encrypted.');
     }
-  } finally {
-    if (loaderModal) loaderModal.classList.add('hidden');
+    
+    // Authenticate with the password
+    const authenticated = doc.authenticate(password);
+    
+    if (!authenticated) {
+      doc.close();
+      throw new Error('Invalid password. Please check your password and try again.');
+    }
+    
+    // Save the document without encryption
+    const decryptedBlob = await doc.saveAsBlob({
+      garbage: 4,
+      deflate: true,
+      clean: true,
+    });
+    
+    // Close the document
+    doc.close();
+    
+    return decryptedBlob;
+  } catch (error: any) {
+    console.error('Decryption error:', error);
+    throw error;
   }
 }
 
-document.addEventListener('DOMContentLoaded', function () {
-  const fileInput = document.getElementById('file-input') as HTMLInputElement;
-  const dropZone = document.getElementById('drop-zone');
-  const processBtn = document.getElementById('process-btn');
-  const addMoreBtn = document.getElementById('add-more-btn');
-  const clearFilesBtn = document.getElementById('clear-files-btn');
-  const backBtn = document.getElementById('back-to-tools');
+export function setupDecryptPdfPage() {
+  const container = document.getElementById('decrypt-container');
+  if (!container) return;
 
-  if (backBtn) {
-    backBtn.addEventListener('click', function () {
-      window.location.href = (process.env.BASE_URL || '/');
-    });
-  }
+  container.innerHTML = `
+    <div class="tool-content">
+      <div class="alert alert-info">
+        <i data-lucide="info"></i>
+        <div>
+          <strong>PDF Decryption</strong>
+          <p>Remove password protection from your PDF files. Requires PyMuPDF to be configured in Advanced Settings.</p>
+        </div>
+      </div>
 
-  if (fileInput && dropZone) {
-    fileInput.addEventListener('change', function (e) {
-      handleFileSelect((e.target as HTMLInputElement).files);
-    });
+      <div class="settings-panel">
+        <h3><i data-lucide="unlock"></i> Decryption Settings</h3>
+        
+        <div class="form-group">
+          <label for="decrypt-password">PDF Password</label>
+          <input type="password" id="decrypt-password" placeholder="Enter the PDF password">
+          <small>Enter the password used to protect this PDF</small>
+        </div>
+      </div>
 
-    dropZone.addEventListener('dragover', function (e) {
-      e.preventDefault();
-      dropZone.classList.add('bg-gray-700');
-    });
+      <div class="action-buttons">
+        <button id="decrypt-btn" class="btn btn-primary">
+          <i data-lucide="unlock"></i>
+          Decrypt PDF
+        </button>
+      </div>
+    </div>
+  `;
 
-    dropZone.addEventListener('dragleave', function (e) {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-    });
-
-    dropZone.addEventListener('drop', function (e) {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-      handleFileSelect(e.dataTransfer?.files);
-    });
-
-    fileInput.addEventListener('click', function () {
-      fileInput.value = '';
-    });
-  }
-
-  if (processBtn) {
-    processBtn.addEventListener('click', decryptPdf);
-  }
-
-  if (addMoreBtn) {
-    addMoreBtn.addEventListener('click', function () {
-      fileInput.value = '';
-      fileInput.click();
-    });
-  }
-
-  if (clearFilesBtn) {
-    clearFilesBtn.addEventListener('click', function () {
-      resetState();
-    });
-  }
-});
+  createIcons({
+    icons,
+    nameAttr: 'data-lucide',
+    attrs: {
+      'stroke-width': 2,
+      width: 20,
+      height: 20,
+    },
+  });
+}

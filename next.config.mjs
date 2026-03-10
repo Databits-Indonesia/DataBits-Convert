@@ -2,6 +2,11 @@
 const nextConfig = {
   // Removed 'output: export' to enable middleware support for Vercel deployment
   distDir: './dist', // Changes the build output directory to ./dist/
+  env: {
+    NEXT_PUBLIC_WASM_PYMUPDF_URL: 'https://cdn.jsdelivr.net/npm/@bentopdf/pymupdf-wasm@0.11.16/',
+    NEXT_PUBLIC_WASM_GS_URL: 'https://cdn.jsdelivr.net/npm/@bentopdf/gs-wasm/assets/',
+    NEXT_PUBLIC_WASM_CPDF_URL: 'https://cdn.jsdelivr.net/npm/coherentpdf/dist/',
+  },
   images: {
     unoptimized: true,
   },
