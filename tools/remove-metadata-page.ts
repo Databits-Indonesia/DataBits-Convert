@@ -1,5 +1,5 @@
-import { showAlert } from '../ui.js';
-import { downloadFile, formatBytes } from '../utils/helpers.js';
+import { showAlert } from '../ui';
+import { downloadFile, formatBytes } from '../utils/helpers';
 import { PDFDocument, PDFName } from 'pdf-lib';
 import { icons, createIcons } from 'lucide';
 

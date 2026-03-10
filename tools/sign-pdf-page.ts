@@ -1,6 +1,6 @@
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui.js';
-import { readFileAsArrayBuffer, formatBytes, downloadFile, getPDFDocument } from '../utils/helpers.js';
+import { showAlert, showLoader, hideLoader } from '../ui';
+import { readFileAsArrayBuffer, formatBytes, downloadFile, getPDFDocument } from '../utils/helpers';
 import { PDFDocument } from 'pdf-lib';
 
 interface SignState {
@@ -67,7 +67,7 @@ function initializePage() {
 
     document.getElementById('back-to-tools')?.addEventListener('click', () => {
         cleanup();
-        window.location.href = import.meta.env.BASE_URL;
+        window.location.href = (process.env.BASE_URL || '/');
     });
 }
 
@@ -181,7 +181,7 @@ async function setupSignTool() {
         localStorage.setItem('pdfjs.preferences', JSON.stringify(newPrefs));
     } catch { }
 
-    const viewerUrl = new URL(`${import.meta.env.BASE_URL}pdfjs-viewer/viewer.html`, window.location.origin);
+    const viewerUrl = new URL(`${(process.env.BASE_URL || '/')}pdfjs-viewer/viewer.html`, window.location.origin);
     const query = new URLSearchParams({ file: signState.blobUrl });
     iframe.src = `${viewerUrl.toString()}?${query.toString()}`;
 

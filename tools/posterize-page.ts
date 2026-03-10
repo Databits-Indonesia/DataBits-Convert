@@ -1,14 +1,145 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile, parsePageRanges, getPDFDocument, formatBytes } from '../utils/helpers.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile, parsePageRanges, formatBytes } from '../utils/helpers';
 import { PDFDocument, PageSizes } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 import { createIcons, icons } from 'lucide';
 import { PosterizeState } from '@/types';
+import { getFiles } from '../state';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
   import.meta.url
 ).toString();
+
+// Posterize options interface
+export interface PosterizeOptions {
+  rows: number;
+  cols: number;
+  pageSize: keyof typeof PageSizes;
+  orientation: 'portrait' | 'landscape' | 'auto';
+  scalingMode: 'fit' | 'fill';
+  overlap: number;
+  overlapUnits: 'pt' | 'in' | 'mm';
+  pageRange: string;
+}
+
+// Main function to posterize PDF - exported for use in App.tsx
+export async function posterizePdf(options: PosterizeOptions): Promise<boolean> {
+  const stateFiles = getFiles();
+  
+  if (stateFiles.length === 0) {
+    showAlert('No File', 'Please upload a PDF file first.');
+    return false;
+  }
+
+  showLoader('Posterizing PDF...');
+
+  try {
+    const file = stateFiles[0];
+    const arrayBuffer = await file.arrayBuffer();
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    const pdfJsDoc = await loadingTask.promise;
+
+    let overlapInPoints = options.overlap;
+    if (options.overlapUnits === 'in') overlapInPoints = options.overlap * 72;
+    else if (options.overlapUnits === 'mm') overlapInPoints = options.overlap * (72 / 25.4);
+
+    const newDoc = await PDFDocument.create();
+    const totalPages = pdfJsDoc.numPages;
+    const pageIndicesToProcess = parsePageRanges(options.pageRange, totalPages);
+
+    if (pageIndicesToProcess.length === 0) {
+      throw new Error('Invalid page range specified.');
+    }
+
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+
+    if (!tempCtx) {
+      throw new Error('Could not create canvas context.');
+    }
+
+    for (const pageIndex of pageIndicesToProcess) {
+      showLoader(`Processing page ${pageIndex + 1} of ${pageIndicesToProcess.length}...`);
+      
+      const page = await pdfJsDoc.getPage(Number(pageIndex) + 1);
+      const viewport = page.getViewport({ scale: 2.0 });
+      tempCanvas.width = viewport.width;
+      tempCanvas.height = viewport.height;
+      await page.render({ canvasContext: tempCtx, viewport }).promise;
+
+      let [targetWidth, targetHeight] = PageSizes[options.pageSize] || PageSizes.A4;
+      let currentOrientation = options.orientation;
+
+      if (currentOrientation === 'auto') {
+        currentOrientation = viewport.width > viewport.height ? 'landscape' : 'portrait';
+      }
+
+      if (currentOrientation === 'landscape' && targetWidth < targetHeight) {
+        [targetWidth, targetHeight] = [targetHeight, targetWidth];
+      } else if (currentOrientation === 'portrait' && targetWidth > targetHeight) {
+        [targetWidth, targetHeight] = [targetHeight, targetWidth];
+      }
+
+      const tileWidth = tempCanvas.width / options.cols;
+      const tileHeight = tempCanvas.height / options.rows;
+
+      for (let r = 0; r < options.rows; r++) {
+        for (let c = 0; c < options.cols; c++) {
+          const sx = c * tileWidth - (c > 0 ? overlapInPoints : 0);
+          const sy = r * tileHeight - (r > 0 ? overlapInPoints : 0);
+          const sWidth =
+            tileWidth + (c > 0 ? overlapInPoints : 0) + (c < options.cols - 1 ? overlapInPoints : 0);
+          const sHeight =
+            tileHeight + (r > 0 ? overlapInPoints : 0) + (r < options.rows - 1 ? overlapInPoints : 0);
+
+          const tileCanvas = document.createElement('canvas');
+          tileCanvas.width = sWidth;
+          tileCanvas.height = sHeight;
+          const tileCtx = tileCanvas.getContext('2d');
+
+          if (tileCtx) {
+            tileCtx.drawImage(tempCanvas, sx, sy, sWidth, sHeight, 0, 0, sWidth, sHeight);
+
+            const tileImage = await newDoc.embedPng(tileCanvas.toDataURL('image/png'));
+            const newPage = newDoc.addPage([targetWidth, targetHeight]);
+
+            const scaleX = newPage.getWidth() / sWidth;
+            const scaleY = newPage.getHeight() / sHeight;
+            const scale =
+              options.scalingMode === 'fit' ? Math.min(scaleX, scaleY) : Math.max(scaleX, scaleY);
+
+            const scaledWidth = sWidth * scale;
+            const scaledHeight = sHeight * scale;
+
+            newPage.drawImage(tileImage, {
+              x: (newPage.getWidth() - scaledWidth) / 2,
+              y: (newPage.getHeight() - scaledHeight) / 2,
+              width: scaledWidth,
+              height: scaledHeight,
+            });
+          }
+        }
+      }
+    }
+
+    const newPdfBytes = await newDoc.save();
+    const originalName = file.name.replace(/\.pdf$/i, '');
+    downloadFile(
+      new Blob([new Uint8Array(newPdfBytes)], { type: 'application/pdf' }),
+      `${originalName}_posterized.pdf`
+    );
+
+    hideLoader();
+    showAlert('Success', 'Your PDF has been posterized.', 'success');
+    return true;
+  } catch (e: any) {
+    console.error(e);
+    hideLoader();
+    showAlert('Error', e.message || 'Could not posterize the PDF.');
+    return false;
+  }
+}
 
 const pageState: PosterizeState = {
   file: null,
@@ -64,7 +195,7 @@ async function renderPosterizePreview(pageNum: number) {
     const viewport = page.getViewport({ scale: 1.5 });
     canvas.width = viewport.width;
     canvas.height = viewport.height;
-    await page.render({ canvasContext: context, viewport, canvas }).promise;
+    await page.render({ canvasContext: context, viewport }).promise;
     pageState.pageSnapshots[pageNum] = context.getImageData(0, 0, canvas.width, canvas.height);
   }
 
@@ -298,7 +429,8 @@ async function handleFileSelect(files: FileList | null) {
     if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
       pageState.file = file;
       pageState.pdfBytes = new Uint8Array(await file.arrayBuffer());
-      pageState.pdfJsDoc = await getPDFDocument({ data: pageState.pdfBytes }).promise;
+      const loadingTask = pdfjsLib.getDocument({ data: pageState.pdfBytes });
+      pageState.pdfJsDoc = await loadingTask.promise;
       pageState.pageSnapshots = {};
       pageState.currentPage = 1;
 

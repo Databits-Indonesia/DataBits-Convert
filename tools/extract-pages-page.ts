@@ -1,6 +1,6 @@
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui.js';
-import { readFileAsArrayBuffer, formatBytes, downloadFile, parsePageRanges } from '../utils/helpers.js';
+import { showAlert, showLoader, hideLoader } from '../ui';
+import { readFileAsArrayBuffer, formatBytes, downloadFile, parsePageRanges } from '../utils/helpers';
 import { PDFDocument } from 'pdf-lib';
 import JSZip from 'jszip';
 
@@ -63,7 +63,7 @@ function initializePage() {
     }
 
     document.getElementById('back-to-tools')?.addEventListener('click', () => {
-        window.location.href = import.meta.env.BASE_URL;
+        window.location.href = (process.env.BASE_URL || '/');
     });
 }
 

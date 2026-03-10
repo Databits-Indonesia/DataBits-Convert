@@ -42,7 +42,8 @@ export function hideLoader() {
 export function showAlert(
   title: string,
   message: string,
-  type: 'info' | 'success' | 'warning' | 'error' = 'info'
+  type: 'info' | 'success' | 'warning' | 'error' = 'info',
+  onClose?: () => void
 ) {
   // Remove existing alert if any
   if (alertElement && alertElement.parentElement) {
@@ -104,17 +105,30 @@ export function showAlert(
         <h3 class="font-semibold">${title}</h3>
         <p class="text-sm mt-1">${message}</p>
       </div>
-      <button onclick="this.parentElement.parentElement.remove()" class="flex-shrink-0 text-lg font-bold opacity-50 hover:opacity-100">×</button>
+      <button id="alert-close-btn" class="flex-shrink-0 text-lg font-bold opacity-50 hover:opacity-100">×</button>
     </div>
   `;
   
   document.body.appendChild(alertElement);
+  
+  // Add close button handler
+  const closeBtn = alertElement.querySelector('#alert-close-btn');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      if (alertElement && alertElement.parentElement) {
+        alertElement.parentElement.removeChild(alertElement);
+        alertElement = null;
+      }
+      if (onClose) onClose();
+    });
+  }
   
   // Auto-hide after 5 seconds
   setTimeout(() => {
     if (alertElement && alertElement.parentElement) {
       alertElement.parentElement.removeChild(alertElement);
       alertElement = null;
+      if (onClose) onClose();
     }
   }, 5000);
 }

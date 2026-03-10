@@ -1,11 +1,12 @@
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui.js';
+import { showAlert, showLoader, hideLoader } from '../ui';
 import {
   downloadFile,
   hexToRgb,
   formatBytes,
   readFileAsArrayBuffer,
-} from '../utils/helpers.js';
+} from '../utils/helpers';
+import { getFiles } from '../state';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
 import {
   addTextWatermark,
@@ -88,7 +89,7 @@ function initializePage() {
 
   if (backBtn)
     backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
+      window.location.href = '/';
     });
 
   if (editorBackBtn)
@@ -651,6 +652,8 @@ function updateWatermarkOverlay() {
     textOverlay.style.fontFamily =
       '"Noto Sans SC", "Noto Sans JP", "Noto Sans KR", "Noto Sans Arabic", sans-serif';
     textOverlay.style.fontWeight = 'bold';
+    textOverlay.style.textAlign = 'center';
+    textOverlay.style.whiteSpace = 'nowrap';
 
     box.style.left = pageState.watermarkX * containerW + 'px';
     box.style.top = pageState.watermarkY * containerH + 'px';
@@ -825,7 +828,7 @@ async function applyWatermark() {
         )?.value.trim() || 'all';
       const pageIndices =
         pageRangeStr.toLowerCase() === 'all'
-          ? undefined
+          ? Array.from({ length: pageState.pdfDoc!.getPageCount() }, (_, i) => i)
           : parsePageRange(pageRangeStr, pageState.pdfDoc!.getPageCount());
 
       if (config.type === 'text') {
@@ -840,7 +843,7 @@ async function applyWatermark() {
             fontSize: config.fontSize,
             color: textColor,
             opacity: config.opacityText,
-            angle: -config.angleText,
+            rotation: -config.angleText,
             x: config.x,
             y: posY,
             pageIndices,
@@ -868,7 +871,7 @@ async function applyWatermark() {
             imageBytes: new Uint8Array(imageBytes as ArrayBuffer),
             imageType,
             opacity: config.opacityImage,
-            angle: -config.angleImage,
+            rotation: -config.angleImage,
             scale: config.imageScale / 100,
             x: config.x,
             y: posY,
@@ -924,7 +927,7 @@ async function applyWatermark() {
               fontSize: config.fontSize,
               color: textColor,
               opacity: config.opacityText,
-              angle: -config.angleText,
+              rotation: -config.angleText,
               x: config.x,
               y: posY,
               pageIndices: indices,
@@ -948,7 +951,7 @@ async function applyWatermark() {
               imageBytes: new Uint8Array(imageBytes as ArrayBuffer),
               imageType,
               opacity: config.opacityImage,
-              angle: -config.angleImage,
+              rotation: -config.angleImage,
               scale: config.imageScale / 100,
               x: config.x,
               y: posY,
@@ -1016,5 +1019,35 @@ async function applyWatermark() {
     showAlert('Error', e.message || 'Could not add the watermark.');
   } finally {
     hideLoader();
+  }
+}
+
+// Export function for App.tsx integration
+export async function addWatermarkToPdf() {
+  const files = getFiles();
+  
+  if (files.length === 0) {
+    showAlert('No File', 'Please upload a PDF file first.');
+    return;
+  }
+
+  const file = files[0];
+  
+  showLoader('Loading PDF...');
+  
+  try {
+    // Load PDF from uploaded file
+    const arrayBuffer = await file.arrayBuffer();
+    const pdfBytes = new Uint8Array(arrayBuffer);
+    pageState.pdfDoc = await PDFLibDocument.load(pdfBytes);
+    pageState.pdfBytes = pdfBytes;
+    pageState.file = file;
+    
+    // Now apply the watermark
+    await applyWatermark();
+  } catch (e: any) {
+    hideLoader();
+    console.error(e);
+    showAlert('Error', e.message || 'Could not load PDF file.');
   }
 }

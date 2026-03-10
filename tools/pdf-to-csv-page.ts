@@ -1,67 +1,21 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile, formatBytes } from '../utils/helpers.js';
-import { createIcons, icons } from 'lucide';
-import JSZip from 'jszip';
-import { isWasmAvailable, getWasmBaseUrl } from '../config/wasm-cdn-config.js';
-import { showWasmRequiredDialog } from '../utils/wasm-provider';
-import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';
-let file: File | null = null;
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile, readFileAsArrayBuffer } from '../utils/helpers';
+import { getFiles } from '../state';
+import * as pdfjsLib from 'pdfjs-dist';
 
-const updateUI = () => {
-  const fileDisplayArea = document.getElementById('file-display-area');
-  const optionsPanel = document.getElementById('options-panel');
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
 
-  if (!fileDisplayArea || !optionsPanel) return;
-
-  fileDisplayArea.innerHTML = '';
-
-  if (file) {
-    optionsPanel.classList.remove('hidden');
-
-    const fileDiv = document.createElement('div');
-    fileDiv.className =
-      'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
-
-    const infoContainer = document.createElement('div');
-    infoContainer.className = 'flex flex-col overflow-hidden';
-
-    const nameSpan = document.createElement('div');
-    nameSpan.className = 'truncate font-medium text-gray-200 text-sm mb-1';
-    nameSpan.textContent = file.name;
-
-    const metaSpan = document.createElement('div');
-    metaSpan.className = 'text-xs text-gray-400';
-    metaSpan.textContent = formatBytes(file.size);
-
-    infoContainer.append(nameSpan, metaSpan);
-
-    const removeBtn = document.createElement('button');
-    removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
-    removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
-    removeBtn.onclick = resetState;
-
-    fileDiv.append(infoContainer, removeBtn);
-    fileDisplayArea.appendChild(fileDiv);
-
-    createIcons({ icons });
-  } else {
-    optionsPanel.classList.add('hidden');
-  }
-};
-
-const resetState = () => {
-  file = null;
-  const fileInput = document.getElementById('file-input') as HTMLInputElement;
-  if (fileInput) fileInput.value = '';
-  updateUI();
-};
-
-function tableToCsv(rows: (string | null)[][]): string {
+// Helper function to convert rows to CSV format
+function rowsToCsv(rows: string[][]): string {
   return rows
     .map((row) =>
       row
         .map((cell) => {
           const cellStr = cell ?? '';
+          // Escape cells containing commas, quotes, or newlines
           if (
             cellStr.includes(',') ||
             cellStr.includes('"') ||
@@ -76,112 +30,104 @@ function tableToCsv(rows: (string | null)[][]): string {
     .join('\n');
 }
 
-async function convert() {
-  if (!file) {
+export async function pdfToCsv() {
+  const files = getFiles();
+  
+  if (files.length === 0) {
     showAlert('No File', 'Please upload a PDF file first.');
     return;
   }
 
-  showLoader('Loading Engine...');
+  showLoader('Converting PDF to CSV...');
 
   try {
-    const pymupdf = await loadPyMuPDF();
-    showLoader('Extracting tables...');
-
-    const doc = await pymupdf.open(file);
-    const pageCount = doc.pageCount;
-    const baseName = file.name.replace(/\.[^/.]+$/, '');
-
-    const allRows: (string | null)[][] = [];
-
-    for (let i = 0; i < pageCount; i++) {
-      showLoader(`Scanning page ${i + 1} of ${pageCount}...`);
-      const page = doc.getPage(i);
-      const tables = page.findTables();
-
-      tables.forEach((table) => {
-        allRows.push(...table.rows);
-        allRows.push([]);
-      });
+    const file = files[0];
+    const arrayBuffer = await readFileAsArrayBuffer(file);
+    
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    const pdf = await loadingTask.promise;
+    
+    const includePageNumbers = (document.getElementById('pdf-to-csv-page-numbers') as HTMLInputElement)?.checked || false;
+    const separator = (document.getElementById('pdf-to-csv-separator') as HTMLSelectElement)?.value || 'comma';
+    
+    const rows: string[][] = [];
+    
+    // Add header if page numbers are included
+    if (includePageNumbers) {
+      rows.push(['Page', 'Content']);
     }
 
-    if (allRows.length === 0) {
-      showAlert('No Tables Found', 'No tables were detected in this PDF.');
-      return;
+    for (let i = 1; i <= pdf.numPages; i++) {
+      showLoader(`Processing page ${i} of ${pdf.numPages}...`);
+      
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      
+      // Extract text items
+      const textItems = textContent.items.map((item: any) => item.str);
+      const pageText = textItems.join(' ');
+      
+      if (includePageNumbers) {
+        rows.push([`${i}`, pageText]);
+      } else {
+        // Try to structure the text into columns (simple heuristic)
+        const chunks: string[] = [];
+        let currentChunk = '';
+        
+        textItems.forEach((text: string, idx: number) => {
+          if (text.trim()) {
+            currentChunk += (currentChunk ? ' ' : '') + text;
+            // Create new chunk after certain length or at natural breaks
+            if (currentChunk.length > 50 || idx % 10 === 9) {
+              chunks.push(currentChunk);
+              currentChunk = '';
+            }
+          }
+        });
+        
+        if (currentChunk) {
+          chunks.push(currentChunk);
+        }
+        
+        if (chunks.length > 0) {
+          rows.push(chunks);
+        } else {
+          rows.push([pageText]);
+        }
+      }
     }
 
-    const csvContent = tableToCsv(allRows.filter((row) => row.length > 0));
+    showLoader('Creating CSV file...');
+    let csvContent: string;
+    
+    // Use different separator if specified
+    if (separator === 'semicolon') {
+      csvContent = rows.map(row => row.map(cell => {
+        const cellStr = cell ?? '';
+        if (cellStr.includes(';') || cellStr.includes('"') || cellStr.includes('\n')) {
+          return `"${cellStr.replace(/"/g, '""')}"`;
+        }
+        return cellStr;
+      }).join(';')).join('\n');
+    } else if (separator === 'tab') {
+      csvContent = rows.map(row => row.join('\t')).join('\n');
+    } else {
+      csvContent = rowsToCsv(rows);
+    }
+    
+    const fileName = file.name.replace(/\.pdf$/i, '.csv');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    downloadFile(blob, `${baseName}.csv`);
-    showAlert(
-      'Success',
-      'PDF converted to CSV successfully!',
-      'success',
-      resetState
-    );
-  } catch (e) {
-    console.error(e);
-    const message = e instanceof Error ? e.message : 'Unknown error';
-    showAlert('Error', `Failed to convert PDF to CSV. ${message}`);
-  } finally {
+    
+    downloadFile(blob, fileName);
+    
     hideLoader();
+    showAlert('Success', 'PDF converted to CSV successfully!', 'success');
+  } catch (error: any) {
+    console.error('[PDF2CSV] Error:', error);
+    hideLoader();
+    showAlert(
+      'Error',
+      `An error occurred during conversion. ${error.message}`
+    );
   }
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-  const fileInput = document.getElementById('file-input') as HTMLInputElement;
-  const dropZone = document.getElementById('drop-zone');
-  const processBtn = document.getElementById('process-btn');
-  const backBtn = document.getElementById('back-to-tools');
-
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
-    });
-  }
-
-  const handleFileSelect = (newFiles: FileList | null) => {
-    if (!newFiles || newFiles.length === 0) return;
-    const validFile = Array.from(newFiles).find(
-      (f) => f.type === 'application/pdf'
-    );
-
-    if (!validFile) {
-      showAlert('Invalid File', 'Please upload a PDF file.');
-      return;
-    }
-
-    file = validFile;
-    updateUI();
-  };
-
-  if (fileInput && dropZone) {
-    fileInput.addEventListener('change', (e) => {
-      handleFileSelect((e.target as HTMLInputElement).files);
-    });
-
-    dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropZone.classList.add('bg-gray-700');
-    });
-
-    dropZone.addEventListener('dragleave', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-      handleFileSelect(e.dataTransfer?.files ?? null);
-    });
-
-    fileInput.addEventListener('click', () => {
-      fileInput.value = '';
-    });
-  }
-
-  if (processBtn) {
-    processBtn.addEventListener('click', convert);
-  }
-});

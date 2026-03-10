@@ -1,15 +1,188 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
 import {
   downloadFile,
   readFileAsArrayBuffer,
   formatBytes,
   getPDFDocument,
-} from '../utils/helpers.js';
-import { state } from '../state.js';
+} from '../utils/helpers';
+import { state, getFiles } from '../state';
 import { createIcons, icons } from 'lucide';
-import { isWasmAvailable, getWasmBaseUrl } from '../config/wasm-cdn-config.js';
-import { showWasmRequiredDialog } from '../utils/wasm-provider';
-import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';
+import * as pdfjsLib from 'pdfjs-dist';
+import { PDFDocument, rgb, degrees } from 'pdf-lib';
+
+export interface RasterizeOptions {
+  dpi: number;
+  format: 'png' | 'jpeg';
+  grayscale: boolean;
+  quality?: number;
+}
+
+// Main function to rasterize PDF - exported for use in App.tsx
+export async function rasterizePdf(options: RasterizeOptions): Promise<boolean> {
+  const stateFiles = getFiles();
+  
+  if (stateFiles.length === 0) {
+    showAlert('No File', 'Please upload a PDF file first.');
+    return false;
+  }
+
+  showLoader('Initializing rasterization...');
+
+  try {
+    const { dpi, format, grayscale, quality = 95 } = options;
+    const scale = dpi / 72; // PDF default is 72 DPI
+
+    const total = stateFiles.length;
+    let completed = 0;
+    let failed = 0;
+
+    if (total === 1) {
+      const file = stateFiles[0];
+      showLoader(`Rasterizing ${file.name}...`);
+
+      const rasterizedBlob = await rasterizeSinglePdf(file, scale, format, grayscale, quality);
+
+      const outName = file.name.replace(/\.pdf$/i, '') + '_rasterized.pdf';
+      downloadFile(rasterizedBlob, outName);
+
+      hideLoader();
+      showAlert(
+        'Rasterization Complete',
+        `Successfully rasterized PDF at ${dpi} DPI.`,
+        'success'
+      );
+      return true;
+    } else {
+      // Multiple files - create ZIP
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+
+      for (const file of stateFiles) {
+        try {
+          showLoader(`Rasterizing ${file.name} (${completed + 1}/${total})...`);
+
+          const rasterizedBlob = await rasterizeSinglePdf(file, scale, format, grayscale, quality);
+
+          const outName = file.name.replace(/\.pdf$/i, '') + '_rasterized.pdf';
+          zip.file(outName, rasterizedBlob);
+
+          completed++;
+        } catch (error) {
+          console.error(`Failed to rasterize ${file.name}:`, error);
+          failed++;
+        }
+      }
+
+      showLoader('Creating ZIP archive...');
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+
+      downloadFile(zipBlob, 'rasterized-pdfs.zip');
+
+      hideLoader();
+
+      if (failed === 0) {
+        showAlert(
+          'Rasterization Complete',
+          `Successfully rasterized ${completed} PDF(s) at ${dpi} DPI.`,
+          'success'
+        );
+      } else {
+        showAlert(
+          'Rasterization Partial',
+          `Rasterized ${completed} PDF(s), failed ${failed}.`,
+          'warning'
+        );
+      }
+      return true;
+    }
+  } catch (e: any) {
+    hideLoader();
+    showAlert('Error', `An error occurred during rasterization. Error: ${e.message}`);
+    return false;
+  }
+}
+
+async function rasterizeSinglePdf(
+  file: File,
+  scale: number,
+  format: 'png' | 'jpeg',
+  grayscale: boolean,
+  quality: number
+): Promise<Blob> {
+  // Load the original PDF with pdfjs
+  const arrayBuffer = await readFileAsArrayBuffer(file);
+  const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+  const pdfDoc = await loadingTask.promise;
+
+  // Create a new PDF document with pdf-lib
+  const newPdfDoc = await PDFDocument.create();
+
+  const numPages = pdfDoc.numPages;
+
+  for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+    showLoader(`Rasterizing page ${pageNum}/${numPages}...`);
+
+    // Render page to canvas
+    const page = await pdfDoc.getPage(pageNum);
+    const viewport = page.getViewport({ scale });
+
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Could not get canvas context');
+
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+
+    await page.render({ canvasContext: context, viewport }).promise;
+
+    // Convert to grayscale if needed
+    if (grayscale) {
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        data[i] = gray;
+        data[i + 1] = gray;
+        data[i + 2] = gray;
+      }
+      context.putImageData(imageData, 0, 0);
+    }
+
+    // Convert canvas to blob
+    const mimeType = format === 'png' ? 'image/png' : 'image/jpeg';
+    const imageBlob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error('Failed to create blob from canvas'));
+        },
+        mimeType,
+        format === 'jpeg' ? quality / 100 : undefined
+      );
+    });
+
+    // Embed image in new PDF
+    const imageBytes = await imageBlob.arrayBuffer();
+    let embeddedImage;
+    if (format === 'png') {
+      embeddedImage = await newPdfDoc.embedPng(imageBytes);
+    } else {
+      embeddedImage = await newPdfDoc.embedJpg(imageBytes);
+    }
+
+    const newPage = newPdfDoc.addPage([viewport.width, viewport.height]);
+    newPage.drawImage(embeddedImage, {
+      x: 0,
+      y: 0,
+      width: viewport.width,
+      height: viewport.height,
+    });
+  }
+
+  // Save the new PDF
+  const pdfBytes = await newPdfDoc.save();
+  return new Blob([pdfBytes], { type: 'application/pdf' });
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   const fileInput = document.getElementById('file-input') as HTMLInputElement;

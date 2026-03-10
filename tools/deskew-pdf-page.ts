@@ -1,4 +1,4 @@
-import { isWasmAvailable, getWasmBaseUrl } from '../config/wasm-cdn-config.js';
+import { isWasmAvailable, getWasmBaseUrl } from '../config/wasm-cdn-config';
 import { showWasmRequiredDialog } from '../utils/wasm-provider';
 import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';
 import { createIcons, icons } from 'lucide';

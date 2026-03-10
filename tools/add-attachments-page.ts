@@ -1,9 +1,8 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile, formatBytes } from '../utils/helpers.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile, formatBytes } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
-import { isCpdfAvailable } from '../utils/cpdf-helper';
-import { showWasmRequiredDialog, WasmProvider } from '../utils/wasm-provider';
+import { getFiles } from '../state';
 
 interface AddAttachmentState {
   file: File | null;
@@ -11,13 +10,156 @@ interface AddAttachmentState {
   attachments: File[];
 }
 
-// const worker = new Worker(import.meta.env.BASE_URL + 'workers/add-attachments.worker.js');
-
 const pageState: AddAttachmentState = {
   file: null,
   pdfDoc: null,
   attachments: [],
 };
+
+// Helper function to parse page ranges
+function parsePageRange(range: string, totalPages: number): number[] {
+  const pages: number[] = [];
+  const parts = range.split(',').map(p => p.trim());
+
+  for (const part of parts) {
+    if (part.includes('-')) {
+      const [start, end] = part.split('-').map(s => parseInt(s.trim(), 10));
+      if (!isNaN(start) && !isNaN(end)) {
+        for (let i = Math.max(1, start); i <= Math.min(end, totalPages); i++) {
+          pages.push(i - 1); // Convert to 0-based index
+        }
+      }
+    } else {
+      const pageNum = parseInt(part.trim(), 10);
+      if (!isNaN(pageNum) && pageNum > 0 && pageNum <= totalPages) {
+        pages.push(pageNum - 1); // Convert to 0-based index
+      }
+    }
+  }
+
+  return [...new Set(pages)].sort((a, b) => a - b);
+}
+
+// Main function to add attachments - exported for use in App.tsx
+export async function addAttachmentsToPdf(
+  attachmentFiles: FileList,
+  attachmentLevel: 'document' | 'page',
+  pageRange?: string
+) {
+  const files = getFiles();
+  
+  if (files.length === 0) {
+    showAlert('No File', 'Please upload a PDF file first.');
+    return;
+  }
+
+  if (!attachmentFiles || attachmentFiles.length === 0) {
+    showAlert('No Attachments', 'Please select at least one file to attach.');
+    return;
+  }
+
+  if (attachmentLevel === 'page' && !pageRange?.trim()) {
+    showAlert('Error', 'Please specify a page range for page-level attachments.');
+    return;
+  }
+
+  showLoader('Embedding attachments into PDF...');
+
+  try {
+    // Load the PDF
+    const pdfFile = files[0];
+    const pdfArrayBuffer = await pdfFile.arrayBuffer();
+    const pdfDoc = await PDFLibDocument.load(pdfArrayBuffer);
+
+    // Parse page range if page-level attachments
+    let pageIndices: number[] = [];
+    if (attachmentLevel === 'page' && pageRange) {
+      const totalPages = pdfDoc.getPageCount();
+      pageIndices = parsePageRange(pageRange, totalPages);
+      
+      if (pageIndices.length === 0) {
+        throw new Error('Invalid page range specified.');
+      }
+    }
+
+    // Process each attachment file
+    for (let i = 0; i < attachmentFiles.length; i++) {
+      const file = attachmentFiles[i];
+      showLoader(`Embedding ${file.name} (${i + 1}/${attachmentFiles.length})...`);
+
+      // Read attachment file
+      const fileBytes = new Uint8Array(await file.arrayBuffer());
+
+      // Determine MIME type
+      let mimeType = file.type;
+      if (!mimeType) {
+        // Fallback based on extension
+        const ext = file.name.split('.').pop()?.toLowerCase();
+        const mimeMap: Record<string, string> = {
+          'pdf': 'application/pdf',
+          'txt': 'text/plain',
+          'jpg': 'image/jpeg',
+          'jpeg': 'image/jpeg',
+          'png': 'image/png',
+          'doc': 'application/msword',
+          'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'xls': 'application/vnd.ms-excel',
+          'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'zip': 'application/zip',
+        };
+        mimeType = mimeMap[ext || ''] || 'application/octet-stream';
+      }
+
+      // Attach file to PDF
+      if (attachmentLevel === 'document') {
+        // Document-level attachment (Portfolio/Collection)
+        await pdfDoc.attach(fileBytes, file.name, {
+          mimeType,
+          description: `Attached file: ${file.name}`,
+          creationDate: new Date(),
+          modificationDate: new Date(),
+        });
+      } else {
+        // Page-level attachments
+        for (const pageIndex of pageIndices) {
+          if (pageIndex >= 0 && pageIndex < pdfDoc.getPageCount()) {
+            // Attach with page-specific naming
+            await pdfDoc.attach(fileBytes, `${file.name}_page${pageIndex + 1}`, {
+              mimeType,
+              description: `Attached to page ${pageIndex + 1}: ${file.name}`,
+              creationDate: new Date(),
+              modificationDate: new Date(),
+            });
+          }
+        }
+      }
+    }
+
+    // Save the modified PDF
+    const modifiedPdfBytes = await pdfDoc.save();
+
+    // Download the file
+    const originalName = pdfFile.name.replace(/\.pdf$/i, '');
+    downloadFile(
+      new Blob([new Uint8Array(modifiedPdfBytes)], { type: 'application/pdf' }),
+      `${originalName}_with_attachments.pdf`
+    );
+
+    hideLoader();
+    showAlert(
+      'Success',
+      `${attachmentFiles.length} file(s) attached successfully to PDF!`,
+      'success'
+    );
+
+    return true;
+  } catch (error: any) {
+    console.error('Error attaching files:', error);
+    hideLoader();
+    showAlert('Error', `Failed to attach files: ${error.message}`);
+    return false;
+  }
+}
 
 function resetState() {
   pageState.file = null;
@@ -53,42 +195,6 @@ function resetState() {
   ) as HTMLInputElement;
   if (documentRadio) documentRadio.checked = true;
 }
-
-/*
-worker.onmessage = function (e) {
-  const data = e.data;
-
-  if (data.status === 'success' && data.modifiedPDF !== undefined) {
-    hideLoader();
-
-    const originalName = pageState.file?.name.replace(/\.pdf$/i, '') || 'document';
-    downloadFile(
-      new Blob([new Uint8Array(data.modifiedPDF)], { type: 'application/pdf' }),
-      `${originalName}_with_attachments.pdf`
-    );
-
-    showAlert(
-      'Success',
-      `${pageState.attachments.length} file(s) attached successfully.`,
-      'success',
-      function () {
-        resetState();
-      }
-    );
-  } else if (data.status === 'error') {
-    hideLoader();
-    showAlert('Error', data.message || 'Unknown error occurred.');
-  }
-};
-*/
-
-/*
-worker.onerror = function (error) {
-  hideLoader();
-  console.error('Worker error:', error);
-  showAlert('Error', 'Worker error occurred. Check console for details.');
-};
-*/
 
 async function updateUI() {
   const fileDisplayArea = document.getElementById('file-display-area');
@@ -200,12 +306,6 @@ async function addAttachments() {
     return;
   }
 
-  // Check if CPDF is configured
-  if (!isCpdfAvailable()) {
-    showWasmRequiredDialog('cpdf');
-    return;
-  }
-
   const attachmentLevel =
     (document.querySelector('input[name="attachment-level"]:checked') as HTMLInputElement)?.value ||
     'document';
@@ -241,22 +341,15 @@ async function addAttachments() {
 
     showLoader('Attaching files to PDF...');
 
-    const message = {
-      command: 'add-attachments',
-      pdfBuffer: pdfBuffer,
-      attachmentBuffers: attachmentBuffers,
-      attachmentNames: attachmentNames,
-      attachmentLevel: attachmentLevel,
-      pageRange: pageRange,
-      cpdfUrl: WasmProvider.getUrl('cpdf')! + 'coherentpdf.browser.min.js',
-    };
-
-    const transferables = [pdfBuffer, ...attachmentBuffers];
-    // worker.postMessage(message, transferables);
-    
-    // TODO: Implement attachment without worker
-    hideLoader();
-    showAlert('Info', 'Add attachments feature needs to be implemented for Next.js', 'info');
+    // Use the exported function for the actual attachment logic
+    const attachmentInput = document.getElementById('attachment-files-input') as HTMLInputElement;
+    if (attachmentInput?.files) {
+      await addAttachmentsToPdf(
+        attachmentInput.files,
+        attachmentLevel as 'document' | 'page',
+        pageRange
+      );
+    }
   } catch (error: any) {
     console.error('Error attaching files:', error);
     hideLoader();

@@ -1,17 +1,93 @@
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui.js';
-import { downloadFile, formatBytes, getPDFDocument } from '../utils/helpers.js';
+import { showAlert, showLoader, hideLoader } from '../ui';
+import { downloadFile, formatBytes } from '../utils/helpers';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
-import { applyInvertColors } from '../utils/image-effects';
+import { invertColors } from '../utils/image-effects';
 import * as pdfjsLib from 'pdfjs-dist';
-import { InvertColorsState } from '@/types';
+import { getFiles } from '../state';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
   import.meta.url
 ).toString();
 
+interface InvertColorsState {
+  file: File | null;
+  pdfDoc: PDFLibDocument | null;
+}
+
 const pageState: InvertColorsState = { file: null, pdfDoc: null };
+
+// Main function to invert colors - exported for use in App.tsx
+export async function invertColorsOfPdf(): Promise<boolean> {
+  const files = getFiles();
+  
+  if (files.length === 0) {
+    showAlert('No File', 'Please upload a PDF file first.');
+    return false;
+  }
+
+  showLoader('Inverting PDF colors...');
+
+  try {
+    const file = files[0];
+    const newPdfDoc = await PDFLibDocument.create();
+    
+    // Load PDF with pdfjs-dist using ArrayBuffer directly
+    const arrayBuffer = await file.arrayBuffer();
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    const pdfjsDoc = await loadingTask.promise;
+
+    for (let i = 1; i <= pdfjsDoc.numPages; i++) {
+      showLoader(`Processing page ${i} of ${pdfjsDoc.numPages}...`);
+      const page = await pdfjsDoc.getPage(i);
+      const viewport = page.getViewport({ scale: 1.5 });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d')!;
+      await page.render({ canvasContext: ctx, viewport }).promise;
+
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      invertColors(imageData);
+      ctx.putImageData(imageData, 0, 0);
+
+      const pngImageBytes = await new Promise<Uint8Array>((resolve) =>
+        canvas.toBlob((blob) => {
+          const reader = new FileReader();
+          reader.onload = () =>
+            resolve(new Uint8Array(reader.result as ArrayBuffer));
+          reader.readAsArrayBuffer(blob!);
+        }, 'image/png')
+      );
+
+      const image = await newPdfDoc.embedPng(pngImageBytes);
+      const newPage = newPdfDoc.addPage([image.width, image.height]);
+      newPage.drawImage(image, {
+        x: 0,
+        y: 0,
+        width: image.width,
+        height: image.height,
+      });
+    }
+    
+    const newPdfBytes = await newPdfDoc.save();
+    const originalName = file.name.replace(/\.pdf$/i, '');
+    downloadFile(
+      new Blob([new Uint8Array(newPdfBytes)], { type: 'application/pdf' }),
+      `${originalName}_inverted.pdf`
+    );
+    
+    hideLoader();
+    showAlert('Success', 'Colors inverted successfully!', 'success');
+    return true;
+  } catch (e: any) {
+    console.error(e);
+    hideLoader();
+    showAlert('Error', e.message || 'Could not invert PDF colors.');
+    return false;
+  }
+}
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initializePage);
@@ -48,9 +124,9 @@ function initializePage() {
   }
   if (backBtn)
     backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
+      window.location.href = '/';
     });
-  if (processBtn) processBtn.addEventListener('click', invertColors);
+  if (processBtn) processBtn.addEventListener('click', handleInvertColors);
 }
 
 function handleFileUpload(e: Event) {
@@ -114,61 +190,15 @@ function resetState() {
   if (fileInput) fileInput.value = '';
 }
 
-async function invertColors() {
+async function handleInvertColors() {
   if (!pageState.pdfDoc || !pageState.file) {
     showAlert('Error', 'Please upload a PDF file first.');
     return;
   }
-  showLoader('Inverting PDF colors...');
-  try {
-    const newPdfDoc = await PDFLibDocument.create();
-    const pdfBytes = await pageState.pdfDoc.save();
-    const pdfjsDoc = await getPDFDocument({ data: pdfBytes }).promise;
-
-    for (let i = 1; i <= pdfjsDoc.numPages; i++) {
-      showLoader(`Processing page ${i} of ${pdfjsDoc.numPages}...`);
-      const page = await pdfjsDoc.getPage(i);
-      const viewport = page.getViewport({ scale: 1.5 });
-      const canvas = document.createElement('canvas');
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      const ctx = canvas.getContext('2d')!;
-      await page.render({ canvasContext: ctx, viewport, canvas }).promise;
-
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      applyInvertColors(imageData);
-      ctx.putImageData(imageData, 0, 0);
-
-      const pngImageBytes = await new Promise<Uint8Array>((resolve) =>
-        canvas.toBlob((blob) => {
-          const reader = new FileReader();
-          reader.onload = () =>
-            resolve(new Uint8Array(reader.result as ArrayBuffer));
-          reader.readAsArrayBuffer(blob!);
-        }, 'image/png')
-      );
-
-      const image = await newPdfDoc.embedPng(pngImageBytes);
-      const newPage = newPdfDoc.addPage([image.width, image.height]);
-      newPage.drawImage(image, {
-        x: 0,
-        y: 0,
-        width: image.width,
-        height: image.height,
-      });
-    }
-    const newPdfBytes = await newPdfDoc.save();
-    downloadFile(
-      new Blob([new Uint8Array(newPdfBytes)], { type: 'application/pdf' }),
-      'inverted.pdf'
-    );
-    showAlert('Success', 'Colors inverted successfully!', 'success', () => {
-      resetState();
-    });
-  } catch (e) {
-    console.error(e);
-    showAlert('Error', 'Could not invert PDF colors.');
-  } finally {
-    hideLoader();
+  
+  const success = await invertColorsOfPdf();
+  
+  if (success) {
+    resetState();
   }
 }

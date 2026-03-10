@@ -1,6 +1,6 @@
 // Self-contained Form Filler logic for standalone page
 import { createIcons, icons } from 'lucide';
-import { getPDFDocument } from '../utils/helpers.js';
+import { getPDFDocument } from '../utils/helpers';
 
 let viewerIframe: HTMLIFrameElement | null = null;
 let viewerReady = false;
@@ -157,7 +157,7 @@ async function setupFormViewer() {
         const blobUrl = URL.createObjectURL(blob);
 
         viewerIframe = document.createElement('iframe');
-        viewerIframe.src = `${import.meta.env.BASE_URL}pdfjs-viewer/viewer.html?file=${encodeURIComponent(blobUrl)}`;
+        viewerIframe.src = `${(process.env.BASE_URL || '/')}pdfjs-viewer/viewer.html?file=${encodeURIComponent(blobUrl)}`;
         viewerIframe.style.width = '100%';
         viewerIframe.style.height = '100%';
         viewerIframe.style.border = 'none';

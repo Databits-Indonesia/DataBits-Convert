@@ -1,6 +1,6 @@
 import { AlternateMergeState } from '@/types';
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile, formatBytes, getPDFDocument } from '../utils/helpers.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile, formatBytes, getPDFDocument } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import Sortable from 'sortablejs';
 import { isCpdfAvailable } from '../utils/cpdf-helper';
@@ -13,7 +13,7 @@ const pageState: AlternateMergeState = {
 };
 
 const alternateMergeWorker = new Worker(
-  import.meta.env.BASE_URL + 'workers/alternate-merge.worker.js'
+  (process.env.BASE_URL || '/') + 'workers/alternate-merge.worker.js'
 );
 
 function resetState() {
@@ -227,7 +227,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (backBtn) {
     backBtn.addEventListener('click', function () {
-      window.location.href = import.meta.env.BASE_URL;
+      window.location.href = process.env.BASE_URL || '/';
     });
   }
 

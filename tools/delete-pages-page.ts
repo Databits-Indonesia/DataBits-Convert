@@ -1,12 +1,12 @@
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui.js';
+import { showAlert, showLoader, hideLoader } from '../ui';
 import {
   readFileAsArrayBuffer,
   formatBytes,
   downloadFile,
   getPDFDocument,
   parsePageRanges,
-} from '../utils/helpers.js';
+} from '../utils/helpers';
 import { PDFDocument } from 'pdf-lib';
 import { deletePdfPages } from '../utils/pdf-operations';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -67,7 +67,7 @@ function initializePage() {
   if (pagesInput) pagesInput.addEventListener('input', updatePreview);
 
   document.getElementById('back-to-tools')?.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL;
+    window.location.href = (process.env.BASE_URL || '/');
   });
 }
 

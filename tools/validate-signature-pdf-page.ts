@@ -1,6 +1,6 @@
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui.js';
-import { readFileAsArrayBuffer, formatBytes } from '../utils/helpers.js';
+import { showAlert, showLoader, hideLoader } from '../ui';
+import { readFileAsArrayBuffer, formatBytes } from '../utils/helpers';
 import { validatePdfSignatures } from './validate-signature-pdf.js';
 import forge from 'node-forge';
 import { SignatureValidationResult, ValidateSignatureState } from '@/types';
@@ -114,7 +114,7 @@ function initializePage(): void {
 
     if (backBtn) {
         backBtn.addEventListener('click', () => {
-            window.location.href = import.meta.env.BASE_URL;
+            window.location.href = (process.env.BASE_URL || '/');
         });
     }
 }

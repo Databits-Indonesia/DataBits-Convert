@@ -1,6 +1,6 @@
 import { EditMetadataState } from '@/types';
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile, formatBytes } from '../utils/helpers.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile, formatBytes } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument as PDFLibDocument, PDFName, PDFString } from 'pdf-lib';
 
@@ -317,7 +317,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (backBtn) {
         backBtn.addEventListener('click', function () {
-            window.location.href = import.meta.env.BASE_URL;
+            window.location.href = (process.env.BASE_URL || '/');
         });
     }
 

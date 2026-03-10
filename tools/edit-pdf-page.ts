@@ -1,7 +1,7 @@
 // Logic for PDF Editor Page
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui.js';
-import { formatBytes, downloadFile } from '../utils/helpers.js';
+import { showAlert, showLoader, hideLoader } from '../ui';
+import { formatBytes, downloadFile } from '../utils/helpers';
 
 const embedPdfWasmUrl = new URL(
   'embedpdf-snippet/dist/pdfium.wasm',
@@ -82,7 +82,7 @@ function initializePage() {
   }
 
   document.getElementById('back-to-tools')?.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL;
+    window.location.href = (process.env.BASE_URL || '/');
   });
 }
 
@@ -209,7 +209,7 @@ async function handleFiles(files: FileList) {
         backBtn.parentNode?.replaceChild(newBackBtn, backBtn);
 
         newBackBtn.addEventListener('click', () => {
-          window.location.href = import.meta.env.BASE_URL;
+          window.location.href = (process.env.BASE_URL || '/');
         });
       }
     } else {

@@ -1,194 +1,110 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile, formatBytes } from '../utils/helpers.js';
-import { createIcons, icons } from 'lucide';
-import { isWasmAvailable, getWasmBaseUrl } from '../config/wasm-cdn-config.js';
-import { showWasmRequiredDialog } from '../utils/wasm-provider';
-import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile, readFileAsArrayBuffer } from '../utils/helpers';
+import { getFiles } from '../state';
+import * as pdfjsLib from 'pdfjs-dist';
 import * as XLSX from 'xlsx';
-let file: File | null = null;
 
-const updateUI = () => {
-  const fileDisplayArea = document.getElementById('file-display-area');
-  const optionsPanel = document.getElementById('options-panel');
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
 
-  if (!fileDisplayArea || !optionsPanel) return;
-
-  fileDisplayArea.innerHTML = '';
-
-  if (file) {
-    optionsPanel.classList.remove('hidden');
-
-    const fileDiv = document.createElement('div');
-    fileDiv.className =
-      'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
-
-    const infoContainer = document.createElement('div');
-    infoContainer.className = 'flex flex-col overflow-hidden';
-
-    const nameSpan = document.createElement('div');
-    nameSpan.className = 'truncate font-medium text-gray-200 text-sm mb-1';
-    nameSpan.textContent = file.name;
-
-    const metaSpan = document.createElement('div');
-    metaSpan.className = 'text-xs text-gray-400';
-    metaSpan.textContent = formatBytes(file.size);
-
-    infoContainer.append(nameSpan, metaSpan);
-
-    const removeBtn = document.createElement('button');
-    removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
-    removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
-    removeBtn.onclick = resetState;
-
-    fileDiv.append(infoContainer, removeBtn);
-    fileDisplayArea.appendChild(fileDiv);
-
-    createIcons({ icons });
-  } else {
-    optionsPanel.classList.add('hidden');
-  }
-};
-
-const resetState = () => {
-  file = null;
-  const fileInput = document.getElementById('file-input') as HTMLInputElement;
-  if (fileInput) fileInput.value = '';
-  updateUI();
-};
-
-async function convert() {
-  if (!file) {
+export async function pdfToExcel() {
+  const files = getFiles();
+  
+  if (files.length === 0) {
     showAlert('No File', 'Please upload a PDF file first.');
     return;
   }
 
-  showLoader('Loading Engine...');
+  showLoader('Converting PDF to Excel...');
 
   try {
-    const pymupdf = await loadPyMuPDF();
-    showLoader('Extracting tables...');
+    const file = files[0];
+    const arrayBuffer = await readFileAsArrayBuffer(file);
+    
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    const pdf = await loadingTask.promise;
+    
+    const workbook = XLSX.utils.book_new();
+    const oneSheetPerPage = (document.getElementById('pdf-to-excel-one-sheet') as HTMLInputElement)?.checked || false;
 
-    const doc = await pymupdf.open(file);
-    const pageCount = doc.pageCount;
-    const baseName = file.name.replace(/\.[^/.]+$/, '');
-
-    interface TableData {
-      page: number;
-      rows: (string | null)[][];
-    }
-
-    const allTables: TableData[] = [];
-
-    for (let i = 0; i < pageCount; i++) {
-      showLoader(`Scanning page ${i + 1} of ${pageCount}...`);
-      const page = doc.getPage(i);
-      const tables = page.findTables();
-
-      tables.forEach((table) => {
-        allTables.push({
-          page: i + 1,
-          rows: table.rows,
+    if (oneSheetPerPage) {
+      // Create one sheet per page
+      for (let i = 1; i <= pdf.numPages; i++) {
+        showLoader(`Processing page ${i} of ${pdf.numPages}...`);
+        
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        
+        // Extract text items
+        const textItems = textContent.items.map((item: any) => item.str);
+        
+        // Create simple rows (split by line breaks or chunks)
+        const rows: string[][] = [];
+        let currentRow: string[] = [];
+        
+        textItems.forEach((text: string) => {
+          if (text.trim()) {
+            currentRow.push(text);
+            // Create new row after certain number of items or if text seems like end of line
+            if (currentRow.length >= 5) {
+              rows.push([...currentRow]);
+              currentRow = [];
+            }
+          }
         });
-      });
-    }
-
-    if (allTables.length === 0) {
-      showAlert('No Tables Found', 'No tables were detected in this PDF.');
-      return;
+        
+        if (currentRow.length > 0) {
+          rows.push(currentRow);
+        }
+        
+        // If no structured data, put all text in one column
+        if (rows.length === 0) {
+          rows.push([textItems.join(' ')]);
+        }
+        
+        const worksheet = XLSX.utils.aoa_to_sheet(rows);
+        XLSX.utils.book_append_sheet(workbook, worksheet, `Page ${i}`);
+      }
+    } else {
+      // Create single sheet with all text
+      const allRows: string[][] = [['Page', 'Content']];
+      
+      for (let i = 1; i <= pdf.numPages; i++) {
+        showLoader(`Processing page ${i} of ${pdf.numPages}...`);
+        
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .join(' ');
+        
+        allRows.push([`${i}`, pageText]);
+      }
+      
+      const worksheet = XLSX.utils.aoa_to_sheet(allRows);
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'PDF Content');
     }
 
     showLoader('Creating Excel file...');
-
-    const workbook = XLSX.utils.book_new();
-
-    if (allTables.length === 1) {
-      const worksheet = XLSX.utils.aoa_to_sheet(allTables[0].rows);
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Table');
-    } else {
-      allTables.forEach((table, idx) => {
-        const sheetName = `Table ${idx + 1} (Page ${table.page})`.substring(
-          0,
-          31
-        );
-        const worksheet = XLSX.utils.aoa_to_sheet(table.rows);
-        XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
-      });
-    }
-
     const xlsxData = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const fileName = file.name.replace(/\.pdf$/i, '.xlsx');
     const blob = new Blob([xlsxData], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     });
-    downloadFile(blob, `${baseName}.xlsx`);
-    showAlert(
-      'Success',
-      `Extracted ${allTables.length} table(s) to Excel!`,
-      'success',
-      resetState
-    );
-  } catch (e) {
-    console.error(e);
-    const message = e instanceof Error ? e.message : 'Unknown error';
-    showAlert('Error', `Failed to convert PDF to Excel. ${message}`);
-  } finally {
+    
+    downloadFile(blob, fileName);
+    
     hideLoader();
+    showAlert('Success', 'PDF converted to Excel successfully!', 'success');
+  } catch (error: any) {
+    console.error('[PDF2Excel] Error:', error);
+    hideLoader();
+    showAlert(
+      'Error',
+      `An error occurred during conversion. ${error.message}`
+    );
   }
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-  const fileInput = document.getElementById('file-input') as HTMLInputElement;
-  const dropZone = document.getElementById('drop-zone');
-  const processBtn = document.getElementById('process-btn');
-  const backBtn = document.getElementById('back-to-tools');
-
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
-    });
-  }
-
-  const handleFileSelect = (newFiles: FileList | null) => {
-    if (!newFiles || newFiles.length === 0) return;
-    const validFile = Array.from(newFiles).find(
-      (f) => f.type === 'application/pdf'
-    );
-
-    if (!validFile) {
-      showAlert('Invalid File', 'Please upload a PDF file.');
-      return;
-    }
-
-    file = validFile;
-    updateUI();
-  };
-
-  if (fileInput && dropZone) {
-    fileInput.addEventListener('change', (e) => {
-      handleFileSelect((e.target as HTMLInputElement).files);
-    });
-
-    dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropZone.classList.add('bg-gray-700');
-    });
-
-    dropZone.addEventListener('dragleave', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-      handleFileSelect(e.dataTransfer?.files ?? null);
-    });
-
-    fileInput.addEventListener('click', () => {
-      fileInput.value = '';
-    });
-  }
-
-  if (processBtn) {
-    processBtn.addEventListener('click', convert);
-  }
-});

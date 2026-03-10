@@ -1,11 +1,11 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
 import {
   downloadFile,
   readFileAsArrayBuffer,
   formatBytes,
   getPDFDocument,
-} from '../utils/helpers.js';
-import { state } from '../state.js';
+} from '../utils/helpers';
+import { state } from '../state';
 import { createIcons, icons } from 'lucide';
 import { convertFileToPdfA, type PdfALevel } from '../utils/ghostscript-loader';
 import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';

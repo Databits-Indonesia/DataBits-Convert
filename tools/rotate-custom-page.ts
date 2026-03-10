@@ -1,11 +1,92 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile, formatBytes, getPDFDocument } from '../utils/helpers.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile, formatBytes } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument as PDFLibDocument, degrees } from 'pdf-lib';
 import { renderPagesProgressively, cleanupLazyRendering } from '../utils/render-utils';
 import * as pdfjsLib from 'pdfjs-dist';
+import { getFiles } from '../state';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
+
+// Main function to rotate PDF by custom angle - exported for use in App.tsx
+export async function rotateCustomAngle(angle: number): Promise<boolean> {
+  const stateFiles = getFiles();
+  
+  if (stateFiles.length === 0) {
+    showAlert('No File', 'Please upload a PDF file first.');
+    return false;
+  }
+
+  showLoader('Applying rotation...');
+
+  try {
+    const file = stateFiles[0];
+    const arrayBuffer = await file.arrayBuffer();
+    const pdfDoc = await PDFLibDocument.load(arrayBuffer, {
+      ignoreEncryption: true,
+      throwOnInvalidObject: false
+    });
+
+    const pageCount = pdfDoc.getPageCount();
+    const newPdfDoc = await PDFLibDocument.create();
+
+    for (let i = 0; i < pageCount; i++) {
+      showLoader(`Processing page ${i + 1} of ${pageCount}...`);
+      
+      const originalPage = pdfDoc.getPage(i);
+      const currentRotation = originalPage.getRotation().angle;
+      const totalRotation = currentRotation + angle;
+
+      if (totalRotation % 90 === 0) {
+        // For 90-degree angles, use simple rotation
+        const [copiedPage] = await newPdfDoc.copyPages(pdfDoc, [i]);
+        copiedPage.setRotation(degrees(totalRotation));
+        newPdfDoc.addPage(copiedPage);
+      } else {
+        // For arbitrary angles, embed and draw with transformation
+        const embeddedPage = await newPdfDoc.embedPage(originalPage);
+        const { width, height } = embeddedPage.scale(1);
+
+        const angleRad = (totalRotation * Math.PI) / 180;
+        const absCos = Math.abs(Math.cos(angleRad));
+        const absSin = Math.abs(Math.sin(angleRad));
+
+        const newWidth = width * absCos + height * absSin;
+        const newHeight = width * absSin + height * absCos;
+
+        const newPage = newPdfDoc.addPage([newWidth, newHeight]);
+
+        const x = newWidth / 2 - (width / 2 * Math.cos(angleRad) - height / 2 * Math.sin(angleRad));
+        const y = newHeight / 2 - (width / 2 * Math.sin(angleRad) + height / 2 * Math.cos(angleRad));
+
+        newPage.drawPage(embeddedPage, {
+          x,
+          y,
+          width,
+          height,
+          rotate: degrees(totalRotation),
+        });
+      }
+    }
+
+    const rotatedPdfBytes = await newPdfDoc.save();
+    const originalName = file.name.replace(/\.pdf$/i, '');
+
+    downloadFile(
+      new Blob([new Uint8Array(rotatedPdfBytes)], { type: 'application/pdf' }),
+      `${originalName}_rotated_${angle}deg.pdf`
+    );
+
+    hideLoader();
+    showAlert('Success', 'Rotation applied successfully!', 'success');
+    return true;
+  } catch (e: any) {
+    console.error(e);
+    hideLoader();
+    showAlert('Error', e.message || 'Could not apply rotation.');
+    return false;
+  }
+}
 
 interface RotateState {
     file: File | null;
@@ -203,7 +284,8 @@ async function updateUI() {
                 throwOnInvalidObject: false
             });
 
-            pageState.pdfJsDoc = await getPDFDocument({ data: arrayBuffer.slice(0) }).promise;
+            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer.slice(0) });
+            pageState.pdfJsDoc = await loadingTask.promise;
 
             const pageCount = pageState.pdfDoc.getPageCount();
             pageState.rotations = new Array(pageCount).fill(0);
@@ -316,7 +398,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (backBtn) {
         backBtn.addEventListener('click', function () {
-            window.location.href = import.meta.env.BASE_URL;
+            window.location.href = (process.env.BASE_URL || '/');
         });
     }
 

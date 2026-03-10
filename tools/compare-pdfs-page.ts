@@ -1,5 +1,5 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { getPDFDocument } from '../utils/helpers.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { getPDFDocument } from '../utils/helpers';
 import { icons, createIcons } from 'lucide';
 import * as pdfjsLib from 'pdfjs-dist';
 import { CompareState } from '@/types';
@@ -195,7 +195,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (backBtn) {
         backBtn.addEventListener('click', function () {
-            window.location.href = import.meta.env.BASE_URL;
+            window.location.href = (process.env.BASE_URL || '/');
         });
     }
 

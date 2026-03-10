@@ -1,6 +1,6 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile, readFileAsArrayBuffer, formatBytes } from '../utils/helpers.js';
-import { state } from '../state.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile, readFileAsArrayBuffer, formatBytes } from '../utils/helpers';
+import { state } from '../state';
 import { createIcons, icons } from 'lucide';
 import { getLibreOfficeConverter, type LoadProgress } from '../utils/libreoffice-loader';
 

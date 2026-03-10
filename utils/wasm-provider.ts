@@ -19,9 +19,9 @@ function envOrDefault(envVar: string | undefined, fallback: string): string {
 }
 
 const ENV_DEFAULTS: Record<WasmPackage, string> = {
-  pymupdf: envOrDefault(undefined, CDN_DEFAULTS.pymupdf),
-  ghostscript: envOrDefault(undefined, CDN_DEFAULTS.ghostscript),
-  cpdf: envOrDefault(undefined, CDN_DEFAULTS.cpdf),
+  pymupdf: envOrDefault(process.env.NEXT_PUBLIC_WASM_PYMUPDF_URL || process.env.WASM_PYMUPDF_URL, CDN_DEFAULTS.pymupdf),
+  ghostscript: envOrDefault(process.env.NEXT_PUBLIC_WASM_GS_URL || process.env.WASM_GS_URL, CDN_DEFAULTS.ghostscript),
+  cpdf: envOrDefault(process.env.NEXT_PUBLIC_WASM_CPDF_URL || process.env.WASM_CPDF_URL, CDN_DEFAULTS.cpdf),
 };
 
 class WasmProviderManager {

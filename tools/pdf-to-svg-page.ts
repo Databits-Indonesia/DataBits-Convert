@@ -1,215 +1,88 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile, formatBytes } from '../utils/helpers.js';
-import { createIcons, icons } from 'lucide';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile, readFileAsArrayBuffer } from '../utils/helpers';
+import { getFiles } from '../state';
 import JSZip from 'jszip';
-import { isWasmAvailable, getWasmBaseUrl } from '../config/wasm-cdn-config.js';
-import { showWasmRequiredDialog } from '../utils/wasm-provider';
-import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';
+import * as pdfjsLib from 'pdfjs-dist';
 
-let pymupdf: any = null;
-let files: File[] = [];
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
 
-const updateUI = () => {
-  const fileDisplayArea = document.getElementById('file-display-area');
-  const optionsPanel = document.getElementById('options-panel');
-  const fileControls = document.getElementById('file-controls');
-
-  if (!fileDisplayArea || !optionsPanel) return;
-
-  fileDisplayArea.innerHTML = '';
-
-  if (files.length > 0) {
-    optionsPanel.classList.remove('hidden');
-    if (fileControls) fileControls.classList.remove('hidden');
-
-    files.forEach((file, index) => {
-      const fileDiv = document.createElement('div');
-      fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
-
-      const infoContainer = document.createElement('div');
-      infoContainer.className = 'flex flex-col overflow-hidden';
-
-      const nameSpan = document.createElement('div');
-      nameSpan.className = 'truncate font-medium text-gray-200 text-sm mb-1';
-      nameSpan.textContent = file.name;
-
-      const metaSpan = document.createElement('div');
-      metaSpan.className = 'text-xs text-gray-400';
-      metaSpan.textContent = formatBytes(file.size);
-
-      infoContainer.append(nameSpan, metaSpan);
-
-      const removeBtn = document.createElement('button');
-      removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
-      removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
-      removeBtn.onclick = () => {
-        files = files.filter((_, i) => i !== index);
-        updateUI();
-      };
-
-      fileDiv.append(infoContainer, removeBtn);
-      fileDisplayArea.appendChild(fileDiv);
-    });
-
-    createIcons({ icons });
-  } else {
-    optionsPanel.classList.add('hidden');
-    if (fileControls) fileControls.classList.add('hidden');
-  }
-};
-
-const resetState = () => {
-  files = [];
-  const fileInput = document.getElementById('file-input') as HTMLInputElement;
-  if (fileInput) fileInput.value = '';
-  updateUI();
-};
-
-async function convert() {
-  if (files.length === 0) {
-    showAlert('No Files', 'Please upload at least one PDF file.');
-    return;
-  }
-
-  // Check if PyMuPDF is configured
-  if (!isPyMuPDFAvailable()) {
-    showWasmRequiredDialog('pymupdf');
-    return;
-  }
-
-  showLoader('Loading Engine...');
-
-  try {
-    // Load PyMuPDF dynamically if not already loaded
-    if (!pymupdf) {
-      pymupdf = await loadPyMuPDF();
-    }
-
-    const isSingleFile = files.length === 1;
-
-    if (isSingleFile) {
-      const doc = await pymupdf.open(files[0]);
-      const pageCount = doc.pageCount;
-      const baseName = files[0].name.replace(/\.[^/.]+$/, '');
-
-      if (pageCount === 1) {
-        showLoader('Converting to SVG...');
-        const page = doc.getPage(0);
-        const svgContent = page.toSvg();
-        const svgBlob = new Blob([svgContent], { type: 'image/svg+xml' });
-        downloadFile(svgBlob, `${baseName}.svg`);
-        showAlert('Success', 'PDF converted to SVG successfully!', 'success', () => resetState());
-      } else {
-        const zip = new JSZip();
-        for (let i = 0; i < pageCount; i++) {
-          showLoader(`Converting page ${i + 1} of ${pageCount}...`);
-          const page = doc.getPage(i);
-          const svgContent = page.toSvg();
-          zip.file(`page_${i + 1}.svg`, svgContent);
-        }
-        showLoader('Creating ZIP file...');
-        const zipBlob = await zip.generateAsync({ type: 'blob' });
-        downloadFile(zipBlob, `${baseName}_svg.zip`);
-        showAlert('Success', `Converted ${pageCount} pages to SVG!`, 'success', () => resetState());
-      }
-    } else {
-      const zip = new JSZip();
-      let totalPages = 0;
-
-      for (let f = 0; f < files.length; f++) {
-        const file = files[f];
-        showLoader(`Processing file ${f + 1} of ${files.length}...`);
-        const doc = await pymupdf.open(file);
-        const pageCount = doc.pageCount;
-        const baseName = file.name.replace(/\.[^/.]+$/, '');
-
-        for (let i = 0; i < pageCount; i++) {
-          showLoader(`File ${f + 1}/${files.length}: Page ${i + 1}/${pageCount}`);
-          const page = doc.getPage(i);
-          const svgContent = page.toSvg();
-          const fileName = pageCount === 1 ? `${baseName}.svg` : `${baseName}_page_${i + 1}.svg`;
-          zip.file(fileName, svgContent);
-          totalPages++;
-        }
-      }
-
-      showLoader('Creating ZIP file...');
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      downloadFile(zipBlob, 'pdf_to_svg.zip');
-      showAlert(
-        'Success',
-        `Converted ${files.length} files (${totalPages} pages) to SVG!`,
-        'success',
-        () => resetState()
-      );
-    }
-  } catch (e) {
-    console.error(e);
-    const message = e instanceof Error ? e.message : 'Unknown error';
-    showAlert('Error', `Failed to convert PDF to SVG. ${message}`);
-  } finally {
-    hideLoader();
-  }
+// Helper function to convert canvas to SVG (embeds PNG as data URI)
+function canvasToSvg(canvas: HTMLCanvasElement): string {
+  const dataUrl = canvas.toDataURL('image/png');
+  const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" 
+     width="${canvas.width}" height="${canvas.height}" viewBox="0 0 ${canvas.width} ${canvas.height}">
+  <image width="${canvas.width}" height="${canvas.height}" xlink:href="${dataUrl}"/>
+</svg>`;
+  return svgContent;
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  const fileInput = document.getElementById('file-input') as HTMLInputElement;
-  const dropZone = document.getElementById('drop-zone');
-  const processBtn = document.getElementById('process-btn');
-  const backBtn = document.getElementById('back-to-tools');
-  const addMoreBtn = document.getElementById('add-more-btn');
-  const clearFilesBtn = document.getElementById('clear-files-btn');
-
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env?.BASE_URL || '/';
-    });
+export async function pdfToSvg() {
+  const files = getFiles();
+  
+  if (files.length === 0) {
+    showAlert('No File', 'Please upload a PDF file first.');
+    return;
   }
 
-  const handleFileSelect = (newFiles: FileList | null, replace = false) => {
-    if (!newFiles || newFiles.length === 0) return;
-    const validFiles = Array.from(newFiles).filter((file) => file.type === 'application/pdf');
+  showLoader('Converting PDF to SVG...');
 
-    if (validFiles.length === 0) {
-      showAlert('Invalid Files', 'Please upload PDF files.');
-      return;
+  try {
+    const file = files[0];
+    const arrayBuffer = await readFileAsArrayBuffer(file);
+    
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    const pdf = await loadingTask.promise;
+    
+    const zip = new JSZip();
+    
+    const dpiInput = document.getElementById('pdf-to-svg-dpi') as HTMLSelectElement;
+    const dpi = dpiInput ? parseFloat(dpiInput.value) : 150;
+    const scale = dpi / 72;
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      showLoader(`Converting page ${i} of ${pdf.numPages}...`);
+      
+      const page = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale });
+      
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      
+      if (!context) {
+        throw new Error('Could not get canvas context');
+      }
+      
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+
+      await page.render({
+        canvasContext: context,
+        viewport: viewport
+      }).promise;
+
+      // Convert canvas to SVG
+      const svgContent = canvasToSvg(canvas);
+      zip.file(`page_${i}.svg`, svgContent);
     }
 
-    if (replace) {
-      files = validFiles;
-    } else {
-      files = [...files, ...validFiles];
-    }
-    updateUI();
-  };
-
-  if (fileInput && dropZone) {
-    fileInput.addEventListener('change', (e) => {
-      handleFileSelect((e.target as HTMLInputElement).files, files.length === 0);
-    });
-
-    dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropZone.classList.add('bg-gray-700');
-    });
-
-    dropZone.addEventListener('dragleave', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-      handleFileSelect(e.dataTransfer?.files ?? null, files.length === 0);
-    });
-
-    fileInput.addEventListener('click', () => {
-      fileInput.value = '';
-    });
+    showLoader('Creating ZIP file...');
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const fileName = file.name.replace(/\.pdf$/i, '_images.zip');
+    
+    downloadFile(zipBlob, fileName);
+    
+    hideLoader();
+    showAlert('Success', 'PDF converted to SVG images successfully!', 'success');
+  } catch (error: any) {
+    console.error('[PDF2SVG] Error:', error);
+    hideLoader();
+    showAlert(
+      'Error',
+      `An error occurred during conversion. ${error.message}`
+    );
   }
-
-  if (addMoreBtn) addMoreBtn.addEventListener('click', () => fileInput?.click());
-  if (clearFilesBtn) clearFilesBtn.addEventListener('click', resetState);
-  if (processBtn) processBtn.addEventListener('click', convert);
-});
+}

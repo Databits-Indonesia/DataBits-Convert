@@ -1,15 +1,15 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
 import {
   downloadFile,
   formatBytes,
   readFileAsArrayBuffer,
   getPDFDocument,
-} from '../utils/helpers.js';
+} from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument } from 'pdf-lib';
 import { applyScannerEffect } from '../utils/image-effects';
 import * as pdfjsLib from 'pdfjs-dist';
-import type { ScanSettings } from '../types/scanner-effect-type.js';
+import type { ScanSettings } from '../types/scanner-effect-type';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -386,7 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (backBtn) {
     backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
+      window.location.href = (process.env.BASE_URL || '/');
     });
   }
 

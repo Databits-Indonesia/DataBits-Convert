@@ -1,7 +1,7 @@
-import { showAlert } from '../ui.js';
-import { downloadFile, formatBytes } from '../utils/helpers.js';
-import { convertFileToOutlines } from '../utils/ghostscript-loader.js';
-import { isGhostscriptAvailable } from '../utils/ghostscript-dynamic-loader.js';
+import { showAlert } from '../ui';
+import { downloadFile, formatBytes } from '../utils/helpers';
+import { convertFileToOutlines } from '../utils/ghostscript-loader';
+import { isGhostscriptAvailable } from '../utils/ghostscript-dynamic-loader';
 import { showWasmRequiredDialog } from '../utils/wasm-provider';
 import { icons, createIcons } from 'lucide';
 import JSZip from 'jszip';
@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (backBtn) {
     backBtn.addEventListener('click', function () {
-      window.location.href = import.meta.env.BASE_URL;
+      window.location.href = (process.env.BASE_URL || '/');
     });
   }
 

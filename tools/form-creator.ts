@@ -30,7 +30,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url
 ).toString();
 
-import { FormField, PageData } from '../types/index.js';
+import { FormField, PageData } from '../types/index';
 
 let fields: FormField[] = [];
 let selectedField: FormField | null = null;
@@ -2353,7 +2353,7 @@ const backToToolsBtns = document.querySelectorAll(
 ) as NodeListOf<HTMLButtonElement>;
 backToToolsBtns.forEach((btn) => {
   btn.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL;
+    window.location.href = (process.env.BASE_URL || '/');
   });
 });
 
@@ -2461,7 +2461,7 @@ async function renderCanvas(): Promise<void> {
       const blobUrl = URL.createObjectURL(blob);
 
       const iframe = document.createElement('iframe');
-      iframe.src = `${import.meta.env.BASE_URL}pdfjs-viewer/viewer.html?file=${encodeURIComponent(blobUrl)}#page=${currentPageIndex + 1}&toolbar=0`;
+      iframe.src = `${(process.env.BASE_URL || '/')}pdfjs-viewer/viewer.html?file=${encodeURIComponent(blobUrl)}#page=${currentPageIndex + 1}&toolbar=0`;
       iframe.style.width = '100%';
       iframe.style.height = `${canvasHeight}px`;
       iframe.style.border = 'none';

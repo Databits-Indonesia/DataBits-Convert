@@ -1,5 +1,5 @@
-import { showAlert } from '../ui.js';
-import { tesseractLanguages } from '../config/tesseract-languages.js';
+import { showAlert } from '../ui';
+import { tesseractLanguages } from '../config/tesseract-languages';
 import { createWorkflowEditor, updateNodeDisplay } from '../workflow/editor';
 import { executeWorkflow } from '../workflow/engine';
 import {

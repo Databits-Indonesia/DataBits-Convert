@@ -3,7 +3,7 @@ import { initializeGlobalShortcuts } from '../utils/shortcuts-init';
 import { isCpdfAvailable } from '../utils/cpdf-helper';
 import { showWasmRequiredDialog, WasmProvider } from '../utils/wasm-provider';
 
-const worker = new Worker(import.meta.env.BASE_URL + 'workers/table-of-contents.worker.js');
+const worker = new Worker((process.env.BASE_URL || '/') + 'workers/table-of-contents.worker.js');
 
 let pdfFile: File | null = null;
 
@@ -189,7 +189,7 @@ worker.onerror = (error) => {
 
 if (backToToolsBtn) {
   backToToolsBtn.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL;
+    window.location.href = (process.env.BASE_URL || '/');
   });
 }
 

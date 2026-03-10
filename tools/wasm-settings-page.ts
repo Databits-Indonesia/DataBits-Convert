@@ -1,8 +1,8 @@
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui.js';
+import { showAlert, showLoader, hideLoader } from '../ui';
 import { WasmProvider, type WasmPackage } from '../utils/wasm-provider';
 import { clearPyMuPDFCache } from '../utils/pymupdf-loader';
-import { clearGhostscriptCache } from '../utils/ghostscript-dynamic-loader.js';
+import { clearGhostscriptCache } from '../utils/ghostscript-dynamic-loader';
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initializePage);
@@ -68,7 +68,7 @@ function initializePage() {
   const backBtn = document.getElementById('back-to-tools');
 
   backBtn?.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL;
+    window.location.href = (process.env.BASE_URL || '/');
   });
 
   loadConfiguration();

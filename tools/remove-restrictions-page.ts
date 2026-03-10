@@ -1,10 +1,10 @@
-import { showAlert } from '../ui.js';
+import { showAlert } from '../ui';
 import {
   downloadFile,
   formatBytes,
   initializeQpdf,
   readFileAsArrayBuffer,
-} from '../utils/helpers.js';
+} from '../utils/helpers';
 import { icons, createIcons } from 'lucide';
 import { RemoveRestrictionsState } from '@/types';
 

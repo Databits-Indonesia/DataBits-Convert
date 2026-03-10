@@ -1,8 +1,8 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile, formatBytes } from '../utils/helpers.js';
-import { state } from '../state.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile, formatBytes } from '../utils/helpers';
+import { state } from '../state';
 import { createIcons, icons } from 'lucide';
-import { getLibreOfficeConverter, type LoadProgress } from '../utils/libreoffice-loader.js';
+import { getLibreOfficeConverter, type LoadProgress } from '../utils/libreoffice-loader';
 
 const ACCEPTED_EXTENSIONS = ['.pub'];
 const FILETYPE_NAME = 'PUB';

@@ -1,11 +1,11 @@
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui.js';
+import { showAlert, showLoader, hideLoader } from '../ui';
 import {
   readFileAsArrayBuffer,
   formatBytes,
   downloadFile,
   getPDFDocument,
-} from '../utils/helpers.js';
+} from '../utils/helpers';
 import { initPagePreview } from '../utils/page-preview';
 import { PDFDocument } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -70,7 +70,7 @@ function initializePage() {
   if (processBtn) processBtn.addEventListener('click', saveChanges);
 
   document.getElementById('back-to-tools')?.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL;
+    window.location.href = (process.env.BASE_URL || '/');
   });
 
   const applyOrderBtn = document.getElementById('apply-order-btn');

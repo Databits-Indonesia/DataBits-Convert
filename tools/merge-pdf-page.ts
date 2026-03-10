@@ -1,6 +1,6 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile, readFileAsArrayBuffer, getPDFDocument } from '../utils/helpers.js';
-import { state } from '../state.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile, readFileAsArrayBuffer, getPDFDocument } from '../utils/helpers';
+import { state } from '../state';
 import { renderPagesProgressively, cleanupLazyRendering } from '../utils/render-utils';
 import { initPagePreview } from '../utils/page-preview';
 import { isCpdfAvailable } from '../utils/cpdf-helper';
@@ -41,7 +41,7 @@ const mergeState: MergeState = {
   mergeSuccess: false,
 };
 
-const mergeWorker = new Worker(import.meta.env.BASE_URL + 'workers/merge.worker.js');
+const mergeWorker = new Worker((process.env.BASE_URL || '/') + 'workers/merge.worker.js');
 
 function initializeFileListSortable() {
   const fileList = document.getElementById('file-list');
@@ -567,7 +567,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (backBtn) {
     backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
+      window.location.href = (process.env.BASE_URL || '/');
     });
   }
 

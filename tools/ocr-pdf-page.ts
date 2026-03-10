@@ -1,6 +1,6 @@
-import { tesseractLanguages } from '../config/tesseract-languages.js';
-import { showAlert } from '../ui.js';
-import { downloadFile, formatBytes } from '../utils/helpers.js';
+import { tesseractLanguages } from '../config/tesseract-languages';
+import { showAlert } from '../ui';
+import { downloadFile, formatBytes } from '../utils/helpers';
 import { icons, createIcons } from 'lucide';
 import { OcrState } from '@/types';
 import { performOcr } from '../utils/ocr';
@@ -256,7 +256,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (backBtn) {
     backBtn.addEventListener('click', function () {
-      window.location.href = import.meta.env.BASE_URL;
+      window.location.href = (process.env.BASE_URL || '/');
     });
   }
 

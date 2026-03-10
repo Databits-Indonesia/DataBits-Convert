@@ -1,11 +1,9 @@
-import { showAlert } from '../ui.js';
-import { downloadFile, formatBytes } from '../utils/helpers.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile, formatBytes } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
+import { PDFDocument as PDFLibDocument, PDFName } from 'pdf-lib';
 import JSZip from 'jszip';
-import { isCpdfAvailable } from '../utils/cpdf-helper';
-import { showWasmRequiredDialog, WasmProvider } from '../utils/wasm-provider';
-
-const worker = new Worker(import.meta.env.BASE_URL + 'workers/extract-attachments.worker.js');
+import { getFiles } from '../state';
 
 interface ExtractState {
   files: File[];
@@ -14,6 +12,144 @@ interface ExtractState {
 const pageState: ExtractState = {
   files: [],
 };
+
+// Main function to extract attachments - exported for use in App.tsx
+export async function extractAttachmentsFromPdf() {
+  const files = getFiles();
+  
+  if (files.length === 0) {
+    showAlert('No File', 'Please upload a PDF file first.');
+    return;
+  }
+
+  showLoader('Extracting attachments from PDF...');
+
+  try {
+    const allAttachments: Array<{ name: string; data: Uint8Array }> = [];
+
+    // Process each PDF file
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      showLoader(`Reading ${file.name} (${i + 1}/${files.length})...`);
+
+      const pdfArrayBuffer = await file.arrayBuffer();
+      const pdfDoc = await PDFLibDocument.load(pdfArrayBuffer);
+
+      // Get embedded files (attachments) using pdf-lib's context API
+      const catalog = pdfDoc.context.lookup(pdfDoc.catalog);
+      
+      if (catalog) {
+        const namesDict = catalog.get(PDFName.of('Names'));
+        
+        if (namesDict) {
+          const namesRef = pdfDoc.context.lookup(namesDict);
+          
+          if (namesRef) {
+            const embeddedFilesDict = namesRef.get(PDFName.of('EmbeddedFiles'));
+            
+            if (embeddedFilesDict) {
+              const embeddedFilesRef = pdfDoc.context.lookup(embeddedFilesDict);
+              
+              if (embeddedFilesRef) {
+                const namesArray = embeddedFilesRef.get(PDFName.of('Names'));
+                
+                if (namesArray) {
+                  const namesArrayRef = pdfDoc.context.lookup(namesArray);
+                  
+                  if (namesArrayRef && Array.isArray(namesArrayRef.asArray())) {
+                    const entries = namesArrayRef.asArray();
+                    
+                    // Names array contains pairs: [name, fileSpec, name, fileSpec, ...]
+                    for (let j = 0; j < entries.length; j += 2) {
+                      if (j + 1 >= entries.length) break;
+                      
+                      try {
+                        const nameObj = entries[j];
+                        const fileSpecRef = entries[j + 1];
+                        
+                        // Get file name
+                        let fileName = 'attachment';
+                        if (nameObj && typeof nameObj.decodeText === 'function') {
+                          fileName = nameObj.decodeText();
+                        } else if (nameObj) {
+                          fileName = String(nameObj).replace(/[()]/g, '');
+                        }
+                        
+                        // Get file spec
+                        const fileSpec = pdfDoc.context.lookup(fileSpecRef);
+                        
+                        if (fileSpec) {
+                          const efDictRef = fileSpec.get(PDFName.of('EF'));
+                          
+                          if (efDictRef) {
+                            const efDict = pdfDoc.context.lookup(efDictRef);
+                            
+                            if (efDict) {
+                              const fileStreamRef = efDict.get(PDFName.of('F'));
+                              
+                              if (fileStreamRef) {
+                                const fileStream = pdfDoc.context.lookup(fileStreamRef);
+                                
+                                if (fileStream && fileStream.contents) {
+                                  allAttachments.push({
+                                    name: fileName || `attachment_${allAttachments.length + 1}`,
+                                    data: fileStream.contents,
+                                  });
+                                }
+                              }
+                            }
+                          }
+                        }
+                      } catch (error) {
+                        console.error('Error extracting individual attachment:', error);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    hideLoader();
+
+    if (allAttachments.length === 0) {
+      showAlert('No Attachments', 'The PDF file(s) do not contain any attachments to extract.');
+      return false;
+    }
+
+    // Create zip file with all attachments
+    showLoader('Creating ZIP file...');
+    const zip = new JSZip();
+    let totalSize = 0;
+
+    for (const attachment of allAttachments) {
+      zip.file(attachment.name, attachment.data);
+      totalSize += attachment.data.length;
+    }
+
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    
+    // Download the zip file
+    downloadFile(zipBlob, 'extracted-attachments.zip');
+
+    hideLoader();
+    showAlert(
+      'Success',
+      `${allAttachments.length} attachment(s) extracted successfully! (${formatBytes(totalSize)})`,
+      'success'
+    );
+
+    return true;
+  } catch (error: any) {
+    console.error('Error extracting attachments:', error);
+    hideLoader();
+    showAlert('Error', `Failed to extract attachments: ${error.message}`);
+    return false;
+  }
+}
 
 function resetState() {
   pageState.files = [];
@@ -51,66 +187,6 @@ function showStatus(message: string, type: 'success' | 'error' | 'info' = 'info'
   }`;
   statusMessage.classList.remove('hidden');
 }
-
-worker.onmessage = function (e) {
-  const processBtn = document.getElementById('process-btn');
-  if (processBtn) {
-    processBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-    processBtn.removeAttribute('disabled');
-  }
-
-  if (e.data.status === 'success') {
-    const attachments = e.data.attachments;
-
-    if (attachments.length === 0) {
-      showAlert('No Attachments', 'The PDF file(s) do not contain any attachments to extract.');
-      resetState();
-      return;
-    }
-
-    const zip = new JSZip();
-    let totalSize = 0;
-
-    for (const attachment of attachments) {
-      zip.file(attachment.name, new Uint8Array(attachment.data));
-      totalSize += attachment.data.byteLength;
-    }
-
-    zip.generateAsync({ type: 'blob' }).then(function (zipBlob) {
-      downloadFile(zipBlob, 'extracted-attachments.zip');
-
-      showAlert('Success', `${attachments.length} attachment(s) extracted successfully!`);
-
-      showStatus(
-        `Extraction completed! ${attachments.length} attachment(s) in zip file (${formatBytes(totalSize)}). Download started.`,
-        'success'
-      );
-
-      resetState();
-    });
-  } else if (e.data.status === 'error') {
-    const errorMessage = e.data.message || 'Unknown error occurred in worker.';
-    console.error('Worker Error:', errorMessage);
-
-    if (errorMessage.includes('No attachments were found')) {
-      showAlert('No Attachments', 'The PDF file(s) do not contain any attachments to extract.');
-      resetState();
-    } else {
-      showStatus(`Error: ${errorMessage}`, 'error');
-    }
-  }
-};
-
-worker.onerror = function (error) {
-  console.error('Worker error:', error);
-  showStatus('Worker error occurred. Check console for details.', 'error');
-
-  const processBtn = document.getElementById('process-btn');
-  if (processBtn) {
-    processBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-    processBtn.removeAttribute('disabled');
-  }
-};
 
 async function updateUI() {
   const fileDisplayArea = document.getElementById('file-display-area');
@@ -163,50 +239,25 @@ async function extractAttachments() {
     return;
   }
 
-  // Check if CPDF is configured
-  if (!isCpdfAvailable()) {
-    showWasmRequiredDialog('cpdf');
-    return;
-  }
-
   const processBtn = document.getElementById('process-btn');
   if (processBtn) {
     processBtn.classList.add('opacity-50', 'cursor-not-allowed');
     processBtn.setAttribute('disabled', 'true');
   }
 
-  showStatus('Reading files...', 'info');
+  showStatus(`Extracting attachments from ${pageState.files.length} file(s)...`, 'info');
 
   try {
-    const fileBuffers: ArrayBuffer[] = [];
-    const fileNames: string[] = [];
-
-    for (const file of pageState.files) {
-      const buffer = await file.arrayBuffer();
-      fileBuffers.push(buffer);
-      fileNames.push(file.name);
-    }
-
-    showStatus(`Extracting attachments from ${pageState.files.length} file(s)...`, 'info');
-
-    const message = {
-      command: 'extract-attachments',
-      fileBuffers,
-      fileNames,
-      cpdfUrl: WasmProvider.getUrl('cpdf')! + 'coherentpdf.browser.min.js',
-    };
-
-    const transferables = fileBuffers.map(function (buf) {
-      return buf;
-    });
-    worker.postMessage(message, transferables);
+    // Use the exported function
+    await extractAttachmentsFromPdf();
+    resetState();
   } catch (error) {
-    console.error('Error reading files:', error);
+    console.error('Error extracting attachments:', error);
     showStatus(
-      `Error reading files: ${error instanceof Error ? error.message : 'Unknown error occurred'}`,
+      `Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`,
       'error'
     );
-
+  } finally {
     if (processBtn) {
       processBtn.classList.remove('opacity-50', 'cursor-not-allowed');
       processBtn.removeAttribute('disabled');
@@ -234,7 +285,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (backBtn) {
     backBtn.addEventListener('click', function () {
-      window.location.href = import.meta.env.BASE_URL;
+      window.location.href = '/';
     });
   }
 

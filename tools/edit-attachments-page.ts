@@ -1,17 +1,242 @@
-import { EditAttachmentState, AttachmentInfo } from '@/types';
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile, formatBytes } from '../utils/helpers.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile, formatBytes } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
-import { isCpdfAvailable } from '../utils/cpdf-helper';
-import { showWasmRequiredDialog, WasmProvider } from '../utils/wasm-provider';
+import { PDFDocument as PDFLibDocument, PDFName, PDFArray, PDFDict } from 'pdf-lib';
+import { getFiles } from '../state';
 
-const worker = new Worker(import.meta.env.BASE_URL + 'workers/edit-attachments.worker.js');
+interface AttachmentInfo {
+  name: string;
+  index: number;
+  page: number;
+  data: Uint8Array;
+}
+
+interface EditAttachmentState {
+  file: File | null;
+  allAttachments: AttachmentInfo[];
+  attachmentsToRemove: Set<number>;
+}
 
 const pageState: EditAttachmentState = {
   file: null,
   allAttachments: [],
   attachmentsToRemove: new Set(),
 };
+
+// Main function to list attachments - exported for use in App.tsx
+export async function listAttachmentsFromPdf(): Promise<AttachmentInfo[]> {
+  const files = getFiles();
+  
+  if (files.length === 0) {
+    showAlert('No File', 'Please upload a PDF file first.');
+    return [];
+  }
+
+  showLoader('Loading attachments...');
+
+  try {
+    const file = files[0];
+    const pdfArrayBuffer = await file.arrayBuffer();
+    const pdfDoc = await PDFLibDocument.load(pdfArrayBuffer);
+
+    const attachments: AttachmentInfo[] = [];
+    let attachmentIndex = 0;
+
+    // Get embedded files (attachments) using pdf-lib's context API
+    const catalog = pdfDoc.context.lookup(pdfDoc.catalog);
+    
+    if (catalog) {
+      const namesDict = catalog.get(PDFName.of('Names'));
+      
+      if (namesDict) {
+        const namesRef = pdfDoc.context.lookup(namesDict);
+        
+        if (namesRef) {
+          const embeddedFilesDict = namesRef.get(PDFName.of('EmbeddedFiles'));
+          
+          if (embeddedFilesDict) {
+            const embeddedFilesRef = pdfDoc.context.lookup(embeddedFilesDict);
+            
+            if (embeddedFilesRef) {
+              const namesArray = embeddedFilesRef.get(PDFName.of('Names'));
+              
+              if (namesArray) {
+                const namesArrayRef = pdfDoc.context.lookup(namesArray);
+                
+                if (namesArrayRef && Array.isArray(namesArrayRef.asArray())) {
+                  const entries = namesArrayRef.asArray();
+                  
+                  // Names array contains pairs: [name, fileSpec, name, fileSpec, ...]
+                  for (let j = 0; j < entries.length; j += 2) {
+                    if (j + 1 >= entries.length) break;
+                    
+                    try {
+                      const nameObj = entries[j];
+                      const fileSpecRef = entries[j + 1];
+                      
+                      // Get file name
+                      let fileName = 'attachment';
+                      if (nameObj && typeof nameObj.decodeText === 'function') {
+                        fileName = nameObj.decodeText();
+                      } else if (nameObj) {
+                        fileName = String(nameObj).replace(/[()]/g, '');
+                      }
+                      
+                      // Get file spec
+                      const fileSpec = pdfDoc.context.lookup(fileSpecRef);
+                      
+                      if (fileSpec) {
+                        const efDictRef = fileSpec.get(PDFName.of('EF'));
+                        
+                        if (efDictRef) {
+                          const efDict = pdfDoc.context.lookup(efDictRef);
+                          
+                          if (efDict) {
+                            const fileStreamRef = efDict.get(PDFName.of('F'));
+                            
+                            if (fileStreamRef) {
+                              const fileStream = pdfDoc.context.lookup(fileStreamRef);
+                              
+                              if (fileStream && fileStream.contents) {
+                                attachments.push({
+                                  name: fileName || `attachment_${attachmentIndex}`,
+                                  index: attachmentIndex,
+                                  page: 0, // Document-level attachment
+                                  data: fileStream.contents,
+                                });
+                                attachmentIndex++;
+                              }
+                            }
+                          }
+                        }
+                      }
+                    } catch (error) {
+                      console.error('Error reading attachment:', error);
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    hideLoader();
+    return attachments;
+  } catch (error: any) {
+    console.error('Error listing attachments:', error);
+    hideLoader();
+    showAlert('Error', `Failed to list attachments: ${error.message}`);
+    return [];
+  }
+}
+
+// Main function to remove attachments - exported for use in App.tsx
+export async function removeAttachmentsFromPdf(attachmentIndicesToRemove: number[]): Promise<boolean> {
+  const files = getFiles();
+  
+  if (files.length === 0) {
+    showAlert('No File', 'Please upload a PDF file first.');
+    return false;
+  }
+
+  if (attachmentIndicesToRemove.length === 0) {
+    showAlert('No Changes', 'No attachments selected for removal.');
+    return false;
+  }
+
+  showLoader('Removing attachments from PDF...');
+
+  try {
+    const file = files[0];
+    const pdfArrayBuffer = await file.arrayBuffer();
+    const pdfDoc = await PDFLibDocument.load(pdfArrayBuffer);
+
+    // Get the Names dictionary
+    const catalog = pdfDoc.context.lookup(pdfDoc.catalog);
+    
+    if (catalog) {
+      const namesDict = catalog.get(PDFName.of('Names'));
+      
+      if (namesDict) {
+        const namesRef = pdfDoc.context.lookup(namesDict);
+        
+        if (namesRef) {
+          const embeddedFilesDict = namesRef.get(PDFName.of('EmbeddedFiles'));
+          
+          if (embeddedFilesDict) {
+            const embeddedFilesRef = pdfDoc.context.lookup(embeddedFilesDict);
+            
+            if (embeddedFilesRef) {
+              const namesArray = embeddedFilesRef.get(PDFName.of('Names'));
+              
+              if (namesArray) {
+                const namesArrayRef = pdfDoc.context.lookup(namesArray);
+                
+                if (namesArrayRef && Array.isArray(namesArrayRef.asArray())) {
+                  const entries = namesArrayRef.asArray();
+                  
+                  // Create new array without removed attachments
+                  const newEntries = [];
+                  let currentIndex = 0;
+                  
+                  for (let j = 0; j < entries.length; j += 2) {
+                    if (j + 1 >= entries.length) break;
+                    
+                    // If this attachment is NOT in the removal list, keep it
+                    if (!attachmentIndicesToRemove.includes(currentIndex)) {
+                      newEntries.push(entries[j]);
+                      newEntries.push(entries[j + 1]);
+                    }
+                    
+                    currentIndex++;
+                  }
+                  
+                  // Create new PDFArray with remaining attachments
+                  const newNamesArray = PDFArray.withContext(pdfDoc.context);
+                  newEntries.forEach(entry => newNamesArray.push(entry));
+                  
+                  // Update the Names array
+                  embeddedFilesRef.set(PDFName.of('Names'), newNamesArray);
+                  
+                  // If all attachments removed, we could remove the entire EmbeddedFiles entry
+                  if (newEntries.length === 0) {
+                    namesRef.delete(PDFName.of('EmbeddedFiles'));
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Save the modified PDF
+    const modifiedPdfBytes = await pdfDoc.save();
+
+    // Download the file
+    const originalName = file.name.replace(/\.pdf$/i, '');
+    downloadFile(
+      new Blob([modifiedPdfBytes], { type: 'application/pdf' }),
+      `${originalName}_edited.pdf`
+    );
+
+    hideLoader();
+    showAlert(
+      'Success',
+      `${attachmentIndicesToRemove.length} attachment(s) removed successfully!`,
+      'success'
+    );
+
+    return true;
+  } catch (error: any) {
+    console.error('Error removing attachments:', error);
+    hideLoader();
+    showAlert('Error', `Failed to remove attachments: ${error.message}`);
+    return false;
+  }
+}
 
 function resetState() {
   pageState.file = null;
@@ -33,43 +258,6 @@ function resetState() {
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   if (fileInput) fileInput.value = '';
 }
-
-worker.onmessage = function (e) {
-  const data = e.data;
-
-  if (data.status === 'success' && data.attachments !== undefined) {
-    pageState.allAttachments = data.attachments.map(function (att: any) {
-      return {
-        ...att,
-        data: new Uint8Array(att.data),
-      };
-    });
-
-    displayAttachments(data.attachments);
-    hideLoader();
-  } else if (data.status === 'success' && data.modifiedPDF !== undefined) {
-    hideLoader();
-
-    const originalName = pageState.file?.name.replace(/\.pdf$/i, '') || 'document';
-    downloadFile(
-      new Blob([new Uint8Array(data.modifiedPDF)], { type: 'application/pdf' }),
-      `${originalName}_edited.pdf`
-    );
-
-    showAlert('Success', 'Attachments updated successfully!', 'success', function () {
-      resetState();
-    });
-  } else if (data.status === 'error') {
-    hideLoader();
-    showAlert('Error', data.message || 'Unknown error occurred.');
-  }
-};
-
-worker.onerror = function (error) {
-  hideLoader();
-  console.error('Worker error:', error);
-  showAlert('Error', 'Worker error occurred. Check console for details.');
-};
 
 function displayAttachments(attachments: AttachmentInfo[]) {
   const attachmentsList = document.getElementById('attachments-list');
@@ -198,31 +386,9 @@ function displayAttachments(attachments: AttachmentInfo[]) {
 async function loadAttachments() {
   if (!pageState.file) return;
 
-  showLoader('Loading attachments...');
-
-  // Check if CPDF is configured
-  if (!isCpdfAvailable()) {
-    showWasmRequiredDialog('cpdf');
-    hideLoader();
-    return;
-  }
-
-  try {
-    const fileBuffer = await pageState.file.arrayBuffer();
-
-    const message = {
-      command: 'get-attachments',
-      fileBuffer: fileBuffer,
-      fileName: pageState.file.name,
-      cpdfUrl: WasmProvider.getUrl('cpdf')! + 'coherentpdf.browser.min.js',
-    };
-
-    worker.postMessage(message, [fileBuffer]);
-  } catch (error) {
-    console.error('Error loading attachments:', error);
-    hideLoader();
-    showAlert('Error', 'Failed to load attachments from PDF.');
-  }
+  const attachments = await listAttachmentsFromPdf();
+  pageState.allAttachments = attachments;
+  displayAttachments(attachments);
 }
 
 async function saveChanges() {
@@ -236,31 +402,11 @@ async function saveChanges() {
     return;
   }
 
-  showLoader('Processing attachments...');
-
-  // Check if CPDF is configured (double check)
-  if (!isCpdfAvailable()) {
-    showWasmRequiredDialog('cpdf');
-    hideLoader();
-    return;
-  }
-
-  try {
-    const fileBuffer = await pageState.file.arrayBuffer();
-
-    const message = {
-      command: 'edit-attachments',
-      fileBuffer: fileBuffer,
-      fileName: pageState.file.name,
-      attachmentsToRemove: Array.from(pageState.attachmentsToRemove),
-      cpdfUrl: WasmProvider.getUrl('cpdf')! + 'coherentpdf.browser.min.js',
-    };
-
-    worker.postMessage(message, [fileBuffer]);
-  } catch (error) {
-    console.error('Error editing attachments:', error);
-    hideLoader();
-    showAlert('Error', 'Failed to edit attachments.');
+  const indicesToRemove = Array.from(pageState.attachmentsToRemove);
+  const success = await removeAttachmentsFromPdf(indicesToRemove);
+  
+  if (success) {
+    resetState();
   }
 }
 
@@ -326,7 +472,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (backBtn) {
     backBtn.addEventListener('click', function () {
-      window.location.href = import.meta.env.BASE_URL;
+      window.location.href = '/';
     });
   }
 

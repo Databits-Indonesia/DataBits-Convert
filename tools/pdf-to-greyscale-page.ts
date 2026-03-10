@@ -1,14 +1,10 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import {
-  downloadFile,
-  formatBytes,
-  readFileAsArrayBuffer,
-  getPDFDocument,
-} from '../utils/helpers.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile, formatBytes } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument } from 'pdf-lib';
-import { applyGreyscale } from '../utils/image-effects';
+import { toGreyscale } from '../utils/image-effects';
 import * as pdfjsLib from 'pdfjs-dist';
+import { getFiles } from '../state';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -16,6 +12,87 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 ).toString();
 
 let files: File[] = [];
+
+// Main function to convert to greyscale - exported for use in App.tsx
+export async function convertPdfToGreyscale(): Promise<boolean> {
+  const stateFiles = getFiles();
+  
+  if (stateFiles.length === 0) {
+    showAlert('No File', 'Please upload a PDF file first.');
+    return false;
+  }
+
+  showLoader('Converting to greyscale...');
+
+  try {
+    const file = stateFiles[0];
+    const arrayBuffer = await file.arrayBuffer();
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    const pdfjsDoc = await loadingTask.promise;
+    const newPdfDoc = await PDFDocument.create();
+
+    for (let i = 1; i <= pdfjsDoc.numPages; i++) {
+      showLoader(`Processing page ${i} of ${pdfjsDoc.numPages}...`);
+      
+      const page = await pdfjsDoc.getPage(i);
+      const viewport = page.getViewport({ scale: 2.0 });
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+
+      await page.render({ canvasContext: context!, viewport: viewport }).promise;
+
+      const imageData = context!.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
+      const greyImageData = toGreyscale(imageData);
+      context!.putImageData(greyImageData, 0, 0);
+
+      const jpegBlob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, 'image/jpeg', 0.9)
+      );
+
+      if (jpegBlob) {
+        const jpegBytes = await jpegBlob.arrayBuffer();
+        const jpegImage = await newPdfDoc.embedJpg(jpegBytes);
+        const newPage = newPdfDoc.addPage([viewport.width, viewport.height]);
+        newPage.drawImage(jpegImage, {
+          x: 0,
+          y: 0,
+          width: viewport.width,
+          height: viewport.height,
+        });
+      }
+    }
+
+    const resultBytes = await newPdfDoc.save();
+    const originalName = file.name.replace(/\.pdf$/i, '');
+    downloadFile(
+      new Blob([new Uint8Array(resultBytes)], { type: 'application/pdf' }),
+      `${originalName}_greyscale.pdf`
+    );
+    
+    hideLoader();
+    showAlert(
+      'Success',
+      'PDF converted to greyscale successfully!',
+      'success'
+    );
+    return true;
+  } catch (e: any) {
+    console.error(e);
+    hideLoader();
+    showAlert(
+      'Error',
+      e.message || 'Failed to convert PDF to greyscale. The file might be corrupted.'
+    );
+    return false;
+  }
+}
 
 const updateUI = () => {
   const fileDisplayArea = document.getElementById('file-display-area');
@@ -61,9 +138,10 @@ const updateUI = () => {
       fileDisplayArea.appendChild(fileDiv);
 
       // Fetch page count asynchronously
-      readFileAsArrayBuffer(file)
+      file.arrayBuffer()
         .then((buffer) => {
-          return getPDFDocument(buffer).promise;
+          const loadingTask = pdfjsLib.getDocument({ data: buffer });
+          return loadingTask.promise;
         })
         .then((pdf) => {
           metaSpan.textContent = `${formatBytes(file.size)} • ${pdf.numPages} page${pdf.numPages !== 1 ? 's' : ''}`;
@@ -93,73 +171,11 @@ async function convert() {
     showAlert('No File', 'Please upload a PDF file first.');
     return;
   }
-  showLoader('Converting to greyscale...');
-  try {
-    const pdfBytes = (await readFileAsArrayBuffer(files[0])) as ArrayBuffer;
-    const pdfDoc = await PDFDocument.load(pdfBytes);
-    const pages = pdfDoc.getPages();
-
-    const pdfjsDoc = await getPDFDocument({ data: pdfBytes }).promise;
-    const newPdfDoc = await PDFDocument.create();
-
-    for (let i = 1; i <= pdfjsDoc.numPages; i++) {
-      const page = await pdfjsDoc.getPage(i);
-      const viewport = page.getViewport({ scale: 2.0 });
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
-
-      await page.render({ canvasContext: context!, viewport: viewport, canvas })
-        .promise;
-
-      const imageData = context!.getImageData(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-      );
-      applyGreyscale(imageData);
-      context!.putImageData(imageData, 0, 0);
-
-      const jpegBlob = await new Promise<Blob | null>((resolve) =>
-        canvas.toBlob(resolve, 'image/jpeg', 0.9)
-      );
-
-      if (jpegBlob) {
-        const jpegBytes = await jpegBlob.arrayBuffer();
-        const jpegImage = await newPdfDoc.embedJpg(jpegBytes);
-        const newPage = newPdfDoc.addPage([viewport.width, viewport.height]);
-        newPage.drawImage(jpegImage, {
-          x: 0,
-          y: 0,
-          width: viewport.width,
-          height: viewport.height,
-        });
-      }
-    }
-
-    const resultBytes = await newPdfDoc.save();
-    downloadFile(
-      new Blob([new Uint8Array(resultBytes)], { type: 'application/pdf' }),
-      'greyscale.pdf'
-    );
-    showAlert(
-      'Success',
-      'PDF converted to greyscale successfully!',
-      'success',
-      () => {
-        resetState();
-      }
-    );
-  } catch (e) {
-    console.error(e);
-    showAlert(
-      'Error',
-      'Failed to convert PDF to greyscale. The file might be corrupted.'
-    );
-  } finally {
-    hideLoader();
+  
+  const success = await convertPdfToGreyscale();
+  
+  if (success) {
+    resetState();
   }
 }
 
@@ -171,7 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (backBtn) {
     backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
+      window.location.href = '/';
     });
   }
 

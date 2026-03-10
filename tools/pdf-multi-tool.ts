@@ -164,7 +164,7 @@ function initializeTool() {
   initializeGlobalShortcuts();
 
   document.getElementById('close-tool-btn')?.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL;
+    window.location.href = (process.env.BASE_URL || '/');
   });
 
   document.getElementById('upload-pdfs-btn')?.addEventListener('click', () => {

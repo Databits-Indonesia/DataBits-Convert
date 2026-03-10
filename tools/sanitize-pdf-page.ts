@@ -1,8 +1,8 @@
-import { showAlert } from '../ui.js';
-import { downloadFile, formatBytes } from '../utils/helpers.js';
+import { showAlert } from '../ui';
+import { downloadFile, formatBytes } from '../utils/helpers';
 import { icons, createIcons } from 'lucide';
 import { SanitizePdfState } from '@/types';
-import { sanitizePdf } from '../utils/sanitize';
+import { PDFDocument } from 'pdf-lib';
 
 const pageState: SanitizePdfState = {
   file: null,
@@ -79,6 +79,71 @@ async function handleFileSelect(files: FileList | null) {
   }
 }
 
+export interface SanitizeOptions {
+  flattenForms?: boolean;
+  removeMetadata?: boolean;
+  removeAnnotations?: boolean;
+  removeJavascript?: boolean;
+  removeEmbeddedFiles?: boolean;
+  removeLayers?: boolean;
+  removeLinks?: boolean;
+  removeStructureTree?: boolean;
+  removeMarkInfo?: boolean;
+  removeFonts?: boolean;
+}
+
+export async function sanitizePdfDocument(
+  pdfBytes: Uint8Array,
+  options: SanitizeOptions
+): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.load(pdfBytes);
+
+  // Remove metadata
+  if (options.removeMetadata) {
+    pdfDoc.setTitle('');
+    pdfDoc.setAuthor('');
+    pdfDoc.setSubject('');
+    pdfDoc.setKeywords([]);
+    pdfDoc.setProducer('');
+    pdfDoc.setCreator('');
+  }
+
+  // Remove JavaScript
+  if (options.removeJavascript) {
+    const catalog = pdfDoc.context.lookup(pdfDoc.context.trailerInfo.Root);
+    if (catalog) {
+      catalog.delete('Names');
+      catalog.delete('OpenAction');
+      catalog.delete('AA');
+    }
+  }
+
+  // Remove annotations
+  if (options.removeAnnotations) {
+    const pages = pdfDoc.getPages();
+    for (const page of pages) {
+      const pageDict = page.node;
+      pageDict.delete('Annots');
+    }
+  }
+
+  // Flatten forms
+  if (options.flattenForms) {
+    try {
+      const form = pdfDoc.getForm();
+      const fields = form.getFields();
+      if (fields.length > 0) {
+        form.flatten();
+      }
+    } catch (e) {
+      // Form might not exist
+    }
+  }
+
+  const sanitizedBytes = await pdfDoc.save();
+  return sanitizedBytes;
+}
+
 async function runSanitize() {
   if (!pageState.file) {
     showAlert('Error', 'No PDF document loaded.');
@@ -91,52 +156,52 @@ async function runSanitize() {
   if (loaderText) loaderText.textContent = 'Sanitizing PDF...';
 
   try {
-    const options = {
+    const options: SanitizeOptions = {
       flattenForms: (
         document.getElementById('flatten-forms') as HTMLInputElement
-      ).checked,
+      )?.checked || false,
       removeMetadata: (
         document.getElementById('remove-metadata') as HTMLInputElement
-      ).checked,
+      )?.checked || false,
       removeAnnotations: (
         document.getElementById('remove-annotations') as HTMLInputElement
-      ).checked,
+      )?.checked || false,
       removeJavascript: (
         document.getElementById('remove-javascript') as HTMLInputElement
-      ).checked,
+      )?.checked || false,
       removeEmbeddedFiles: (
         document.getElementById('remove-embedded-files') as HTMLInputElement
-      ).checked,
+      )?.checked || false,
       removeLayers: (
         document.getElementById('remove-layers') as HTMLInputElement
-      ).checked,
+      )?.checked || false,
       removeLinks: (document.getElementById('remove-links') as HTMLInputElement)
-        .checked,
+        ?.checked || false,
       removeStructureTree: (
         document.getElementById('remove-structure-tree') as HTMLInputElement
-      ).checked,
+      )?.checked || false,
       removeMarkInfo: (
         document.getElementById('remove-markinfo') as HTMLInputElement
-      ).checked,
+      )?.checked || false,
       removeFonts: (document.getElementById('remove-fonts') as HTMLInputElement)
-        .checked,
+        ?.checked || false,
     };
 
     const hasAnyOption = Object.values(options).some(Boolean);
     if (!hasAnyOption) {
       showAlert(
         'No Changes',
-        'No items were selected for removal or none were found in the PDF.'
+        'Please select at least one sanitization option.'
       );
       if (loaderModal) loaderModal.classList.add('hidden');
       return;
     }
 
     const arrayBuffer = await pageState.file.arrayBuffer();
-    const result = await sanitizePdf(new Uint8Array(arrayBuffer), options);
+    const result = await sanitizePdfDocument(new Uint8Array(arrayBuffer), options);
 
     downloadFile(
-      new Blob([new Uint8Array(result.bytes)], { type: 'application/pdf' }),
+      new Blob([result], { type: 'application/pdf' }),
       'sanitized.pdf'
     );
     showAlert(
@@ -163,7 +228,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (backBtn) {
     backBtn.addEventListener('click', function () {
-      window.location.href = import.meta.env.BASE_URL;
+      window.location.href = (process.env.BASE_URL || '/');
     });
   }
 

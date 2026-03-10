@@ -1,291 +1,251 @@
-import { formatBytes, readFileAsArrayBuffer, getPDFDocument } from '../utils/helpers'
-import { initializeGlobalShortcuts } from '../utils/shortcuts-init'
-import { createIcons, icons } from 'lucide'
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { getFiles } from '../state';
+import { readFileAsArrayBuffer, downloadFile } from '../utils/helpers';
+import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib';
 
-let selectedFile: File | null = null
-let viewerIframe: HTMLIFrameElement | null = null
-let viewerReady = false
-let currentBlobUrl: string | null = null
+type StampType = 'approved' | 'confidential' | 'draft' | 'final' | 'reviewed' | 'void' | 'custom';
 
-const pdfInput = document.getElementById('pdfFile') as HTMLInputElement
-const fileListDiv = document.getElementById('fileList') as HTMLDivElement
-const viewerContainer = document.getElementById('stamp-viewer-container') as HTMLDivElement
-const viewerCard = document.getElementById('viewer-card') as HTMLDivElement | null
-const saveStampedBtn = document.getElementById('save-stamped-btn') as HTMLButtonElement
-const backToToolsBtn = document.getElementById('back-to-tools') as HTMLButtonElement | null
-const toolUploader = document.getElementById('tool-uploader') as HTMLDivElement | null
-const usernameInput = document.getElementById('stamp-username') as HTMLInputElement | null
-
-function resetState() {
-  selectedFile = null
-  if (currentBlobUrl) {
-    URL.revokeObjectURL(currentBlobUrl)
-    currentBlobUrl = null
-  }
-  if (viewerIframe && viewerContainer && viewerIframe.parentElement === viewerContainer) {
-    viewerContainer.removeChild(viewerIframe)
-  }
-  viewerIframe = null
-  viewerReady = false
-  if (viewerCard) viewerCard.classList.add('hidden')
-  if (saveStampedBtn) saveStampedBtn.classList.add('hidden')
-
-  if (viewerContainer) {
-    viewerContainer.style.height = ''
-    viewerContainer.style.aspectRatio = ''
-  }
-
-  const isFullWidth = localStorage.getItem('fullWidthMode') !== 'false'
-  if (toolUploader && !isFullWidth) {
-    toolUploader.classList.remove('max-w-6xl')
-    toolUploader.classList.add('max-w-2xl')
-  }
-
-  updateFileList()
-  if (pdfInput) pdfInput.value = ''
+interface StampOptions {
+  type: StampType;
+  customText?: string;
+  position: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left' | 'center';
+  pages: 'all' | 'first' | 'last' | string; // string for custom range like "1,3,5" or "1-5"
+  opacity: number;
+  fontSize: number;
+  color: { r: number; g: number; b: number };
 }
 
-function updateFileList() {
-  if (!selectedFile) {
-    fileListDiv.classList.add('hidden')
-    fileListDiv.innerHTML = ''
-    return
-  }
+const stampTemplates: Record<StampType, { text: string; color: { r: number; g: number; b: number } }> = {
+  approved: { text: 'APPROVED', color: { r: 0.0, g: 0.5, b: 0.0 } },
+  confidential: { text: 'CONFIDENTIAL', color: { r: 0.8, g: 0.0, b: 0.0 } },
+  draft: { text: 'DRAFT', color: { r: 0.5, g: 0.5, b: 0.5 } },
+  final: { text: 'FINAL', color: { r: 0.0, g: 0.0, b: 0.8 } },
+  reviewed: { text: 'REVIEWED', color: { r: 0.4, g: 0.0, b: 0.6 } },
+  void: { text: 'VOID', color: { r: 0.7, g: 0.0, b: 0.0 } },
+  custom: { text: 'CUSTOM', color: { r: 0.0, g: 0.0, b: 0.0 } }
+};
 
-  fileListDiv.classList.remove('hidden')
-  fileListDiv.innerHTML = ''
-
-  // Expand container width for viewer if NOT in full width mode (default to true if not set)
-  const isFullWidth = localStorage.getItem('fullWidthMode') !== 'false'
-  if (toolUploader && !isFullWidth) {
-    toolUploader.classList.remove('max-w-2xl')
-    toolUploader.classList.add('max-w-6xl')
-  }
-
-  const wrapper = document.createElement('div')
-  wrapper.className = 'bg-gray-700 p-3 rounded-lg border border-gray-600 hover:border-indigo-500 transition-colors'
-
-  const innerDiv = document.createElement('div')
-  innerDiv.className = 'flex items-center justify-between'
-
-  const infoDiv = document.createElement('div')
-  infoDiv.className = 'flex-1 min-w-0'
-
-  const nameSpan = document.createElement('p')
-  nameSpan.className = 'truncate font-medium text-white'
-  nameSpan.textContent = selectedFile.name
-
-  const sizeSpan = document.createElement('p')
-  sizeSpan.className = 'text-gray-400 text-sm'
-  sizeSpan.textContent = formatBytes(selectedFile.size)
-
-  infoDiv.append(nameSpan, sizeSpan)
-
-  const deleteBtn = document.createElement('button')
-  deleteBtn.className = 'text-red-400 hover:text-red-300 p-2 flex-shrink-0 ml-2'
-  deleteBtn.title = 'Remove file'
-  deleteBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>'
-  deleteBtn.onclick = (e) => {
-    e.stopPropagation()
-    resetState()
-  }
-
-  innerDiv.append(infoDiv, deleteBtn)
-  wrapper.appendChild(innerDiv)
-  fileListDiv.appendChild(wrapper)
-
-  createIcons({ icons })
-}
-
-async function adjustViewerHeight(file: File) {
-  if (!viewerContainer) return
-  try {
-    const arrayBuffer = await file.arrayBuffer()
-    const loadingTask = getPDFDocument({ data: arrayBuffer })
-    const pdf = await loadingTask.promise
-    const page = await pdf.getPage(1)
-    const viewport = page.getViewport({ scale: 1 })
-
-    // Add ~50px for toolbar height relative to page height
-    const aspectRatio = viewport.width / (viewport.height + 50)
-
-    viewerContainer.style.height = 'auto'
-    viewerContainer.style.aspectRatio = `${aspectRatio}`
-  } catch (e) {
-    console.error('Error adjusting viewer height:', e)
-    // Fallback if calculation fails
-    viewerContainer.style.height = '70vh'
-  }
-}
-
-async function loadPdfInViewer(file: File) {
-  if (!viewerContainer) return
-
-  if (viewerCard) {
-    viewerCard.classList.remove('hidden')
-  }
-
-  // Clear existing iframe and blob URL
-  if (viewerIframe && viewerIframe.parentElement === viewerContainer) {
-    viewerContainer.removeChild(viewerIframe)
-  }
-  if (currentBlobUrl) {
-    URL.revokeObjectURL(currentBlobUrl)
-    currentBlobUrl = null
-  }
-  viewerIframe = null
-  viewerReady = false
-
-  // Calculate and apply dynamic height
-  await adjustViewerHeight(file)
-
-  const arrayBuffer = await readFileAsArrayBuffer(file)
-  const blob = new Blob([arrayBuffer as BlobPart], { type: 'application/pdf' })
-  currentBlobUrl = URL.createObjectURL(blob)
-
-  try {
-    const existingPrefsRaw = localStorage.getItem('pdfjs.preferences')
-    const existingPrefs = existingPrefsRaw ? JSON.parse(existingPrefsRaw) : {}
-    delete (existingPrefs as any).annotationEditorMode
-    const newPrefs = {
-      ...existingPrefs,
-      enablePermissions: false,
+function parsePageRange(range: string, totalPages: number): number[] {
+  const pages: number[] = [];
+  
+  if (range === 'all') {
+    for (let i = 0; i < totalPages; i++) {
+      pages.push(i);
     }
-    localStorage.setItem('pdfjs.preferences', JSON.stringify(newPrefs))
-  } catch { }
-
-  const iframe = document.createElement('iframe')
-  iframe.className = 'w-full h-full border-0'
-  iframe.allowFullscreen = true
-
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
-  const viewerUrl = new URL('pdfjs-annotation-viewer/web/viewer.html', baseUrl)
-  const stampUserName = usernameInput?.value?.trim() || ''
-  // ae_username is the hash parameter used by pdfjs-annotation-extension to set the username
-  const hashParams = stampUserName ? `#ae_username=${encodeURIComponent(stampUserName)}` : ''
-  iframe.src = `${viewerUrl.toString()}?file=${encodeURIComponent(currentBlobUrl)}${hashParams}`
-
-  iframe.addEventListener('load', () => {
-    setupAnnotationViewer(iframe)
-  })
-
-  viewerContainer.appendChild(iframe)
-  viewerIframe = iframe
-}
-
-function setupAnnotationViewer(iframe: HTMLIFrameElement) {
-  try {
-    const win = iframe.contentWindow as any
-    const doc = win?.document as Document | null
-    if (!win || !doc) return
-
-    const initialize = async () => {
-      try {
-        const app = win.PDFViewerApplication
-        if (app?.initializedPromise) {
-          await app.initializedPromise
+  } else if (range === 'first') {
+    pages.push(0);
+  } else if (range === 'last') {
+    pages.push(totalPages - 1);
+  } else {
+    // Parse custom range like "1,3,5" or "1-5"
+    const parts = range.split(',');
+    for (const part of parts) {
+      if (part.includes('-')) {
+        const [start, end] = part.split('-').map(s => parseInt(s.trim(), 10));
+        for (let i = start; i <= end; i++) {
+          if (i > 0 && i <= totalPages) {
+            pages.push(i - 1); // Convert to 0-based index
+          }
         }
-
-        const eventBus = app?.eventBus
-        if (eventBus && typeof eventBus._on === 'function') {
-          eventBus._on('annotationeditoruimanager', () => {
-            try {
-              const stampBtn = doc.getElementById('editorStampButton') as HTMLButtonElement | null
-              stampBtn?.click()
-            } catch { }
-          })
+      } else {
+        const pageNum = parseInt(part.trim(), 10);
+        if (pageNum > 0 && pageNum <= totalPages) {
+          pages.push(pageNum - 1); // Convert to 0-based index
         }
-
-        const root = doc.querySelector('.PdfjsAnnotationExtension') as HTMLElement | null
-        if (root) {
-          root.classList.add('PdfjsAnnotationExtension_Comment_hidden')
-        }
-
-        viewerReady = true
-      } catch (e) {
-        console.error('Failed to initialize annotation viewer for Add Stamps:', e)
       }
     }
+  }
+  
+  return [...new Set(pages)]; // Remove duplicates
+}
 
-    void initialize()
-  } catch (e) {
-    console.error('Error wiring Add Stamps viewer:', e)
+function getStampPosition(
+  position: StampOptions['position'],
+  pageWidth: number,
+  pageHeight: number,
+  textWidth: number,
+  textHeight: number
+): { x: number; y: number; rotation: number } {
+  const margin = 50;
+  
+  switch (position) {
+    case 'top-right':
+      return {
+        x: pageWidth - textWidth - margin,
+        y: pageHeight - textHeight - margin,
+        rotation: 0
+      };
+    case 'top-left':
+      return {
+        x: margin,
+        y: pageHeight - textHeight - margin,
+        rotation: 0
+      };
+    case 'bottom-right':
+      return {
+        x: pageWidth - textWidth - margin,
+        y: margin,
+        rotation: 0
+      };
+    case 'bottom-left':
+      return {
+        x: margin,
+        y: margin,
+        rotation: 0
+      };
+    case 'center':
+      return {
+        x: (pageWidth - textWidth) / 2,
+        y: (pageHeight - textHeight) / 2,
+        rotation: -45 // Diagonal for center stamps
+      };
+    default:
+      return {
+        x: pageWidth - textWidth - margin,
+        y: pageHeight - textHeight - margin,
+        rotation: 0
+      };
   }
 }
 
-async function onPdfSelected(file: File) {
-  selectedFile = file
-  updateFileList()
-  if (saveStampedBtn) saveStampedBtn.classList.remove('hidden')
-  await loadPdfInViewer(file)
-}
+export async function addStampsToPdf() {
+  const files = getFiles();
+  
+  if (files.length === 0) {
+    showAlert('No File', 'Please upload a PDF file first.');
+    return;
+  }
 
-if (pdfInput) {
-  pdfInput.addEventListener('change', async (e) => {
-    const target = e.target as HTMLInputElement
-    if (target.files && target.files.length > 0) {
-      const file = target.files[0]
-      await onPdfSelected(file)
+  showLoader('Adding stamps to PDF...');
+
+  try {
+    // Get stamp options from UI
+    const stampTypeSelect = document.getElementById('stamp-type') as HTMLSelectElement;
+    const customTextInput = document.getElementById('stamp-custom-text') as HTMLInputElement;
+    const positionSelect = document.getElementById('stamp-position') as HTMLSelectElement;
+    const pagesSelect = document.getElementById('stamp-pages') as HTMLSelectElement;
+    const customPagesInput = document.getElementById('stamp-custom-pages') as HTMLInputElement;
+    const opacityInput = document.getElementById('stamp-opacity') as HTMLInputElement;
+    const fontSizeInput = document.getElementById('stamp-font-size') as HTMLInputElement;
+    const colorInput = document.getElementById('stamp-color') as HTMLInputElement;
+
+    const stampType = (stampTypeSelect?.value || 'approved') as StampType;
+    const customText = customTextInput?.value || '';
+    const position = (positionSelect?.value || 'top-right') as StampOptions['position'];
+    const pagesValue = pagesSelect?.value || 'all';
+    const customPages = customPagesInput?.value || '';
+    const opacity = parseFloat(opacityInput?.value || '0.5');
+    const fontSize = parseInt(fontSizeInput?.value || '36', 10);
+    const colorHex = colorInput?.value || '#FF0000';
+
+    // Parse color from hex
+    const colorRgb = {
+      r: parseInt(colorHex.slice(1, 3), 16) / 255,
+      g: parseInt(colorHex.slice(3, 5), 16) / 255,
+      b: parseInt(colorHex.slice(5, 7), 16) / 255
+    };
+
+    const options: StampOptions = {
+      type: stampType,
+      customText: stampType === 'custom' ? customText : undefined,
+      position,
+      pages: pagesValue === 'custom' ? customPages : pagesValue,
+      opacity,
+      fontSize,
+      color: colorRgb
+    };
+
+    // Validate custom text
+    if (stampType === 'custom' && !customText.trim()) {
+      hideLoader();
+      showAlert('Invalid Input', 'Please enter custom stamp text.');
+      return;
     }
-  })
-}
 
-// Add drag/drop support
-const dropZone = document.getElementById('drop-zone')
-if (dropZone) {
-  dropZone.addEventListener('dragover', (e) => {
-    e.preventDefault()
-    dropZone.classList.add('border-indigo-500')
-  })
-  dropZone.addEventListener('dragleave', () => {
-    dropZone.classList.remove('border-indigo-500')
-  })
-  dropZone.addEventListener('drop', async (e) => {
-    e.preventDefault()
-    dropZone.classList.remove('border-indigo-500')
-    const file = e.dataTransfer?.files[0]
-    if (file && file.type === 'application/pdf') {
-      await onPdfSelected(file)
-    }
-  })
-}
-
-if (saveStampedBtn) {
-  saveStampedBtn.addEventListener('click', () => {
-    if (!viewerIframe) {
-      alert('Viewer not ready. Please upload a PDF and wait for it to finish loading.')
-      return
+    // Validate custom pages
+    if (pagesValue === 'custom' && !customPages.trim()) {
+      hideLoader();
+      showAlert('Invalid Input', 'Please enter page numbers (e.g., 1,3,5 or 1-5).');
+      return;
     }
 
-    try {
-      const win = viewerIframe.contentWindow as any
-      const extensionInstance = win?.pdfjsAnnotationExtensionInstance as any
+    const file = files[0];
+    const arrayBuffer = await readFileAsArrayBuffer(file);
+    
+    // Load PDF
+    const pdfDoc = await PDFDocument.load(arrayBuffer);
+    const pages = pdfDoc.getPages();
+    const totalPages = pages.length;
 
-      if (extensionInstance && typeof extensionInstance.exportPdf === 'function') {
-        const result = extensionInstance.exportPdf()
-        if (result && typeof result.then === 'function') {
-          result.then(() => {
-            // Reset state after successful export
-            setTimeout(() => resetState(), 500)
-          }).catch((err: unknown) => {
-            console.error('Error while exporting stamped PDF via annotation extension:', err)
-          })
-        }
-        return
-      }
+    // Get stamp text and color
+    const template = stampTemplates[stampType];
+    const stampText = stampType === 'custom' ? customText : template.text;
+    const stampColor = stampType === 'custom' ? options.color : template.color;
 
-      alert('Could not access the stamped-PDF exporter. Please use the Export → PDF button in the viewer toolbar as a fallback.')
-    } catch (e) {
-      console.error('Failed to trigger stamped PDF export:', e)
-      alert('Could not export the stamped PDF. Please use the Export → PDF button in the viewer toolbar as a fallback.')
+    // Parse which pages to stamp
+    const pagesToStamp = parsePageRange(options.pages, totalPages);
+
+    if (pagesToStamp.length === 0) {
+      hideLoader();
+      showAlert('Invalid Pages', 'No valid pages found to stamp.');
+      return;
     }
-  })
-}
 
-if (backToToolsBtn) {
-  backToToolsBtn.addEventListener('click', () => {
-    window.location.href = '/'
-  })
-}
+    // Embed font
+    const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-initializeGlobalShortcuts()
+    // Add stamp to each selected page
+    for (const pageIndex of pagesToStamp) {
+      const page = pages[pageIndex];
+      const { width, height } = page.getSize();
+      
+      // Measure text
+      const textWidth = font.widthOfTextAtSize(stampText, fontSize);
+      const textHeight = fontSize;
+
+      // Get position
+      const { x, y, rotation } = getStampPosition(
+        options.position,
+        width,
+        height,
+        textWidth,
+        textHeight
+      );
+
+      // Draw stamp
+      page.drawText(stampText, {
+        x,
+        y,
+        size: fontSize,
+        font,
+        color: rgb(stampColor.r, stampColor.g, stampColor.b),
+        opacity: options.opacity,
+        rotate: degrees(rotation)
+      });
+    }
+
+    // Save stamped PDF
+    const stampedPdfBytes = await pdfDoc.save();
+    const blob = new Blob([new Uint8Array(stampedPdfBytes)], { type: 'application/pdf' });
+    
+    const originalName = file.name.replace(/\.pdf$/i, '');
+    const stampedName = `${originalName}_stamped.pdf`;
+    
+    downloadFile(blob, stampedName);
+    
+    hideLoader();
+    showAlert(
+      'Success',
+      `Stamp added successfully to ${pagesToStamp.length} page${pagesToStamp.length > 1 ? 's' : ''}!`,
+      'success'
+    );
+    
+  } catch (error: any) {
+    console.error('[AddStamps] Error:', error);
+    hideLoader();
+    showAlert(
+      'Error',
+      `Failed to add stamps: ${error.message}`
+    );
+  }
+}

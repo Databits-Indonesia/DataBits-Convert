@@ -1,5 +1,5 @@
-import { showAlert } from '../ui.js';
-import { formatBytes, getStandardPageName, convertPoints } from '../utils/helpers.js';
+import { showAlert } from '../ui';
+import { formatBytes, getStandardPageName, convertPoints } from '../utils/helpers';
 import { PDFDocument } from 'pdf-lib';
 import { icons, createIcons } from 'lucide';
 import { PageDimensionsState } from '@/types';
@@ -323,7 +323,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (backBtn) {
         backBtn.addEventListener('click', function () {
-            window.location.href = import.meta.env.BASE_URL;
+            window.location.href = (process.env.BASE_URL || '/');
         });
     }
 

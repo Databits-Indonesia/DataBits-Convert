@@ -1,8 +1,8 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { downloadFile, formatBytes } from '../utils/helpers.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile, formatBytes } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import JSZip from 'jszip';
-import { isWasmAvailable, getWasmBaseUrl } from '../config/wasm-cdn-config.js';
+import { isWasmAvailable, getWasmBaseUrl } from '../config/wasm-cdn-config';
 import { showWasmRequiredDialog } from '../utils/wasm-provider';
 import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';
 let file: File | null = null;
@@ -209,7 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (backBtn) {
     backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
+      window.location.href = (process.env.BASE_URL || '/');
     });
   }
 

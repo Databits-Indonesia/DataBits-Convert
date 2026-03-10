@@ -1,6 +1,6 @@
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui.js';
-import { downloadFile, hexToRgb, formatBytes } from '../utils/helpers.js';
+import { showAlert, showLoader, hideLoader } from '../ui';
+import { downloadFile, hexToRgb, formatBytes } from '../utils/helpers';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import JSZip from 'jszip';
 import Sortable from 'sortablejs';
@@ -100,7 +100,7 @@ function initializePage() {
 
   if (backBtn) {
     backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
+      window.location.href = (process.env.BASE_URL || '/');
     });
   }
 

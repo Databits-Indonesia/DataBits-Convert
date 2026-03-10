@@ -1,11 +1,11 @@
 import { createIcons, icons } from 'lucide';
-import { showLoader, hideLoader, showAlert } from '../ui.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
 import {
   downloadFile,
   readFileAsArrayBuffer,
   formatBytes,
   getPDFDocument,
-} from '../utils/helpers.js';
+} from '../utils/helpers';
 import Cropper from 'cropperjs';
 import * as pdfjsLib from 'pdfjs-dist';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
@@ -60,7 +60,7 @@ function initializePage() {
   }
 
   document.getElementById('back-to-tools')?.addEventListener('click', () => {
-    window.location.href = import.meta.env.BASE_URL;
+    window.location.href = (process.env.BASE_URL || '/');
   });
 
   document

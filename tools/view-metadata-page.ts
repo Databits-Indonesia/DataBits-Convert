@@ -1,5 +1,5 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import { formatBytes, formatIsoDate, getPDFDocument } from '../utils/helpers.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { formatBytes, formatIsoDate, getPDFDocument } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import { ViewMetadataState } from '@/types';
 
@@ -314,7 +314,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (backBtn) {
         backBtn.addEventListener('click', function () {
-            window.location.href = import.meta.env.BASE_URL;
+            window.location.href = (process.env.BASE_URL || '/');
         });
     }
 

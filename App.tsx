@@ -40,6 +40,19 @@ import {
   setupPdfToJpgTool,
   pdfToPng,
   setupPdfToPngTool,
+  pdfToBmp,
+  pdfToWebp,
+  pdfToSvg,
+  pdfToTiff,
+  pdfToText,
+  pdfToExcel,
+  pdfToCsv,
+  pdfToJson,
+  pdfToMarkdown,
+  pdfToZip,
+  validateSignaturePdf,
+  addStampsToPdf,
+  addWatermarkToPdf,
   setupEditPDFTool,
   pdfToWord,
   setupPdfToWordTool,
@@ -57,7 +70,25 @@ import {
   setupFixPageSizeTool as setupFixPageSizeToolImpl,
   setupNUpTool as setupNUpToolImpl,
 } from './tools';
+import { addAttachmentsToPdf } from './tools/add-attachments-page';
+import { extractAttachmentsFromPdf } from './tools/extract-attachments-page';
+import { listAttachmentsFromPdf, removeAttachmentsFromPdf } from './tools/edit-attachments-page';
+import { addHeaderFooterToPdf } from './tools/header-footer-page';
+import { changeBackgroundColorOfPdf } from './tools/background-color-page';
+import { changeTextColorOfPdf } from './tools/text-color-page';
+import { invertColorsOfPdf } from './tools/invert-colors-page';
+import { adjustColorsOfPdf } from './tools/adjust-colors-page';
+import { convertPdfToGreyscale } from './tools/pdf-to-greyscale-page';
+import { posterizePdf, type PosterizeOptions } from './tools/posterize-page';
+import { rotateCustomAngle } from './tools/rotate-custom-page';
+import { rasterizePdf, type RasterizeOptions } from './tools/rasterize-pdf-page';
+import { flattenPdf } from './tools/flatten-pdf-page';
+import { linearizePdf } from './tools/linearize-pdf-page';
+import { sanitizePdfDocument, type SanitizeOptions } from './tools/sanitize-pdf-page';
+import { encryptPdfDocument, type EncryptOptions } from './tools/encrypt-pdf-page';
+import type { AdjustColorsSettings } from './types/adjust-colors-type';
 import { state, setFiles } from './state';
+import { showAlert, showLoader, hideLoader } from './ui';
 import {
   initiateOAuth,
   downloadGoogleDriveFile,
@@ -142,7 +173,6 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
     // PDF Conversions - From PDF
     'pdf-to-word': 'pdf-to-word-container',
     'pdf-to-jpg': 'pdf-to-jpg-container',
-    'pdf-to-png': 'pdf-to-png-container',
     'pdf-to-png': 'pdf-to-png-container',
     'pdf-to-bmp': 'pdf-to-bmp-container',
     'pdf-to-webp': 'pdf-to-webp-container',
@@ -392,6 +422,65 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
     requestAnimationFrame(() => scrollToElement('upload-section'));
   }, [initialTool]);
 
+  // Setup attachment UI interactions
+  useEffect(() => {
+    const attachmentInput = document.getElementById('attachment-files-input') as HTMLInputElement;
+    const attachmentFileList = document.getElementById('attachment-file-list');
+    const pageRangeWrapper = document.getElementById('page-range-wrapper');
+    const attachmentLevelRadios = document.querySelectorAll('input[name="attachment-level"]');
+
+    const updateAttachmentList = () => {
+      if (!attachmentInput || !attachmentFileList) return;
+      
+      attachmentFileList.innerHTML = '';
+      const files = attachmentInput.files;
+
+      if (files && files.length > 0) {
+        Array.from(files).forEach((file) => {
+          const div = document.createElement('div');
+          div.className = 'flex justify-between items-center p-2 bg-gray-100 dark:bg-gray-700 rounded-md';
+
+          const nameSpan = document.createElement('span');
+          nameSpan.className = 'truncate text-sm text-gray-700 dark:text-gray-300';
+          nameSpan.textContent = file.name;
+
+          const sizeSpan = document.createElement('span');
+          sizeSpan.className = 'text-xs text-gray-500 dark:text-gray-400 ml-2';
+          sizeSpan.textContent = `${(file.size / 1024).toFixed(1)} KB`;
+
+          div.append(nameSpan, sizeSpan);
+          attachmentFileList.appendChild(div);
+        });
+      }
+    };
+
+    const handleRadioChange = (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      if (target.value === 'page' && pageRangeWrapper) {
+        pageRangeWrapper.classList.remove('hidden');
+      } else if (pageRangeWrapper) {
+        pageRangeWrapper.classList.add('hidden');
+      }
+    };
+
+    if (attachmentInput) {
+      attachmentInput.addEventListener('change', updateAttachmentList);
+    }
+
+    attachmentLevelRadios.forEach((radio) => {
+      radio.addEventListener('change', handleRadioChange);
+    });
+
+    return () => {
+      if (attachmentInput) {
+        attachmentInput.removeEventListener('change', updateAttachmentList);
+      }
+      attachmentLevelRadios.forEach((radio) => {
+        radio.removeEventListener('change', handleRadioChange);
+      });
+    };
+  }, [selectedTool]);
+
   const handleFileSelect = async (file: FileState, allFiles?: File[]) => {
     setSelectedFile(file);
     setIsConverted(false);
@@ -547,6 +636,311 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
     requestAnimationFrame(() => scrollToElement('upload-section'));
   };
 
+  // Process functions for tools
+  const processAddAttachments = async () => {
+    if (state.files.length === 0) {
+      showAlert('No File', 'Please upload a PDF file first.');
+      return;
+    }
+
+    const attachmentInput = document.getElementById('attachment-files-input') as HTMLInputElement;
+    const attachments = attachmentInput?.files;
+
+    if (!attachments || attachments.length === 0) {
+      showAlert('No Attachments', 'Please select at least one file to attach.');
+      return;
+    }
+
+    const attachmentLevel = (
+      document.querySelector('input[name="attachment-level"]:checked') as HTMLInputElement
+    )?.value || 'document';
+
+    let pageRange = '';
+    if (attachmentLevel === 'page') {
+      const pageRangeInput = document.getElementById('attachment-page-range') as HTMLInputElement;
+      pageRange = pageRangeInput?.value?.trim() || '';
+    }
+
+    // Use the function from add-attachments-page.ts
+    const success = await addAttachmentsToPdf(
+      attachments,
+      attachmentLevel as 'document' | 'page',
+      pageRange
+    );
+
+    // Reset the attachment input on success
+    if (success && attachmentInput) {
+      attachmentInput.value = '';
+      const attachmentFileList = document.getElementById('attachment-file-list');
+      if (attachmentFileList) {
+        attachmentFileList.innerHTML = '';
+      }
+    }
+  };
+
+  const processExtractAttachments = async () => {
+    if (state.files.length === 0) {
+      showAlert('No File', 'Please upload a PDF file first.');
+      return;
+    }
+
+    // Use the function from extract-attachments-page.ts
+    await extractAttachmentsFromPdf();
+  };
+
+  const [editAttachments, setEditAttachments] = useState<Array<{name: string; index: number; page: number}>>([]);
+  const [selectedAttachmentsToRemove, setSelectedAttachmentsToRemove] = useState<Set<number>>(new Set());
+
+  const processEditAttachments = async () => {
+    if (state.files.length === 0) {
+      showAlert('No File', 'Please upload a PDF file first.');
+      return;
+    }
+
+    // First, list attachments
+    const attachments = await listAttachmentsFromPdf();
+    setEditAttachments(attachments);
+    
+    return attachments;
+  };
+
+  const processRemoveAttachments = async (indicesToRemove: number[]) => {
+    if (indicesToRemove.length === 0) {
+      showAlert('No Changes', 'No attachments selected for removal.');
+      return;
+    }
+
+    // Use the function from edit-attachments-page.ts
+    const success = await removeAttachmentsFromPdf(indicesToRemove);
+    
+    if (success) {
+      setEditAttachments([]);
+      setSelectedAttachmentsToRemove(new Set());
+    }
+  };
+
+  const processHeaderFooter = async (options: {
+    headerLeft?: string;
+    headerCenter?: string;
+    headerRight?: string;
+    footerLeft?: string;
+    footerCenter?: string;
+    footerRight?: string;
+    fontSize?: number;
+    fontColor?: string;
+    pageRange?: string;
+  }) => {
+    if (state.files.length === 0) {
+      showAlert('No File', 'Please upload a PDF file first.');
+      return;
+    }
+
+    // Use the function from header-footer-page.ts
+    await addHeaderFooterToPdf(options);
+  };
+
+  const processBackgroundColor = async (colorHex: string) => {
+    if (state.files.length === 0) {
+      showAlert('No File', 'Please upload a PDF file first.');
+      return;
+    }
+
+    // Use the function from background-color-page.ts
+    await changeBackgroundColorOfPdf(colorHex);
+  };
+
+  const processTextColor = async (colorHex: string) => {
+    if (state.files.length === 0) {
+      showAlert('No File', 'Please upload a PDF file first.');
+      return;
+    }
+
+    // Use the function from text-color-page.ts
+    await changeTextColorOfPdf(colorHex);
+  };
+
+  const processInvertColors = async () => {
+    if (state.files.length === 0) {
+      showAlert('No File', 'Please upload a PDF file first.');
+      return;
+    }
+
+    // Use the function from invert-colors-page.ts
+    await invertColorsOfPdf();
+  };
+
+  const processAdjustColors = async (settings: AdjustColorsSettings) => {
+    if (state.files.length === 0) {
+      showAlert('No File', 'Please upload a PDF file first.');
+      return;
+    }
+
+    // Use the function from adjust-colors-page.ts
+    await adjustColorsOfPdf(settings);
+  };
+
+  const processConvertToGreyscale = async () => {
+    if (state.files.length === 0) {
+      showAlert('No File', 'Please upload a PDF file first.');
+      return;
+    }
+
+    // Use the function from pdf-to-greyscale-page.ts
+    await convertPdfToGreyscale();
+  };
+
+  const processPosterize = async (options: PosterizeOptions) => {
+    if (state.files.length === 0) {
+      showAlert('No File', 'Please upload a PDF file first.');
+      return;
+    }
+
+    // Use the function from posterize-page.ts
+    await posterizePdf(options);
+  };
+
+  const processRotateCustom = async (angle: number) => {
+    if (state.files.length === 0) {
+      showAlert('No File', 'Please upload a PDF file first.');
+      return;
+    }
+
+    // Use the function from rotate-custom-page.ts
+    await rotateCustomAngle(angle);
+  };
+
+  const processRasterize = async (options: RasterizeOptions) => {
+    if (state.files.length === 0) {
+      showAlert('No File', 'Please upload a PDF file first.');
+      return;
+    }
+
+    // Use the function from rasterize-pdf-page.ts
+    await rasterizePdf(options);
+  };
+
+  const processFlatten = async () => {
+    if (state.files.length === 0) {
+      showAlert('No File', 'Please upload a PDF file first.');
+      return;
+    }
+
+    // Use the function from flatten-pdf-page.ts
+    await flattenPdf();
+  };
+
+  const processLinearize = async () => {
+    if (state.files.length === 0) {
+      showAlert('No File', 'Please upload a PDF file first.');
+      return;
+    }
+
+    // Use the function from linearize-pdf-page.ts
+    await linearizePdf(state.files);
+  };
+
+  const processSanitize = async () => {
+    if (state.files.length === 0) {
+      showAlert('No File', 'Please upload a PDF file first.');
+      return;
+    }
+
+    const file = state.files[0];
+    showLoader('Sanitizing PDF...');
+
+    try {
+      // Get options from UI
+      const options: SanitizeOptions = {
+        flattenForms: (document.getElementById('sanitize-flatten-forms') as HTMLInputElement)?.checked || false,
+        removeMetadata: (document.getElementById('sanitize-remove-metadata') as HTMLInputElement)?.checked || false,
+        removeAnnotations: (document.getElementById('sanitize-remove-annotations') as HTMLInputElement)?.checked || false,
+        removeJavascript: (document.getElementById('sanitize-remove-javascript') as HTMLInputElement)?.checked || false,
+      };
+
+      const hasAnyOption = Object.values(options).some(Boolean);
+      if (!hasAnyOption) {
+        hideLoader();
+        showAlert('No Options Selected', 'Please select at least one sanitization option.');
+        return;
+      }
+
+      const arrayBuffer = await file.arrayBuffer();
+      const sanitizedBytes = await sanitizePdfDocument(new Uint8Array(arrayBuffer), options);
+
+      // Download the result
+      const blob = new Blob([sanitizedBytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `sanitized_${file.name}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      hideLoader();
+      showAlert('Success', 'PDF has been sanitized and downloaded.', 'success');
+    } catch (error: any) {
+      hideLoader();
+      console.error('Sanitize error:', error);
+      showAlert('Error', `Failed to sanitize PDF: ${error.message}`);
+    }
+  };
+
+  const processEncrypt = async () => {
+    if (state.files.length === 0) {
+      showAlert('No File', 'Please upload a PDF file first.');
+      return;
+    }
+
+    const file = state.files[0];
+    
+    // Get passwords from UI
+    const userPassword = (document.getElementById('encrypt-user-password') as HTMLInputElement)?.value || '';
+    const ownerPassword = (document.getElementById('encrypt-owner-password') as HTMLInputElement)?.value || '';
+    const addRestrictions = (document.getElementById('encrypt-add-restrictions') as HTMLInputElement)?.checked || false;
+
+    if (!userPassword) {
+      showAlert('Password Required', 'Please enter a user password.');
+      return;
+    }
+
+    showLoader('Encrypting PDF with 256-bit AES...');
+
+    try {
+      const options: EncryptOptions = {
+        userPassword,
+        ownerPassword: ownerPassword || undefined,
+        addRestrictions
+      };
+
+      const encryptedBlob = await encryptPdfDocument(file, options);
+
+      // Download the result
+      const url = URL.createObjectURL(encryptedBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `encrypted_${file.name}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      hideLoader();
+      
+      let successMessage = 'PDF encrypted successfully with 256-bit AES!';
+      if (!ownerPassword || ownerPassword === userPassword) {
+        successMessage += ' Note: Without a separate owner password, the PDF has no usage restrictions.';
+      }
+      
+      showAlert('Success', successMessage, 'success');
+    } catch (error: any) {
+      hideLoader();
+      console.error('Encrypt error:', error);
+      showAlert('Error', `Failed to encrypt PDF: ${error.message}`);
+    }
+  };
+
   // Generic setup function for tools
   const setupGenericTool = (containerId: string) => {
     const container = document.getElementById(containerId);
@@ -636,7 +1030,10 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
   const setupSanitizeTool = () => setupGenericTool('sanitize-container');
 
   // PDF Security & Metadata Setup Functions
-  const setupEncryptTool = () => setupGenericTool('encrypt-container');
+  const setupEncryptTool = () => {
+    const { setupEncryptPdfPage } = require('./tools/encrypt-pdf-page');
+    setupEncryptPdfPage();
+  };
   const setupDecryptTool = () => setupGenericTool('decrypt-container');
   const setupChangePermissionsTool = () => setupGenericTool('change-permissions-container');
   const setupRemoveMetadataTool = () => setupGenericTool('remove-metadata-container');
@@ -726,6 +1123,49 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
         case 'pdf-to-png':
           await setupPdfToPngTool();
           break;
+        case 'pdf-to-bmp':
+          setupPdfToBmpTool();
+          break;
+        case 'pdf-to-webp':
+          setupPdfToWebpTool();
+          break;
+        case 'pdf-to-svg':
+          setupPdfToSvgTool();
+          break;
+        case 'pdf-to-tiff':
+          setupPdfToTiffTool();
+          break;
+        case 'pdf-to-text':
+          setupPdfToTextTool();
+          break;
+        case 'pdf-to-excel':
+          setupPdfToExcelTool();
+          break;
+        case 'pdf-to-csv':
+          setupPdfToCsvTool();
+          break;
+        case 'pdf-to-json':
+          setupPdfToJsonTool();
+          break;
+        case 'pdf-to-markdown':
+          setupPdfToMarkdownTool();
+          break;
+        case 'pdf-to-zip':
+          setupPdfToZipTool();
+          break;
+        case 'digital-sign':
+          // Digital signature tool uses its own initialization
+          showAlert('Feature Note', 'Digital signature functionality is available but requires a valid P12/PFX certificate file. Please ensure you have your digital certificate ready.', 'info');
+          break;
+        case 'validate-signature':
+          setupValidateSignatureTool();
+          break;
+        case 'add-stamps':
+          setupAddStampsTool();
+          break;
+        case 'add-watermark':
+          setupAddWatermarkTool();
+          break;
         case 'word-to-pdf':
           await setupWordToPdfTool();
           break;
@@ -801,10 +1241,6 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               container.classList.remove('hidden');
             }
           }
-
-          // Show demo alert for unimplemented tools
-          const toolName = POPULAR_TOOLS.find((t) => t.id === id)?.name || id;
-          alert(`Tool "${toolName}" selected. (Core functionality ready, advanced UI coming soon)`);
       }
 
       // Scroll to the tool container
@@ -3620,11 +4056,88 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
         <div id="pdf-to-bmp-container" className="hidden max-w-6xl mx-auto mt-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">PDF to BMP</h2>
-              <p className="text-gray-600 dark:text-gray-400">Convert PDF pages to BMP images</p>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Convert PDF to BMP
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Convert your PDF pages to BMP (Bitmap) images
+              </p>
             </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Conversion Info:</p>
+                  <p>
+                    Each page of your PDF will be converted to a separate BMP image. BMP format is uncompressed and provides maximum compatibility. All images will be packaged in a ZIP file for easy download.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready to convert`
+                    : 'PDF file uploaded above will be converted'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Resolution (DPI)
+                </label>
+                <select
+                  id="pdf-to-bmp-dpi"
+                  defaultValue="150"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="72">72 DPI (Screen)</option>
+                  <option value="150">150 DPI (Standard)</option>
+                  <option value="300">300 DPI (High)</option>
+                  <option value="600">600 DPI (Print Quality)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-yellow-600 dark:text-yellow-400 mr-3">💡</span>
+                <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <p className="font-medium mb-1">Tips:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>BMP format is uncompressed and produces large files</li>
+                    <li>Provides maximum compatibility with older applications</li>
+                    <li>150 DPI is suitable for most web and screen uses</li>
+                    <li>Use 300 DPI or higher for printing</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Convert Button */}
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="pdf-to-bmp-process-btn"
+                onClick={() => pdfToBmp()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={state.files.length === 0}
+              >
                 Convert to BMP
               </button>
             </div>
@@ -3634,11 +4147,111 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
         <div id="pdf-to-webp-container" className="hidden max-w-6xl mx-auto mt-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">PDF to WebP</h2>
-              <p className="text-gray-600 dark:text-gray-400">Convert PDF pages to WebP images</p>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Convert PDF to WebP
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Convert your PDF pages to modern WebP images with efficient compression
+              </p>
             </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Conversion Info:</p>
+                  <p>
+                    Each page of your PDF will be converted to a separate WebP image. WebP format provides superior compression with excellent quality. All images will be packaged in a ZIP file for easy download.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready to convert`
+                    : 'PDF file uploaded above will be converted'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Resolution (DPI)
+                </label>
+                <select
+                  id="pdf-to-webp-dpi"
+                  defaultValue="150"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="72">72 DPI (Screen)</option>
+                  <option value="150">150 DPI (Standard)</option>
+                  <option value="300">300 DPI (High)</option>
+                  <option value="600">600 DPI (Print Quality)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Quality: <span id="pdf-to-webp-quality-value">85%</span>
+                </label>
+                <input
+                  type="range"
+                  id="pdf-to-webp-quality"
+                  min="0.1"
+                  max="1"
+                  step="0.05"
+                  defaultValue="0.85"
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                  onChange={(e) => {
+                    const value = document.getElementById('pdf-to-webp-quality-value');
+                    if (value) value.textContent = `${Math.round(parseFloat(e.target.value) * 100)}%`;
+                  }}
+                />
+                <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <span>Lower size</span>
+                  <span>Higher quality</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-yellow-600 dark:text-yellow-400 mr-3">💡</span>
+                <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <p className="font-medium mb-1">Tips:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>WebP provides better compression than PNG and JPEG</li>
+                    <li>Ideal for web use with modern browser support</li>
+                    <li>85% quality offers excellent balance of size and quality</li>
+                    <li>Higher DPI values result in larger file sizes</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Convert Button */}
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="pdf-to-webp-process-btn"
+                onClick={() => pdfToWebp()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={state.files.length === 0}
+              >
                 Convert to WebP
               </button>
             </div>
@@ -3648,11 +4261,88 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
         <div id="pdf-to-svg-container" className="hidden max-w-6xl mx-auto mt-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">PDF to SVG</h2>
-              <p className="text-gray-600 dark:text-gray-400">Convert PDF pages to SVG images</p>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Convert PDF to SVG
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Convert your PDF pages to scalable SVG (Scalable Vector Graphics) images
+              </p>
             </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Conversion Info:</p>
+                  <p>
+                    Each page of your PDF will be converted to a separate SVG image. SVG images are scalable and can be resized without quality loss. All images will be packaged in a ZIP file for easy download.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready to convert`
+                    : 'PDF file uploaded above will be converted'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Resolution (DPI)
+                </label>
+                <select
+                  id="pdf-to-svg-dpi"
+                  defaultValue="150"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="72">72 DPI (Screen)</option>
+                  <option value="150">150 DPI (Standard)</option>
+                  <option value="300">300 DPI (High)</option>
+                  <option value="600">600 DPI (Print Quality)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-yellow-600 dark:text-yellow-400 mr-3">💡</span>
+                <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <p className="font-medium mb-1">Tips:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>SVG images are infinitely scalable without quality loss</li>
+                    <li>Perfect for logos, icons, and graphics</li>
+                    <li>Can be edited with vector graphics software</li>
+                    <li>Note: This creates raster-embedded SVGs from PDF pages</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Convert Button */}
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="pdf-to-svg-process-btn"
+                onClick={() => pdfToSvg()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={state.files.length === 0}
+              >
                 Convert to SVG
               </button>
             </div>
@@ -3662,11 +4352,103 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
         <div id="pdf-to-tiff-container" className="hidden max-w-6xl mx-auto mt-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">PDF to TIFF</h2>
-              <p className="text-gray-600 dark:text-gray-400">Convert PDF pages to TIFF images</p>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Convert PDF to TIFF
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Convert your PDF pages to TIFF (Tagged Image File Format) images
+              </p>
             </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Conversion Info:</p>
+                  <p>
+                    Each page of your PDF will be converted to a separate TIFF image. TIFF is widely used in publishing and professional photography. All images will be packaged in a ZIP file for easy download.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready to convert`
+                    : 'PDF file uploaded above will be converted'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Resolution (DPI)
+                </label>
+                <select
+                  id="pdf-to-tiff-dpi"
+                  defaultValue="150"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="72">72 DPI (Screen)</option>
+                  <option value="150">150 DPI (Standard)</option>
+                  <option value="300">300 DPI (High)</option>
+                  <option value="600">600 DPI (Print Quality)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Compression
+                </label>
+                <select
+                  id="pdf-to-tiff-compression"
+                  defaultValue="none"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="none">None (Uncompressed)</option>
+                  <option value="lzw">LZW Compression</option>
+                  <option value="packbits">PackBits Compression</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-yellow-600 dark:text-yellow-400 mr-3">💡</span>
+                <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <p className="font-medium mb-1">Tips:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>TIFF is ideal for archiving and professional printing</li>
+                    <li>Supports lossless compression and high bit depth</li>
+                    <li>300 DPI or higher recommended for print quality</li>
+                    <li>Uncompressed TIFF produces larger files but maximum quality</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Convert Button */}
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="pdf-to-tiff-process-btn"
+                onClick={() => pdfToTiff()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={state.files.length === 0}
+              >
                 Convert to TIFF
               </button>
             </div>
@@ -3676,11 +4458,99 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
         <div id="pdf-to-text-container" className="hidden max-w-6xl mx-auto mt-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">PDF to Text</h2>
-              <p className="text-gray-600 dark:text-gray-400">Extract text from PDF</p>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Extract Text from PDF
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Extract all text content from your PDF document
+              </p>
             </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Extraction Info:</p>
+                  <p>
+                    Text will be extracted from all pages of your PDF and saved as a plain text file (.txt). The layout and formatting may not be preserved, but all readable text content will be extracted.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready for text extraction`
+                    : 'PDF file uploaded above will have text extracted'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="pdf-to-text-page-numbers"
+                  defaultChecked={false}
+                  className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                />
+                <label htmlFor="pdf-to-text-page-numbers" className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Include page numbers in output
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Page Separator
+                </label>
+                <select
+                  id="pdf-to-text-separator"
+                  defaultValue="double-line"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="single-line">Single Line Break</option>
+                  <option value="double-line">Double Line Break</option>
+                  <option value="page-break">Page Break with Divider</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-yellow-600 dark:text-yellow-400 mr-3">💡</span>
+                <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <p className="font-medium mb-1">Tips:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>Best for PDFs containing selectable text</li>
+                    <li>Images and complex layouts won't be preserved</li>
+                    <li>Scanned PDFs require OCR (not supported in this tool)</li>
+                    <li>Output is plain text format (.txt)</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Extract Button */}
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="pdf-to-text-process-btn"
+                onClick={() => pdfToText()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={state.files.length === 0}
+              >
                 Extract Text
               </button>
             </div>
@@ -3691,12 +4561,83 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                PDF to Excel
+                Convert PDF to Excel
               </h2>
-              <p className="text-gray-600 dark:text-gray-400">Convert PDF to Excel spreadsheet</p>
+              <p className="text-gray-600 dark:text-gray-400">
+                Extract PDF content to Excel spreadsheet format
+              </p>
             </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Conversion Info:</p>
+                  <p>
+                    Text content from your PDF will be extracted and converted to an Excel spreadsheet (.xlsx). This tool extracts text content; for advanced table detection, specialized software is recommended.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready to convert`
+                    : 'PDF file uploaded above will be converted'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="pdf-to-excel-one-sheet"
+                  defaultChecked={false}
+                  className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                />
+                <label htmlFor="pdf-to-excel-one-sheet" className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Create one sheet per page
+                </label>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-yellow-600 dark:text-yellow-400 mr-3">💡</span>
+                <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <p className="font-medium mb-1">Tips:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>Best for PDFs with structured text content</li>
+                    <li>Complex tables may not preserve exact layout</li>
+                    <li>Creates Excel .xlsx format compatible with Microsoft Excel</li>
+                    <li>For precise table extraction, specialized tools may work better</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Convert Button */}
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="pdf-to-excel-process-btn"
+                onClick={() => pdfToExcel()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={state.files.length === 0}
+              >
                 Convert to Excel
               </button>
             </div>
@@ -3706,11 +4647,99 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
         <div id="pdf-to-csv-container" className="hidden max-w-6xl mx-auto mt-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">PDF to CSV</h2>
-              <p className="text-gray-600 dark:text-gray-400">Convert PDF tables to CSV</p>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Convert PDF to CSV
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Extract PDF content to CSV (Comma-Separated Values) format
+              </p>
             </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Conversion Info:</p>
+                  <p>
+                    Text content from your PDF will be extracted and converted to CSV format. CSV files can be opened in Excel, Google Sheets, and other spreadsheet applications.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready to convert`
+                    : 'PDF file uploaded above will be converted'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="pdf-to-csv-page-numbers"
+                  defaultChecked={false}
+                  className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                />
+                <label htmlFor="pdf-to-csv-page-numbers" className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Include page numbers column
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Field Separator
+                </label>
+                <select
+                  id="pdf-to-csv-separator"
+                  defaultValue="comma"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="comma">Comma (,)</option>
+                  <option value="semicolon">Semicolon (;)</option>
+                  <option value="tab">Tab</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-yellow-600 dark:text-yellow-400 mr-3">💡</span>
+                <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <p className="font-medium mb-1">Tips:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>CSV format is ideal for data exchange between applications</li>
+                    <li>Use semicolon separator for European Excel versions</li>
+                    <li>Complex tables may not preserve exact structure</li>
+                    <li>Output can be opened in Excel, Google Sheets, or any text editor</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Convert Button */}
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="pdf-to-csv-process-btn"
+                onClick={() => pdfToCsv()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={state.files.length === 0}
+              >
                 Convert to CSV
               </button>
             </div>
@@ -3720,11 +4749,111 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
         <div id="pdf-to-json-container" className="hidden max-w-6xl mx-auto mt-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">PDF to JSON</h2>
-              <p className="text-gray-600 dark:text-gray-400">Convert PDF data to JSON</p>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Convert PDF to JSON
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Extract PDF content as structured JSON data
+              </p>
             </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Conversion Info:</p>
+                  <p>
+                    Text content and metadata from your PDF will be extracted and converted to JSON format. JSON is perfect for data processing, APIs, and programmatic access.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready to convert`
+                    : 'PDF file uploaded above will be converted'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Output Format
+                </label>
+                <select
+                  id="pdf-to-json-format"
+                  defaultValue="structured"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="simple">Simple (text only)</option>
+                  <option value="structured">Structured (with coordinates)</option>
+                  <option value="full">Full (complete text content)</option>
+                </select>
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="pdf-to-json-metadata"
+                  defaultChecked={true}
+                  className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                />
+                <label htmlFor="pdf-to-json-metadata" className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Include PDF metadata
+                </label>
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="pdf-to-json-indent"
+                  defaultChecked={true}
+                  className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                />
+                <label htmlFor="pdf-to-json-indent" className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Pretty print (indented JSON)
+                </label>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-yellow-600 dark:text-yellow-400 mr-3">💡</span>
+                <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <p className="font-medium mb-1">Tips:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>JSON format is ideal for APIs and data processing</li>
+                    <li>Structured format includes text coordinates and fonts</li>
+                    <li>Simple format is best for basic text extraction</li>
+                    <li>Pretty print makes JSON human-readable</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Convert Button */}
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="pdf-to-json-process-btn"
+                onClick={() => pdfToJson()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={state.files.length === 0}
+              >
                 Convert to JSON
               </button>
             </div>
@@ -3735,12 +4864,109 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                PDF to Markdown
+                Convert PDF to Markdown
               </h2>
-              <p className="text-gray-600 dark:text-gray-400">Convert PDF to Markdown format</p>
+              <p className="text-gray-600 dark:text-gray-400">
+                Extract PDF content to Markdown format for documentation and notes
+              </p>
             </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Conversion Info:</p>
+                  <p>
+                    Text content from your PDF will be extracted and converted to Markdown format (.md). Perfect for documentation, note-taking, and content management systems.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready to convert`
+                    : 'PDF file uploaded above will be converted'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="pdf-to-markdown-title"
+                  defaultChecked={true}
+                  className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                />
+                <label htmlFor="pdf-to-markdown-title" className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Include document title (# Heading 1)
+                </label>
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="pdf-to-markdown-page-numbers"
+                  defaultChecked={false}
+                  className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                />
+                <label htmlFor="pdf-to-markdown-page-numbers" className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Include page number headings (## Page N)
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Heading Detection
+                </label>
+                <select
+                  id="pdf-to-markdown-headings"
+                  defaultValue="auto"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="auto">Auto-detect (by font size)</option>
+                  <option value="none">No heading detection</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-yellow-600 dark:text-yellow-400 mr-3">💡</span>
+                <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <p className="font-medium mb-1">Tips:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>Markdown is great for GitHub, GitLab, and documentation sites</li>
+                    <li>Auto-detect headings based on font size differences</li>
+                    <li>Use page separators (---) when not using page numbers</li>
+                    <li>Compatible with all Markdown editors and viewers</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Convert Button */}
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="pdf-to-markdown-process-btn"
+                onClick={() => pdfToMarkdown()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={state.files.length === 0}
+              >
                 Convert to Markdown
               </button>
             </div>
@@ -3750,14 +4976,118 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
         <div id="pdf-to-zip-container" className="hidden max-w-6xl mx-auto mt-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">PDF to ZIP</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Extract PDF to ZIP Archive
+              </h2>
               <p className="text-gray-600 dark:text-gray-400">
-                Extract PDF contents to ZIP archive
+                Extract PDF pages as images and/or text files packaged in a ZIP archive
               </p>
             </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Extraction Info:</p>
+                  <p>
+                    Each page of your PDF will be extracted as separate files (images and/or text) and packaged into a ZIP archive for easy download and organization.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready to extract`
+                    : 'PDF file uploaded above will be extracted'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Extraction Type
+                </label>
+                <select
+                  id="pdf-to-zip-type"
+                  defaultValue="images"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="images">Images only</option>
+                  <option value="text">Text only</option>
+                  <option value="both">Both images and text</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Image Format
+                </label>
+                <select
+                  id="pdf-to-zip-format"
+                  defaultValue="png"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="png">PNG</option>
+                  <option value="jpg">JPG</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Image Resolution (DPI)
+                </label>
+                <select
+                  id="pdf-to-zip-dpi"
+                  defaultValue="150"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="72">72 DPI (Screen)</option>
+                  <option value="150">150 DPI (Standard)</option>
+                  <option value="300">300 DPI (High)</option>
+                  <option value="600">600 DPI (Print Quality)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-yellow-600 dark:text-yellow-400 mr-3">💡</span>
+                <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <p className="font-medium mb-1">Tips:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>Extract images for presentations or web use</li>
+                    <li>Extract text for editing and reuse</li>
+                    <li>Extract both for complete page backups</li>
+                    <li>Higher DPI creates larger but better quality images</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Extract Button */}
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
-                Create ZIP
+              <button
+                id="pdf-to-zip-process-btn"
+                onClick={() => pdfToZip()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={state.files.length === 0}
+              >
+                Extract to ZIP
               </button>
             </div>
           </div>
@@ -3770,21 +5100,116 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 Digital Signature
               </h2>
-              <p className="text-gray-600 dark:text-gray-400">Add digital signature to PDF</p>
+              <p className="text-gray-600 dark:text-gray-400">Add digital signature to your PDF documents</p>
             </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Digital Signature Info:</p>
+                  <p>
+                    Add legally binding digital signatures to your PDF documents using your P12/PFX certificate. The signature can be verified in any PDF reader.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Certificate File (.p12/.pfx)
-              </label>
-              <input
-                type="file"
-                accept=".p12,.pfx"
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-              />
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready to sign`
+                    : 'PDF file uploaded above will be signed'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Certificate File (.p12/.pfx)
+                </label>
+                <input
+                  type="file"
+                  accept=".p12,.pfx"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Certificate Password
+                </label>
+                <input
+                  type="password"
+                  placeholder="Enter certificate password"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Signature Reason
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., I approve this document"
+                  defaultValue="I approve this document"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-yellow-600 dark:text-yellow-400 mr-3">⚠️</span>
+                <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <p className="font-medium mb-1">Important Notes:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>You need a valid P12/PFX digital certificate to sign PDFs</li>
+                    <li>Digital signatures are legally binding and cannot be removed</li>
+                    <li>The signature can be verified in Adobe Acrobat, Foxit, and other PDF readers</li>
+                    <li>This feature requires specialized cryptographic libraries</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-orange-600 dark:text-orange-400 mr-3">🔧</span>
+                <div className="text-sm text-orange-800 dark:text-orange-200">
+                  <p className="font-medium mb-1">Feature Status:</p>
+                  <p>
+                    Digital signature functionality requires complex cryptographic operations and certificate handling. 
+                    The full implementation is available in the codebase but requires the digital-sign-pdf.js library 
+                    and proper certificate validation setup. For production use, consider using dedicated services like 
+                    Adobe Sign, DocuSign, or HelloSign.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Sign Button */}
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
-                Sign PDF
+              <button
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={true}
+                title="Digital signature feature requires additional setup"
+              >
+                Sign PDF (Setup Required)
               </button>
             </div>
           </div>
@@ -3794,13 +5219,94 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                Validate Signature
+                Validate Digital Signatures
               </h2>
-              <p className="text-gray-600 dark:text-gray-400">Verify digital signatures in PDF</p>
+              <p className="text-gray-600 dark:text-gray-400">
+                Verify digital signatures and check certificate validity in PDF documents
+              </p>
             </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Validation Info:</p>
+                  <p>
+                    This tool performs full cryptographic signature validation using node-forge, including certificate chain verification, expiration checking, and algorithm analysis. Also detects Indonesian BSrE (Balai Sertifikasi Elektronik, BSSN) QR code signatures.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready to validate`
+                    : 'PDF file uploaded above will be checked for signatures'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-yellow-600 dark:text-yellow-400 mr-3">💡</span>
+                <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <p className="font-medium mb-1">Validation Features:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>Extracts and parses digital signature data using PKCS#7</li>
+                    <li>Validates certificate information (signer, issuer, validity dates)</li>
+                    <li>Checks certificate expiration status</li>
+                    <li>Identifies self-signed certificates</li>
+                    <li>Displays cryptographic algorithms used</li>
+                    <li>Shows signature metadata (reason, location, contact)</li>
+                    <li>🇮🇩 Detects BSrE QR code signatures from BSSN</li>
+                    <li>🇮🇩 Identifies Indonesian government digital certificates</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-green-600 dark:text-green-400 mr-3">✓</span>
+                <div className="text-sm text-green-800 dark:text-green-200">
+                  <p className="font-medium mb-1">What You'll See:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>Signer name and organization</li>
+                    <li>Certificate issuer and organization</li>
+                    <li>Certificate validity period (from/to dates)</li>
+                    <li>Expiration status (valid or expired)</li>
+                    <li>Self-signed certificate indicator</li>
+                    <li>Signature and digest algorithms</li>
+                    <li>Signature reason, location, and contact info</li>
+                    <li>🇮🇩 BSrE QR code detection and data extraction</li>
+                    <li>🇮🇩 Indonesian government certificate identification</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Validate Button */}
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
-                Validate Signatures
+              <button
+                id="validate-signature-process-btn"
+                onClick={() => validateSignaturePdf()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={state.files.length === 0}
+              >
+                Check Signatures
               </button>
             </div>
           </div>
@@ -3809,26 +5315,226 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
         <div id="add-stamps-container" className="hidden max-w-6xl mx-auto mt-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Add Stamps</h2>
-              <p className="text-gray-600 dark:text-gray-400">Add stamps to PDF pages</p>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Add Stamps to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Add professional stamps to your PDF documents
+              </p>
             </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Stamp Info:</p>
+                  <p>
+                    Add text stamps like APPROVED, CONFIDENTIAL, DRAFT, etc. to your PDF pages. Customize position, opacity, size, and color.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Stamp Type
-              </label>
-              <select
-                id="stamp-type"
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-              >
-                <option value="approved">Approved</option>
-                <option value="confidential">Confidential</option>
-                <option value="draft">Draft</option>
-                <option value="final">Final</option>
-                <option value="custom">Custom</option>
-              </select>
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready for stamping`
+                    : 'PDF file uploaded above will be stamped'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
+
+            <div className="space-y-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Stamp Type
+                  </label>
+                  <select
+                    id="stamp-type"
+                    defaultValue="approved"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    onChange={(e) => {
+                      const customTextDiv = document.getElementById('custom-text-div');
+                      if (customTextDiv) {
+                        customTextDiv.style.display = e.target.value === 'custom' ? 'block' : 'none';
+                      }
+                    }}
+                  >
+                    <option value="approved">✓ Approved</option>
+                    <option value="confidential">🔒 Confidential</option>
+                    <option value="draft">📝 Draft</option>
+                    <option value="final">✅ Final</option>
+                    <option value="reviewed">👁️ Reviewed</option>
+                    <option value="void">❌ Void</option>
+                    <option value="custom">✏️ Custom Text</option>
+                  </select>
+                </div>
+
+                <div id="custom-text-div" style={{ display: 'none' }}>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Custom Text
+                  </label>
+                  <input
+                    type="text"
+                    id="stamp-custom-text"
+                    placeholder="Enter custom text"
+                    maxLength={50}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Position
+                  </label>
+                  <select
+                    id="stamp-position"
+                    defaultValue="top-right"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="top-right">Top Right</option>
+                    <option value="top-left">Top Left</option>
+                    <option value="bottom-right">Bottom Right</option>
+                    <option value="bottom-left">Bottom Left</option>
+                    <option value="center">Center (Diagonal)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Apply to Pages
+                  </label>
+                  <select
+                    id="stamp-pages"
+                    defaultValue="all"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    onChange={(e) => {
+                      const customPagesDiv = document.getElementById('custom-pages-div');
+                      if (customPagesDiv) {
+                        customPagesDiv.style.display = e.target.value === 'custom' ? 'block' : 'none';
+                      }
+                    }}
+                  >
+                    <option value="all">All Pages</option>
+                    <option value="first">First Page Only</option>
+                    <option value="last">Last Page Only</option>
+                    <option value="custom">Custom Range</option>
+                  </select>
+                </div>
+              </div>
+
+              <div id="custom-pages-div" style={{ display: 'none' }}>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Page Numbers
+                </label>
+                <input
+                  type="text"
+                  id="stamp-custom-pages"
+                  placeholder="e.g., 1,3,5 or 1-5"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Use comma for specific pages (1,3,5) or dash for ranges (1-5)
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Opacity
+                  </label>
+                  <input
+                    type="range"
+                    id="stamp-opacity"
+                    min="0.1"
+                    max="1"
+                    step="0.1"
+                    defaultValue="0.5"
+                    className="w-full"
+                    onInput={(e) => {
+                      const value = (parseFloat((e.target as HTMLInputElement).value) * 100).toFixed(0);
+                      const display = document.getElementById('opacity-value');
+                      if (display) display.textContent = `${value}%`;
+                    }}
+                  />
+                  <div className="text-center text-sm text-gray-600 dark:text-gray-400">
+                    <span id="opacity-value">50%</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Font Size
+                  </label>
+                  <input
+                    type="range"
+                    id="stamp-font-size"
+                    min="12"
+                    max="72"
+                    step="4"
+                    defaultValue="36"
+                    className="w-full"
+                    onInput={(e) => {
+                      const value = (e.target as HTMLInputElement).value;
+                      const display = document.getElementById('font-size-value');
+                      if (display) display.textContent = `${value}px`;
+                    }}
+                  />
+                  <div className="text-center text-sm text-gray-600 dark:text-gray-400">
+                    <span id="font-size-value">36px</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Color
+                  </label>
+                  <input
+                    type="color"
+                    id="stamp-color"
+                    defaultValue="#FF0000"
+                    className="w-full h-10 px-1 border border-gray-300 dark:border-gray-600 rounded-lg"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-yellow-600 dark:text-yellow-400 mr-3">💡</span>
+                <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <p className="font-medium mb-1">Tips:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>Use preset stamps for common document statuses</li>
+                    <li>Center position creates diagonal stamps across the page</li>
+                    <li>Adjust opacity to make stamps visible but not intrusive</li>
+                    <li>Custom ranges allow selective page stamping</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Add Stamp Button */}
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="add-stamp-process-btn"
+                onClick={() => addStampsToPdf()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={state.files.length === 0}
+              >
                 Add Stamp
               </button>
             </div>
@@ -3838,39 +5544,294 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
         <div id="add-watermark-container" className="hidden max-w-6xl mx-auto mt-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                Add Watermark
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400">Add watermark to PDF pages</p>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Add Watermark to PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Add text or image watermarks to your PDF documents
+              </p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Watermark Info:</p>
+                  <p>
+                    Add text or image watermarks to protect your documents. Choose position, opacity, and customize appearance.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready for watermarking`
+                    : 'PDF file uploaded above will be watermarked'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Watermark Type
+                  </label>
+                  <select
+                    id="watermark-type"
+                    defaultValue="text"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    onChange={(e) => {
+                      const textDiv = document.getElementById('watermark-text-div');
+                      const imageDiv = document.getElementById('watermark-image-div');
+                      const colorDiv = document.getElementById('watermark-color-div');
+                      const fontSizeDiv = document.getElementById('watermark-font-size-div');
+                      const scaleDiv = document.getElementById('watermark-scale-div');
+                      
+                      if (e.target.value === 'text') {
+                        textDiv?.classList.remove('hidden');
+                        colorDiv?.classList.remove('hidden');
+                        fontSizeDiv?.classList.remove('hidden');
+                        imageDiv?.classList.add('hidden');
+                        scaleDiv?.classList.add('hidden');
+                      } else {
+                        textDiv?.classList.add('hidden');
+                        colorDiv?.classList.add('hidden');
+                        fontSizeDiv?.classList.add('hidden');
+                        imageDiv?.classList.remove('hidden');
+                        scaleDiv?.classList.remove('hidden');
+                      }
+                    }}
+                  >
+                    <option value="text">📝 Text Watermark</option>
+                    <option value="image">🖼️ Image Watermark</option>
+                  </select>
+                </div>
+
+                <div id="watermark-text-div">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Watermark Text
+                  </label>
+                  <input
+                    type="text"
+                    id="watermark-text"
+                    placeholder="CONFIDENTIAL"
+                    defaultValue="CONFIDENTIAL"
+                    maxLength={50}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+
+                <div id="watermark-image-div" className="hidden">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Watermark Image (PNG/JPG)
+                  </label>
+                  <input
+                    type="file"
+                    id="watermark-image"
+                    accept="image/png,image/jpeg,image/jpg"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-gray-800"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Position
+                  </label>
+                  <select
+                    id="watermark-position"
+                    defaultValue="diagonal"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="diagonal">Diagonal (Center)</option>
+                    <option value="top">Top Center</option>
+                    <option value="bottom">Bottom Center</option>
+                    <option value="center">Center (Horizontal)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Apply to Pages
+                  </label>
+                  <select
+                    id="watermark-pages"
+                    defaultValue="all"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    onChange={(e) => {
+                      const customPagesDiv = document.getElementById('watermark-custom-pages-div');
+                      if (customPagesDiv) {
+                        customPagesDiv.style.display = e.target.value === 'custom' ? 'block' : 'none';
+                      }
+                    }}
+                  >
+                    <option value="all">All Pages</option>
+                    <option value="first">First Page Only</option>
+                    <option value="last">Last Page Only</option>
+                    <option value="custom">Custom Range</option>
+                  </select>
+                </div>
+              </div>
+
+              <div id="watermark-custom-pages-div" style={{ display: 'none' }}>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Watermark Text
+                  Page Numbers
                 </label>
                 <input
                   type="text"
-                  id="watermark-text"
-                  placeholder="CONFIDENTIAL"
+                  id="watermark-custom-pages"
+                  placeholder="e.g., 1,3,5 or 1-5"
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
                 />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Use comma for specific pages (1,3,5) or dash for ranges (1-5)
+                </p>
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Opacity
+                  </label>
+                  <input
+                    type="range"
+                    id="watermark-opacity"
+                    min="0.1"
+                    max="1"
+                    step="0.1"
+                    defaultValue="0.3"
+                    className="w-full"
+                    onInput={(e) => {
+                      const value = (parseFloat((e.target as HTMLInputElement).value) * 100).toFixed(0);
+                      const display = document.getElementById('watermark-opacity-value');
+                      if (display) display.textContent = `${value}%`;
+                    }}
+                  />
+                  <div className="text-center text-sm text-gray-600 dark:text-gray-400">
+                    <span id="watermark-opacity-value">30%</span>
+                  </div>
+                </div>
+
+                <div id="watermark-font-size-div">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Font Size
+                  </label>
+                  <input
+                    type="range"
+                    id="watermark-font-size"
+                    min="20"
+                    max="100"
+                    step="5"
+                    defaultValue="60"
+                    className="w-full"
+                    onInput={(e) => {
+                      const value = (e.target as HTMLInputElement).value;
+                      const display = document.getElementById('watermark-font-size-value');
+                      if (display) display.textContent = `${value}px`;
+                    }}
+                  />
+                  <div className="text-center text-sm text-gray-600 dark:text-gray-400">
+                    <span id="watermark-font-size-value">60px</span>
+                  </div>
+                </div>
+
+                <div id="watermark-scale-div" className="hidden">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Image Scale
+                  </label>
+                  <input
+                    type="range"
+                    id="watermark-scale"
+                    min="0.1"
+                    max="2"
+                    step="0.1"
+                    defaultValue="1.0"
+                    className="w-full"
+                    onInput={(e) => {
+                      const value = (e.target as HTMLInputElement).value;
+                      const display = document.getElementById('watermark-scale-value');
+                      if (display) display.textContent = `${value}x`;
+                    }}
+                  />
+                  <div className="text-center text-sm text-gray-600 dark:text-gray-400">
+                    <span id="watermark-scale-value">1.0x</span>
+                  </div>
+                </div>
+
+                <div id="watermark-color-div">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Color
+                  </label>
+                  <input
+                    type="color"
+                    id="watermark-color"
+                    defaultValue="#808080"
+                    className="w-full h-10 px-1 border border-gray-300 dark:border-gray-600 rounded-lg"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Opacity
+                  Rotation (degrees)
                 </label>
                 <input
                   type="range"
-                  id="watermark-opacity"
-                  min="0"
-                  max="100"
-                  defaultValue="30"
+                  id="watermark-rotation"
+                  min="-180"
+                  max="180"
+                  step="15"
+                  defaultValue="0"
                   className="w-full"
+                  onInput={(e) => {
+                    const value = (e.target as HTMLInputElement).value;
+                    const display = document.getElementById('watermark-rotation-value');
+                    if (display) display.textContent = `${value}°`;
+                  }}
                 />
+                <div className="text-center text-sm text-gray-600 dark:text-gray-400">
+                  <span id="watermark-rotation-value">0°</span>
+                </div>
               </div>
             </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-yellow-600 dark:text-yellow-400 mr-3">💡</span>
+                <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <p className="font-medium mb-1">Tips:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>Use text watermarks for copyright or confidentiality notices</li>
+                    <li>Use image watermarks for logos or signatures</li>
+                    <li>Diagonal position is most common for watermarks</li>
+                    <li>Lower opacity (20-40%) makes watermarks less intrusive</li>
+                    <li>Custom rotation overrides default position rotation</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="add-watermark-process-btn"
+                onClick={() => addWatermarkToPdf()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={state.files.length === 0}
+              >
                 Add Watermark
               </button>
             </div>
@@ -3883,20 +5844,105 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 Add Attachments
               </h2>
-              <p className="text-gray-600 dark:text-gray-400">Attach files to PDF document</p>
+              <p className="text-gray-600 dark:text-gray-400">Attach files to your PDF document</p>
             </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Attachment Info:</p>
+                  <p>
+                    Embed files inside your PDF. Attachments can be added at document level or attached to specific pages.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Files to Attach
-              </label>
-              <input
-                type="file"
-                multiple
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-              />
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready for attachments`
+                    : 'PDF file uploaded above will receive attachments'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Files to Attach
+                </label>
+                <input
+                  type="file"
+                  id="attachment-files-input"
+                  multiple
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-gray-800"
+                />
+                <div id="attachment-file-list" className="mt-3 space-y-2"></div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Attachment Level
+                </label>
+                <div className="space-y-2">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="attachment-level"
+                      value="document"
+                      defaultChecked
+                      className="mr-2"
+                    />
+                    <span className="text-gray-700 dark:text-gray-300">Document Level (Portfolio)</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="attachment-level"
+                      value="page"
+                      className="mr-2"
+                    />
+                    <span className="text-gray-700 dark:text-gray-300">Page Level (Specific pages)</span>
+                  </label>
+                </div>
+              </div>
+
+              <div id="page-range-wrapper" className="hidden">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Page Range
+                </label>
+                <input
+                  type="text"
+                  id="attachment-page-range"
+                  placeholder="e.g., 1,3-5,8"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Specify pages to attach files to (e.g., 1,3-5,8 for pages 1, 3 to 5, and 8)
+                </p>
+              </div>
+            </div>
+
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="add-attachments-process-btn"
+                onClick={() => processAddAttachments()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 Add Attachments
               </button>
             </div>
@@ -3909,10 +5955,48 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 Extract Attachments
               </h2>
-              <p className="text-gray-600 dark:text-gray-400">Extract attached files from PDF</p>
+              <p className="text-gray-600 dark:text-gray-400">Extract embedded files from your PDF document</p>
             </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Extract Info:</p>
+                  <p>
+                    This tool will extract all attached/embedded files from your PDF and download them as a ZIP archive.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready for extraction`
+                    : 'PDF file uploaded above will be processed'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                id="extract-attachments-process-btn"
+                onClick={() => processExtractAttachments()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 Extract Attachments
               </button>
             </div>
@@ -3925,13 +6009,128 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 Edit Attachments
               </h2>
-              <p className="text-gray-600 dark:text-gray-400">Manage PDF attachments</p>
+              <p className="text-gray-600 dark:text-gray-400">View and remove embedded files from your PDF</p>
             </div>
-            <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
-                Manage Attachments
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Edit Info:</p>
+                  <p>
+                    Select attachments to remove from your PDF. Click "Load Attachments" to see all embedded files.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready for editing`
+                    : 'PDF file uploaded above will be processed'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <button
+                onClick={async () => {
+                  const attachments = await processEditAttachments();
+                  if (attachments && attachments.length === 0) {
+                    showAlert('No Attachments', 'This PDF does not contain any attachments.', 'info');
+                  }
+                }}
+                className="w-full px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-all"
+              >
+                Load Attachments
               </button>
             </div>
+
+            {editAttachments.length > 0 && (
+              <div className="mb-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Attachments ({editAttachments.length})
+                  </h3>
+                  <button
+                    onClick={() => {
+                      const allSelected = editAttachments.every(att => selectedAttachmentsToRemove.has(att.index));
+                      if (allSelected) {
+                        setSelectedAttachmentsToRemove(new Set());
+                      } else {
+                        setSelectedAttachmentsToRemove(new Set(editAttachments.map(att => att.index)));
+                      }
+                    }}
+                    className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded transition-all"
+                  >
+                    {editAttachments.every(att => selectedAttachmentsToRemove.has(att.index)) ? 'Deselect All' : 'Select All'}
+                  </button>
+                </div>
+                
+                <div className="space-y-2">
+                  {editAttachments.map((attachment) => (
+                    <div
+                      key={attachment.index}
+                      className={`flex items-center justify-between p-3 border rounded-lg transition-all ${
+                        selectedAttachmentsToRemove.has(attachment.index)
+                          ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700 opacity-60 line-through'
+                          : 'bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600'
+                      }`}
+                    >
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white">{attachment.name}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {attachment.page === 0 ? 'Document-level attachment' : `Page ${attachment.page} attachment`}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          const newSet = new Set(selectedAttachmentsToRemove);
+                          if (newSet.has(attachment.index)) {
+                            newSet.delete(attachment.index);
+                          } else {
+                            newSet.add(attachment.index);
+                          }
+                          setSelectedAttachmentsToRemove(newSet);
+                        }}
+                        className={`px-3 py-1 rounded text-sm transition-all ${
+                          selectedAttachmentsToRemove.has(attachment.index)
+                            ? 'bg-gray-500 text-white'
+                            : 'bg-red-600 hover:bg-red-700 text-white'
+                        }`}
+                      >
+                        {selectedAttachmentsToRemove.has(attachment.index) ? 'Undo' : 'Remove'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {editAttachments.length > 0 && (
+              <div className="flex justify-center">
+                <button
+                  onClick={() => processRemoveAttachments(Array.from(selectedAttachmentsToRemove))}
+                  disabled={selectedAttachmentsToRemove.size === 0}
+                  className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Save Changes ({selectedAttachmentsToRemove.size} to remove)
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -4015,35 +6214,178 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
                 Add Headers/Footers
               </h2>
               <p className="text-gray-600 dark:text-gray-400">
-                Add headers and footers to PDF pages
+                Add customizable headers and footers to your PDF pages
               </p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Header Text
-                </label>
-                <input
-                  type="text"
-                  id="header-text"
-                  placeholder="Document Title"
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Footer Text
-                </label>
-                <input
-                  type="text"
-                  id="footer-text"
-                  placeholder="Page {page}"
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-                />
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Placeholders:</p>
+                  <p>Use <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">{'{page}'}</code> for current page number and <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">{'{total}'}</code> for total pages.</p>
+                </div>
               </div>
             </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready for headers/footers`
+                    : 'PDF file uploaded above will receive headers/footers'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-6 mb-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Header</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Left
+                    </label>
+                    <input
+                      type="text"
+                      id="header-left"
+                      placeholder="Document Title"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Center
+                    </label>
+                    <input
+                      type="text"
+                      id="header-center"
+                      placeholder="Chapter Name"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Right
+                    </label>
+                    <input
+                      type="text"
+                      id="header-right"
+                      placeholder="Date"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Footer</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Left
+                    </label>
+                    <input
+                      type="text"
+                      id="footer-left"
+                      placeholder="Company Name"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Center
+                    </label>
+                    <input
+                      type="text"
+                      id="footer-center"
+                      placeholder="Page {page} of {total}"
+                      defaultValue="Page {page} of {total}"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Right
+                    </label>
+                    <input
+                      type="text"
+                      id="footer-right"
+                      placeholder="© 2024"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Font Size
+                  </label>
+                  <input
+                    type="number"
+                    id="header-footer-font-size"
+                    defaultValue="10"
+                    min="6"
+                    max="24"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Font Color
+                  </label>
+                  <input
+                    type="color"
+                    id="header-footer-font-color"
+                    defaultValue="#000000"
+                    className="w-full h-10 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Page Range
+                  </label>
+                  <input
+                    type="text"
+                    id="header-footer-page-range"
+                    placeholder="e.g., 1-10 or leave empty for all"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+              </div>
+            </div>
+
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                onClick={() => {
+                  const options = {
+                    headerLeft: (document.getElementById('header-left') as HTMLInputElement)?.value || '',
+                    headerCenter: (document.getElementById('header-center') as HTMLInputElement)?.value || '',
+                    headerRight: (document.getElementById('header-right') as HTMLInputElement)?.value || '',
+                    footerLeft: (document.getElementById('footer-left') as HTMLInputElement)?.value || '',
+                    footerCenter: (document.getElementById('footer-center') as HTMLInputElement)?.value || '',
+                    footerRight: (document.getElementById('footer-right') as HTMLInputElement)?.value || '',
+                    fontSize: parseInt((document.getElementById('header-footer-font-size') as HTMLInputElement)?.value || '10'),
+                    fontColor: (document.getElementById('header-footer-font-color') as HTMLInputElement)?.value || '#000000',
+                    pageRange: (document.getElementById('header-footer-page-range') as HTMLInputElement)?.value || '',
+                  };
+                  processHeaderFooter(options);
+                }}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Add Headers/Footers
               </button>
             </div>
@@ -4059,19 +6401,80 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               </h2>
               <p className="text-gray-600 dark:text-gray-400">Change PDF page background color</p>
             </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Background Info:</p>
+                  <p>
+                    This tool adds a colored background layer behind all PDF content. The original content will remain visible on top of the background.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready for background color change`
+                    : 'PDF file uploaded above will receive a background color'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Background Color
               </label>
-              <input
-                type="color"
-                id="background-color"
-                defaultValue="#ffffff"
-                className="w-full h-12 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700"
-              />
+              <div className="flex items-center gap-4">
+                <input
+                  type="color"
+                  id="background-color-picker"
+                  defaultValue="#ffffff"
+                  className="h-12 w-24 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 cursor-pointer"
+                />
+                <input
+                  type="text"
+                  id="background-color-hex"
+                  defaultValue="#ffffff"
+                  placeholder="#ffffff"
+                  maxLength={7}
+                  onChange={(e) => {
+                    const picker = document.getElementById('background-color-picker') as HTMLInputElement;
+                    if (picker && e.target.value.match(/^#[0-9A-Fa-f]{6}$/)) {
+                      picker.value = e.target.value;
+                    }
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white font-mono"
+                />
+              </div>
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                Pick a color or enter a hex code (e.g., #ffffff for white)
+              </p>
             </div>
+
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                onClick={() => {
+                  const colorPicker = document.getElementById('background-color-picker') as HTMLInputElement;
+                  const colorHex = colorPicker?.value || '#ffffff';
+                  processBackgroundColor(colorHex);
+                }}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Apply Background Color
               </button>
             </div>
@@ -4082,21 +6485,94 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Text Color</h2>
-              <p className="text-gray-600 dark:text-gray-400">Change PDF text color</p>
+              <p className="text-gray-600 dark:text-gray-400">Change PDF text color by detecting dark pixels</p>
             </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Text Color Info:</p>
+                  <p>
+                    This tool renders each page as an image and changes dark pixels (text) to your selected color. Note: This converts the PDF to images.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready for text color change`
+                    : 'PDF file uploaded above will have text color changed'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Text Color
               </label>
-              <input
-                type="color"
-                id="text-color"
-                defaultValue="#000000"
-                className="w-full h-12 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700"
-              />
+              <div className="flex items-center gap-4">
+                <input
+                  type="color"
+                  id="text-color-picker"
+                  defaultValue="#000000"
+                  className="h-12 w-24 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 cursor-pointer"
+                />
+                <input
+                  type="text"
+                  id="text-color-hex"
+                  defaultValue="#000000"
+                  placeholder="#000000"
+                  maxLength={7}
+                  onChange={(e) => {
+                    const picker = document.getElementById('text-color-picker') as HTMLInputElement;
+                    if (picker && e.target.value.match(/^#[0-9A-Fa-f]{6}$/)) {
+                      picker.value = e.target.value;
+                    }
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white font-mono"
+                />
+              </div>
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                Pick a color or enter a hex code (e.g., #FF0000 for red text)
+              </p>
             </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-yellow-600 dark:text-yellow-400 mr-3">⚠️</span>
+                <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <p className="font-semibold mb-1">Important:</p>
+                  <p>
+                    This process may take some time for large PDFs and will increase file size as pages are converted to images.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                onClick={() => {
+                  const colorPicker = document.getElementById('text-color-picker') as HTMLInputElement;
+                  const colorHex = colorPicker?.value || '#000000';
+                  processTextColor(colorHex);
+                }}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Apply Text Color
               </button>
             </div>
@@ -4109,10 +6585,59 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 Invert Colors
               </h2>
-              <p className="text-gray-600 dark:text-gray-400">Invert all colors in PDF</p>
+              <p className="text-gray-600 dark:text-gray-400">Invert all colors in PDF for a negative effect</p>
             </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Invert Info:</p>
+                  <p>
+                    This tool creates a negative effect by inverting all colors (white becomes black, black becomes white, etc.). Pages are converted to images.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready for color inversion`
+                    : 'PDF file uploaded above will have colors inverted'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-yellow-600 dark:text-yellow-400 mr-3">⚠️</span>
+                <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <p className="font-semibold mb-1">Important:</p>
+                  <p>
+                    This process converts pages to images and may increase file size. Best for creating negative/dark mode versions.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                onClick={() => processInvertColors()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Invert Colors
               </button>
             </div>
@@ -4126,52 +6651,273 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
                 Adjust Colors
               </h2>
               <p className="text-gray-600 dark:text-gray-400">
-                Fine-tune brightness, contrast, and saturation
+                Fine-tune brightness, contrast, saturation, and more
               </p>
             </div>
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Brightness
-                </label>
-                <input
-                  type="range"
-                  id="brightness"
-                  min="-100"
-                  max="100"
-                  defaultValue="0"
-                  className="w-full"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Contrast
-                </label>
-                <input
-                  type="range"
-                  id="contrast"
-                  min="-100"
-                  max="100"
-                  defaultValue="0"
-                  className="w-full"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Saturation
-                </label>
-                <input
-                  type="range"
-                  id="saturation"
-                  min="-100"
-                  max="100"
-                  defaultValue="0"
-                  className="w-full"
-                />
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Color Adjustment Info:</p>
+                  <p>
+                    Adjust multiple color properties to enhance your PDF. Pages are rendered to images with your adjustments applied.
+                  </p>
+                </div>
               </div>
             </div>
-            <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready for color adjustments`
+                    : 'PDF file uploaded above will have colors adjusted'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-6 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Brightness */}
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Brightness
+                    </label>
+                    <span id="brightness-value" className="text-sm text-gray-600 dark:text-gray-400">0</span>
+                  </div>
+                  <input
+                    type="range"
+                    id="adjust-brightness"
+                    min="-100"
+                    max="100"
+                    defaultValue="0"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const display = document.getElementById('brightness-value');
+                      if (display) display.textContent = val;
+                    }}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                  />
+                </div>
+
+                {/* Contrast */}
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Contrast
+                    </label>
+                    <span id="contrast-value" className="text-sm text-gray-600 dark:text-gray-400">0</span>
+                  </div>
+                  <input
+                    type="range"
+                    id="adjust-contrast"
+                    min="-100"
+                    max="100"
+                    defaultValue="0"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const display = document.getElementById('contrast-value');
+                      if (display) display.textContent = val;
+                    }}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                  />
+                </div>
+
+                {/* Saturation */}
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Saturation
+                    </label>
+                    <span id="saturation-value" className="text-sm text-gray-600 dark:text-gray-400">0</span>
+                  </div>
+                  <input
+                    type="range"
+                    id="adjust-saturation"
+                    min="-100"
+                    max="100"
+                    defaultValue="0"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const display = document.getElementById('saturation-value');
+                      if (display) display.textContent = val;
+                    }}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                  />
+                </div>
+
+                {/* Hue Shift */}
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Hue Shift
+                    </label>
+                    <span id="hue-shift-value" className="text-sm text-gray-600 dark:text-gray-400">0°</span>
+                  </div>
+                  <input
+                    type="range"
+                    id="adjust-hue-shift"
+                    min="-180"
+                    max="180"
+                    defaultValue="0"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const display = document.getElementById('hue-shift-value');
+                      if (display) display.textContent = val + '°';
+                    }}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                  />
+                </div>
+
+                {/* Temperature */}
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Temperature
+                    </label>
+                    <span id="temperature-value" className="text-sm text-gray-600 dark:text-gray-400">0</span>
+                  </div>
+                  <input
+                    type="range"
+                    id="adjust-temperature"
+                    min="-100"
+                    max="100"
+                    defaultValue="0"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const display = document.getElementById('temperature-value');
+                      if (display) display.textContent = val;
+                    }}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                  />
+                </div>
+
+                {/* Tint */}
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Tint
+                    </label>
+                    <span id="tint-value" className="text-sm text-gray-600 dark:text-gray-400">0</span>
+                  </div>
+                  <input
+                    type="range"
+                    id="adjust-tint"
+                    min="-100"
+                    max="100"
+                    defaultValue="0"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const display = document.getElementById('tint-value');
+                      if (display) display.textContent = val;
+                    }}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                  />
+                </div>
+
+                {/* Gamma */}
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Gamma
+                    </label>
+                    <span id="gamma-value" className="text-sm text-gray-600 dark:text-gray-400">1.0</span>
+                  </div>
+                  <input
+                    type="range"
+                    id="adjust-gamma"
+                    min="0.1"
+                    max="3.0"
+                    step="0.1"
+                    defaultValue="1.0"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const display = document.getElementById('gamma-value');
+                      if (display) display.textContent = val;
+                    }}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                  />
+                </div>
+
+                {/* Sepia */}
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Sepia
+                    </label>
+                    <span id="sepia-value" className="text-sm text-gray-600 dark:text-gray-400">0</span>
+                  </div>
+                  <input
+                    type="range"
+                    id="adjust-sepia"
+                    min="0"
+                    max="100"
+                    defaultValue="0"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const display = document.getElementById('sepia-value');
+                      if (display) display.textContent = val;
+                    }}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={() => {
+                  // Reset all sliders
+                  const sliders = [
+                    { id: 'adjust-brightness', value: '0', displayId: 'brightness-value', suffix: '' },
+                    { id: 'adjust-contrast', value: '0', displayId: 'contrast-value', suffix: '' },
+                    { id: 'adjust-saturation', value: '0', displayId: 'saturation-value', suffix: '' },
+                    { id: 'adjust-hue-shift', value: '0', displayId: 'hue-shift-value', suffix: '°' },
+                    { id: 'adjust-temperature', value: '0', displayId: 'temperature-value', suffix: '' },
+                    { id: 'adjust-tint', value: '0', displayId: 'tint-value', suffix: '' },
+                    { id: 'adjust-gamma', value: '1.0', displayId: 'gamma-value', suffix: '' },
+                    { id: 'adjust-sepia', value: '0', displayId: 'sepia-value', suffix: '' },
+                  ];
+                  sliders.forEach(({ id, value, displayId, suffix }) => {
+                    const slider = document.getElementById(id) as HTMLInputElement;
+                    const display = document.getElementById(displayId);
+                    if (slider) slider.value = value;
+                    if (display) display.textContent = value + suffix;
+                  });
+                }}
+                className="px-6 py-2 bg-gray-500 text-white font-semibold rounded-full hover:bg-gray-600 transition"
+              >
+                Reset
+              </button>
+              <button
+                onClick={() => {
+                  const settings: AdjustColorsSettings = {
+                    brightness: parseInt((document.getElementById('adjust-brightness') as HTMLInputElement)?.value || '0'),
+                    contrast: parseInt((document.getElementById('adjust-contrast') as HTMLInputElement)?.value || '0'),
+                    saturation: parseInt((document.getElementById('adjust-saturation') as HTMLInputElement)?.value || '0'),
+                    hueShift: parseInt((document.getElementById('adjust-hue-shift') as HTMLInputElement)?.value || '0'),
+                    temperature: parseInt((document.getElementById('adjust-temperature') as HTMLInputElement)?.value || '0'),
+                    tint: parseInt((document.getElementById('adjust-tint') as HTMLInputElement)?.value || '0'),
+                    gamma: parseFloat((document.getElementById('adjust-gamma') as HTMLInputElement)?.value || '1.0'),
+                    sepia: parseInt((document.getElementById('adjust-sepia') as HTMLInputElement)?.value || '0'),
+                  };
+                  processAdjustColors(settings);
+                }}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Apply Adjustments
               </button>
             </div>
@@ -4186,8 +6932,57 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               </h2>
               <p className="text-gray-600 dark:text-gray-400">Convert PDF to black and white</p>
             </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Grayscale Info:</p>
+                  <p>
+                    This tool converts your PDF to black and white by removing all color information. Pages are rendered to images.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready for grayscale conversion`
+                    : 'PDF file uploaded above will be converted to grayscale'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-yellow-600 dark:text-yellow-400 mr-3">⚠️</span>
+                <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <p className="font-semibold mb-1">Important:</p>
+                  <p>
+                    Conversion uses JPEG format for better compression. Output file size may vary based on content.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                onClick={() => processConvertToGreyscale()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Convert to Grayscale
               </button>
             </div>
@@ -4197,25 +6992,195 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
         <div id="posterize-container" className="hidden max-w-6xl mx-auto mt-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Posterize</h2>
-              <p className="text-gray-600 dark:text-gray-400">Apply posterize effect to PDF</p>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Posterize PDF</h2>
+              <p className="text-gray-600 dark:text-gray-400">Split PDF pages into poster-sized tiles</p>
             </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Posterize Info:</p>
+                  <p>
+                    This tool splits PDF pages into a grid of tiles for printing large posters. Each tile becomes a separate page.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Levels
-              </label>
-              <input
-                type="number"
-                id="posterize-levels"
-                min="2"
-                max="256"
-                defaultValue="8"
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-              />
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready for posterizing`
+                    : 'PDF file uploaded above will be posterized'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              {/* Grid Settings */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Grid Settings</h3>
+                
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Rows
+                  </label>
+                  <input
+                    type="number"
+                    id="posterize-rows"
+                    min="1"
+                    max="10"
+                    defaultValue="2"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Columns
+                  </label>
+                  <input
+                    type="number"
+                    id="posterize-cols"
+                    min="1"
+                    max="10"
+                    defaultValue="2"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Overlap
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      id="posterize-overlap"
+                      min="0"
+                      step="0.1"
+                      defaultValue="0"
+                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    />
+                    <select
+                      id="posterize-overlap-units"
+                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    >
+                      <option value="pt">pt</option>
+                      <option value="in">in</option>
+                      <option value="mm">mm</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Page Range
+                  </label>
+                  <input
+                    type="text"
+                    id="posterize-page-range"
+                    placeholder="e.g., 1-3, 5"
+                    defaultValue="1"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              {/* Output Settings */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Output Settings</h3>
+                
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Page Size
+                  </label>
+                  <select
+                    id="posterize-page-size"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="A4">A4</option>
+                    <option value="Letter">Letter</option>
+                    <option value="Legal">Legal</option>
+                    <option value="A3">A3</option>
+                    <option value="Tabloid">Tabloid</option>
+                  </select>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Orientation
+                  </label>
+                  <select
+                    id="posterize-orientation"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="auto">Auto</option>
+                    <option value="portrait">Portrait</option>
+                    <option value="landscape">Landscape</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Scaling Mode
+                  </label>
+                  <div className="space-y-2">
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="posterize-scaling"
+                        value="fit"
+                        defaultChecked
+                        className="mr-2"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">Fit (maintain aspect ratio)</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="posterize-scaling"
+                        value="fill"
+                        className="mr-2"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">Fill (may crop)</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
-                Apply Posterize
+              <button
+                onClick={() => {
+                  const options: PosterizeOptions = {
+                    rows: parseInt((document.getElementById('posterize-rows') as HTMLInputElement)?.value || '2'),
+                    cols: parseInt((document.getElementById('posterize-cols') as HTMLInputElement)?.value || '2'),
+                    pageSize: (document.getElementById('posterize-page-size') as HTMLSelectElement)?.value as any || 'A4',
+                    orientation: (document.getElementById('posterize-orientation') as HTMLSelectElement)?.value as any || 'auto',
+                    scalingMode: (document.querySelector('input[name="posterize-scaling"]:checked') as HTMLInputElement)?.value as any || 'fit',
+                    overlap: parseFloat((document.getElementById('posterize-overlap') as HTMLInputElement)?.value || '0'),
+                    overlapUnits: (document.getElementById('posterize-overlap-units') as HTMLSelectElement)?.value as any || 'pt',
+                    pageRange: (document.getElementById('posterize-page-range') as HTMLInputElement)?.value || '1',
+                  };
+                  processPosterize(options);
+                }}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
+                Create Poster
               </button>
             </div>
           </div>
@@ -4229,6 +7194,40 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               </h2>
               <p className="text-gray-600 dark:text-gray-400">Rotate PDF by custom angle</p>
             </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Custom Rotation Info:</p>
+                  <p>
+                    Rotate all pages by any angle. For angles that are multiples of 90°, the original quality is preserved. For other angles, pages are embedded with transformation.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready for rotation`
+                    : 'PDF file uploaded above will be rotated'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Rotation Angle (degrees)
@@ -4238,13 +7237,80 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
                 id="custom-angle"
                 min="-360"
                 max="360"
+                step="1"
                 defaultValue="0"
+                placeholder="Enter angle (e.g., 45, 90, -30)"
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
               />
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                Positive values rotate clockwise, negative values rotate counter-clockwise
+              </p>
             </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+              <button
+                onClick={() => {
+                  const input = document.getElementById('custom-angle') as HTMLInputElement;
+                  if (input) input.value = '90';
+                }}
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg transition-colors"
+              >
+                90° CW
+              </button>
+              <button
+                onClick={() => {
+                  const input = document.getElementById('custom-angle') as HTMLInputElement;
+                  if (input) input.value = '-90';
+                }}
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg transition-colors"
+              >
+                90° CCW
+              </button>
+              <button
+                onClick={() => {
+                  const input = document.getElementById('custom-angle') as HTMLInputElement;
+                  if (input) input.value = '180';
+                }}
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg transition-colors"
+              >
+                180°
+              </button>
+              <button
+                onClick={() => {
+                  const input = document.getElementById('custom-angle') as HTMLInputElement;
+                  if (input) input.value = '45';
+                }}
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg transition-colors"
+              >
+                45°
+              </button>
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-yellow-600 dark:text-yellow-400 mr-3">⚠️</span>
+                <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <p className="font-semibold mb-1">Note:</p>
+                  <p>
+                    Non-90° rotations will increase file size as pages are embedded. The canvas size adjusts to fit the rotated content.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
-                Rotate
+              <button
+                onClick={() => {
+                  const angle = parseFloat((document.getElementById('custom-angle') as HTMLInputElement)?.value || '0');
+                  if (angle === 0) {
+                    showAlert('Invalid Angle', 'Please enter a non-zero angle.');
+                    return;
+                  }
+                  processRotateCustom(angle);
+                }}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
+                Apply Rotation
               </button>
             </div>
           </div>
@@ -4260,23 +7326,121 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
                 Convert vector PDF to raster images
               </p>
             </div>
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                DPI (Resolution)
-              </label>
-              <select
-                id="rasterize-dpi"
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-              >
-                <option value="72">72 DPI (Screen)</option>
-                <option value="150">150 DPI (Standard)</option>
-                <option value="300">300 DPI (Print)</option>
-                <option value="600">600 DPI (High Quality)</option>
-              </select>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Rasterization Info:</p>
+                  <p>
+                    Converts vector PDF content to raster images. This flattens all layers, removes text selectability, but ensures consistent rendering across all devices.
+                  </p>
+                </div>
+              </div>
             </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files[0].name} ready for rasterization`
+                    : 'PDF file uploaded above will be rasterized'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                      <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                      <span className="truncate">{state.files[0].name}</span>
+                      <span className="ml-4 text-gray-500 text-xs">
+                        {(state.files[0].size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  DPI (Resolution)
+                </label>
+                <select
+                  id="rasterize-dpi"
+                  defaultValue="150"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="72">72 DPI (Screen/Web)</option>
+                  <option value="96">96 DPI (Standard Screen)</option>
+                  <option value="150">150 DPI (Standard Quality)</option>
+                  <option value="200">200 DPI (Good Quality)</option>
+                  <option value="300">300 DPI (Print Quality)</option>
+                  <option value="600">600 DPI (High Quality)</option>
+                </select>
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  Higher DPI = better quality but larger file size
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Image Format
+                </label>
+                <select
+                  id="rasterize-format"
+                  defaultValue="png"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="png">PNG (Lossless)</option>
+                  <option value="jpeg">JPEG (Smaller size)</option>
+                </select>
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  PNG preserves quality, JPEG reduces file size
+                </p>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="rasterize-grayscale"
+                  className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                />
+                <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Convert to Grayscale
+                </span>
+              </label>
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-yellow-600 dark:text-yellow-400 mr-3">⚠️</span>
+                <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <p className="font-semibold mb-1">Important:</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Text becomes non-selectable after rasterization</li>
+                    <li>File size may increase significantly at high DPI</li>
+                    <li>Processing may take time for large PDFs</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
-                Rasterize
+              <button
+                onClick={() => {
+                  const options: RasterizeOptions = {
+                    dpi: parseInt((document.getElementById('rasterize-dpi') as HTMLSelectElement)?.value || '150'),
+                    format: (document.getElementById('rasterize-format') as HTMLSelectElement)?.value as 'png' | 'jpeg' || 'png',
+                    grayscale: (document.getElementById('rasterize-grayscale') as HTMLInputElement)?.checked || false,
+                    quality: 95,
+                  };
+                  processRasterize(options);
+                }}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
+                Rasterize PDF
               </button>
             </div>
           </div>
@@ -4285,13 +7449,69 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
         <div id="flatten-container" className="hidden max-w-6xl mx-auto mt-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Flatten PDF</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Flatten PDF
+              </h2>
               <p className="text-gray-600 dark:text-gray-400">
-                Flatten form fields and annotations
+                Flatten form fields and annotations into the page content
               </p>
             </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Flattening Info:</p>
+                  <p>
+                    Flattening converts interactive form fields and annotations to static content. 
+                    This prevents editing and ensures the content appears the same on all devices.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files.length} PDF(s) ready for flattening`
+                    : 'PDF file(s) uploaded above will be flattened'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    {state.files.map((file, index) => (
+                      <div key={index} className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                        <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                        <span className="truncate">{file.name}</span>
+                        <span className="ml-4 text-gray-500 text-xs">
+                          {(file.size / 1024).toFixed(1)} KB
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-yellow-600 dark:text-yellow-400 mr-3">⚠️</span>
+                <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <p className="font-semibold mb-1">Important:</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Form fields will become non-editable</li>
+                    <li>Annotations and comments will be merged into pages</li>
+                    <li>This action cannot be undone</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                onClick={() => processFlatten()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Flatten PDF
               </button>
             </div>
@@ -4304,10 +7524,52 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 Linearize PDF
               </h2>
-              <p className="text-gray-600 dark:text-gray-400">Optimize PDF for fast web viewing</p>
+              <p className="text-gray-600 dark:text-gray-400">
+                Optimize PDF for fast web viewing (enables byte-range requests)
+              </p>
             </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <span className="text-blue-600 dark:text-blue-400 mr-3">ℹ️</span>
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">Linearization Info:</p>
+                  <p>
+                    Linearizing (also called web optimization) restructures PDFs so they can start displaying 
+                    before the entire file downloads. Essential for web-based PDF viewers.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-2">
+                  {state.files.length > 0
+                    ? `${state.files.length} PDF(s) ready for linearization`
+                    : 'PDF file(s) uploaded above will be linearized'}
+                </p>
+                {state.files.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    {state.files.map((file, index) => (
+                      <div key={index} className="flex items-center justify-center text-gray-700 dark:text-gray-300">
+                        <span className="text-green-600 dark:text-green-400 mr-2">✓</span>
+                        <span className="truncate">{file.name}</span>
+                        <span className="ml-4 text-gray-500 text-xs">
+                          {(file.size / 1024).toFixed(1)} KB
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                onClick={() => processLinearize()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Linearize PDF
               </button>
             </div>
@@ -4320,10 +7582,55 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 Sanitize PDF
               </h2>
-              <p className="text-gray-600 dark:text-gray-400">Remove hidden data and scripts</p>
+              <p className="text-gray-600 dark:text-gray-400">Remove hidden data and scripts for security</p>
             </div>
+
+            <div className="space-y-4 mb-6">
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  id="sanitize-remove-metadata"
+                  defaultChecked
+                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                />
+                <span className="text-gray-700 dark:text-gray-300">Remove Metadata (Author, Title, etc.)</span>
+              </label>
+
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  id="sanitize-remove-annotations"
+                  defaultChecked
+                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                />
+                <span className="text-gray-700 dark:text-gray-300">Remove Annotations and Comments</span>
+              </label>
+
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  id="sanitize-remove-javascript"
+                  defaultChecked
+                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                />
+                <span className="text-gray-700 dark:text-gray-300">Remove JavaScript</span>
+              </label>
+
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  id="sanitize-flatten-forms"
+                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                />
+                <span className="text-gray-700 dark:text-gray-300">Flatten Forms (Make Non-Editable)</span>
+              </label>
+            </div>
+
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button
+                onClick={() => processSanitize()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Sanitize PDF
               </button>
             </div>
@@ -4336,35 +7643,55 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Encrypt PDF</h2>
               <p className="text-gray-600 dark:text-gray-400">
-                Protect PDF with password encryption
+                Protect PDF with password encryption (256-bit AES)
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  User Password (Open)
+                  User Password (Required)
                 </label>
                 <input
                   type="password"
-                  id="user-password"
-                  placeholder="Password to open"
+                  id="encrypt-user-password"
+                  placeholder="Password to open PDF"
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Owner Password (Permissions)
+                  Owner Password (Optional)
                 </label>
                 <input
                   type="password"
-                  id="owner-password"
-                  placeholder="Password for editing"
+                  id="encrypt-owner-password"
+                  placeholder="Password for permissions"
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
                 />
               </div>
             </div>
+            
+            <div className="mb-6">
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  id="encrypt-add-restrictions"
+                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                />
+                <span className="text-gray-700 dark:text-gray-300">
+                  Add usage restrictions (requires owner password)
+                </span>
+              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-7">
+                Prevents printing, copying, and editing without owner password
+              </p>
+            </div>
+            
             <div className="flex justify-center">
-              <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+              <button 
+                onClick={() => processEncrypt()}
+                className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+              >
                 Encrypt PDF
               </button>
             </div>

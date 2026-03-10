@@ -1,6 +1,6 @@
 import { repairPdf } from './repair-pdf.js';
-import { state } from '../state.js';
-import { renderFileDisplay } from '../ui.js';
+import { state } from '../state';
+import { renderFileDisplay } from '../ui';
 
 document.addEventListener('DOMContentLoaded', () => {
   const fileInput = document.getElementById('file-input') as HTMLInputElement;

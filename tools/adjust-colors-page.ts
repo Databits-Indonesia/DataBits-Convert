@@ -1,15 +1,11 @@
-import { showLoader, hideLoader, showAlert } from '../ui.js';
-import {
-  downloadFile,
-  formatBytes,
-  readFileAsArrayBuffer,
-  getPDFDocument,
-} from '../utils/helpers.js';
+import { showLoader, hideLoader, showAlert } from '../ui';
+import { downloadFile, formatBytes } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument } from 'pdf-lib';
 import { applyColorAdjustments } from '../utils/image-effects';
 import * as pdfjsLib from 'pdfjs-dist';
-import type { AdjustColorsSettings } from '../types/adjust-colors-type.js';
+import { getFiles } from '../state';
+import type { AdjustColorsSettings } from '../types/adjust-colors-type';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -21,6 +17,103 @@ let cachedBaselineData: ImageData | null = null;
 let cachedBaselineWidth = 0;
 let cachedBaselineHeight = 0;
 let pdfjsDoc: pdfjsLib.PDFDocumentProxy | null = null;
+
+// Main function to adjust colors - exported for use in App.tsx
+export async function adjustColorsOfPdf(settings: AdjustColorsSettings): Promise<boolean> {
+  const stateFiles = getFiles();
+  
+  if (stateFiles.length === 0) {
+    showAlert('No File', 'Please upload a PDF file first.');
+    return false;
+  }
+
+  showLoader('Applying color adjustments...');
+
+  try {
+    const file = stateFiles[0];
+    const arrayBuffer = await file.arrayBuffer();
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    const doc = await loadingTask.promise;
+    const newPdfDoc = await PDFDocument.create();
+
+    for (let i = 1; i <= doc.numPages; i++) {
+      showLoader(`Processing page ${i} of ${doc.numPages}...`);
+
+      const page = await doc.getPage(i);
+      const viewport = page.getViewport({ scale: 2.0 });
+      const renderCanvas = document.createElement('canvas');
+      const renderCtx = renderCanvas.getContext('2d')!;
+      renderCanvas.width = viewport.width;
+      renderCanvas.height = viewport.height;
+
+      await page.render({
+        canvasContext: renderCtx,
+        viewport,
+        canvas: renderCanvas,
+      }).promise;
+
+      const baseData = renderCtx.getImageData(
+        0,
+        0,
+        renderCanvas.width,
+        renderCanvas.height
+      );
+
+      const outputCanvas = document.createElement('canvas');
+      outputCanvas.width = renderCanvas.width;
+      outputCanvas.height = renderCanvas.height;
+      
+      const result = applyColorAdjustments(baseData, settings);
+      const ctx = outputCanvas.getContext('2d');
+      if (ctx) {
+        ctx.putImageData(result, 0, 0);
+      }
+
+      const pngBlob = await new Promise<Blob | null>((resolve) =>
+        outputCanvas.toBlob(resolve, 'image/png')
+      );
+
+      if (pngBlob) {
+        const pngBytes = await pngBlob.arrayBuffer();
+        const pngImage = await newPdfDoc.embedPng(pngBytes);
+        const origViewport = page.getViewport({ scale: 1.0 });
+        const newPage = newPdfDoc.addPage([
+          origViewport.width,
+          origViewport.height,
+        ]);
+        newPage.drawImage(pngImage, {
+          x: 0,
+          y: 0,
+          width: origViewport.width,
+          height: origViewport.height,
+        });
+      }
+    }
+
+    const resultBytes = await newPdfDoc.save();
+    const originalName = file.name.replace(/\.pdf$/i, '');
+    downloadFile(
+      new Blob([new Uint8Array(resultBytes)], { type: 'application/pdf' }),
+      `${originalName}_color-adjusted.pdf`
+    );
+    
+    hideLoader();
+    showAlert(
+      'Success',
+      'Color adjustments applied successfully!',
+      'success'
+    );
+    return true;
+  } catch (e: any) {
+    console.error(e);
+    hideLoader();
+    showAlert(
+      'Error',
+      e.message || 'Failed to apply color adjustments. The file might be corrupted.'
+    );
+    return false;
+  }
+}
 
 function getSettings(): AdjustColorsSettings {
   return {
@@ -76,7 +169,13 @@ function updatePreview(): void {
     cachedBaselineHeight
   );
 
-  applyEffects(baselineCopy, previewCanvas, settings);
+  const result = applyEffects(baselineCopy, settings);
+  
+  // Draw to canvas
+  const ctx = previewCanvas.getContext('2d');
+  if (ctx) {
+    ctx.putImageData(result, 0, 0);
+  }
 }
 
 async function renderPreview(): Promise<void> {
@@ -141,9 +240,10 @@ const updateUI = () => {
       fileDiv.append(infoContainer, removeBtn);
       fileDisplayArea.appendChild(fileDiv);
 
-      readFileAsArrayBuffer(file)
+      file.arrayBuffer()
         .then((buffer: ArrayBuffer) => {
-          return getPDFDocument(buffer).promise;
+          const loadingTask = pdfjsLib.getDocument({ data: buffer });
+          return loadingTask.promise;
         })
         .then((pdf: pdfjsLib.PDFDocumentProxy) => {
           metaSpan.textContent = `${formatBytes(file.size)} • ${pdf.numPages} page${pdf.numPages !== 1 ? 's' : ''}`;
@@ -174,82 +274,11 @@ async function processAllPages(): Promise<void> {
     return;
   }
 
-  showLoader('Applying color adjustments...');
-
-  try {
-    const settings = getSettings();
-    const pdfBytes = (await readFileAsArrayBuffer(files[0])) as ArrayBuffer;
-    const doc = await getPDFDocument({ data: pdfBytes }).promise;
-    const newPdfDoc = await PDFDocument.create();
-
-    for (let i = 1; i <= doc.numPages; i++) {
-      showLoader(`Processing page ${i} of ${doc.numPages}...`);
-
-      const page = await doc.getPage(i);
-      const viewport = page.getViewport({ scale: 2.0 });
-      const renderCanvas = document.createElement('canvas');
-      const renderCtx = renderCanvas.getContext('2d')!;
-      renderCanvas.width = viewport.width;
-      renderCanvas.height = viewport.height;
-
-      await page.render({
-        canvasContext: renderCtx,
-        viewport,
-        canvas: renderCanvas,
-      }).promise;
-
-      const baseData = renderCtx.getImageData(
-        0,
-        0,
-        renderCanvas.width,
-        renderCanvas.height
-      );
-
-      const outputCanvas = document.createElement('canvas');
-      applyEffects(baseData, outputCanvas, settings);
-
-      const pngBlob = await new Promise<Blob | null>((resolve) =>
-        outputCanvas.toBlob(resolve, 'image/png')
-      );
-
-      if (pngBlob) {
-        const pngBytes = await pngBlob.arrayBuffer();
-        const pngImage = await newPdfDoc.embedPng(pngBytes);
-        const origViewport = page.getViewport({ scale: 1.0 });
-        const newPage = newPdfDoc.addPage([
-          origViewport.width,
-          origViewport.height,
-        ]);
-        newPage.drawImage(pngImage, {
-          x: 0,
-          y: 0,
-          width: origViewport.width,
-          height: origViewport.height,
-        });
-      }
-    }
-
-    const resultBytes = await newPdfDoc.save();
-    downloadFile(
-      new Blob([new Uint8Array(resultBytes)], { type: 'application/pdf' }),
-      'color-adjusted.pdf'
-    );
-    showAlert(
-      'Success',
-      'Color adjustments applied successfully!',
-      'success',
-      () => {
-        resetState();
-      }
-    );
-  } catch (e) {
-    console.error(e);
-    showAlert(
-      'Error',
-      'Failed to apply color adjustments. The file might be corrupted.'
-    );
-  } finally {
-    hideLoader();
+  const settings = getSettings();
+  const success = await adjustColorsOfPdf(settings);
+  
+  if (success) {
+    resetState();
   }
 }
 
@@ -341,7 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (backBtn) {
     backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env.BASE_URL;
+      window.location.href = '/';
     });
   }
 
@@ -361,8 +390,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     showLoader('Loading preview...');
     try {
-      const buffer = await readFileAsArrayBuffer(validFiles[0]);
-      pdfjsDoc = await getPDFDocument({ data: buffer }).promise;
+      const buffer = await validFiles[0].arrayBuffer();
+      const loadingTask = pdfjsLib.getDocument({ data: buffer });
+      pdfjsDoc = await loadingTask.promise;
       await renderPreview();
     } catch (e) {
       console.error(e);
