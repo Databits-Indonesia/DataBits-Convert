@@ -1,5 +1,23 @@
 import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib';
 
+export async function deletePdfPages(
+  pdfBytes: Uint8Array,
+  pagesToDelete: Set<number>
+): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.load(pdfBytes);
+  const totalPages = pdfDoc.getPageCount();
+  
+  // Delete pages in reverse order to avoid index shifting
+  const sortedPages = Array.from(pagesToDelete).sort((a, b) => b - a);
+  for (const pageIndex of sortedPages) {
+    if (pageIndex >= 0 && pageIndex < totalPages) {
+      pdfDoc.removePage(pageIndex);
+    }
+  }
+  
+  return pdfDoc.save();
+}
+
 export function parsePageRange(range: string, totalPages: number): number[] {
   const pages: number[] = [];
   

@@ -230,13 +230,179 @@ function populateLanguageList() {
   });
 }
 
-document.addEventListener('DOMContentLoaded', function () {
+export function setupOcrTool() {
+  const container = document.getElementById('ocr-container');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="tool-content">
+      <div class="alert alert-info">
+        <i data-lucide="info"></i>
+        <div>
+          <strong>OCR PDF</strong>
+          <p>Extract text from scanned PDFs and images using Optical Character Recognition. Supports 100+ languages.</p>
+        </div>
+      </div>
+
+      <!-- File Upload -->
+      <div id="drop-zone" class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center hover:border-indigo-500 transition-colors cursor-pointer">
+        <i data-lucide="upload-cloud" class="w-12 h-12 mx-auto mb-4 text-gray-400"></i>
+        <p class="text-gray-300 mb-2">Drop PDF file here or click to upload</p>
+        <p class="text-sm text-gray-500">Maximum file size: 50MB</p>
+        <input type="file" id="file-input" accept=".pdf,application/pdf" class="hidden" />
+      </div>
+
+      <!-- File Display -->
+      <div id="file-display-area" class="mt-4"></div>
+
+      <!-- OCR Options -->
+      <div id="tool-options" class="hidden settings-panel mt-6">
+        <h3><i data-lucide="settings"></i> OCR Settings</h3>
+
+        <!-- Language Selection -->
+        <div class="form-group">
+          <label>Languages</label>
+          <div class="bg-gray-700 rounded-lg p-4">
+            <input
+              type="text"
+              id="lang-search"
+              placeholder="Search languages..."
+              class="w-full mb-3 px-3 py-2 bg-gray-800 border border-gray-600 rounded-md text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <div class="text-sm text-gray-400 mb-2">
+              Selected: <span id="selected-langs-display" class="text-gray-200">None</span>
+            </div>
+            <div id="lang-list" class="max-h-48 overflow-y-auto space-y-1"></div>
+          </div>
+          <small>Select one or more languages for better accuracy</small>
+        </div>
+
+        <!-- Resolution -->
+        <div class="form-group">
+          <label for="ocr-resolution">Resolution</label>
+          <select id="ocr-resolution" class="form-select">
+            <option value="1">Standard (1x)</option>
+            <option value="1.5">High (1.5x)</option>
+            <option value="2" selected>Very High (2x)</option>
+            <option value="3">Ultra (3x)</option>
+          </select>
+          <small>Higher resolution improves accuracy but takes longer</small>
+        </div>
+
+        <!-- Binarization -->
+        <div class="form-group">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="ocr-binarize" class="form-checkbox" />
+            <span>Apply Binarization</span>
+          </label>
+          <small>Convert to black and white for better accuracy on low-quality scans</small>
+        </div>
+
+        <!-- Character Whitelist -->
+        <details class="form-group">
+          <summary class="cursor-pointer font-medium text-gray-200 mb-2 flex items-center gap-2">
+            <i data-lucide="chevron-down" class="w-4 h-4 details-icon transition-transform"></i>
+            Advanced: Character Whitelist
+          </summary>
+          <div class="ml-6 space-y-3">
+            <div>
+              <label for="whitelist-preset">Preset</label>
+              <select id="whitelist-preset" class="form-select">
+                <option value="">None</option>
+                <option value="alphanumeric">Alphanumeric</option>
+                <option value="numbers-currency">Numbers & Currency</option>
+                <option value="letters-only">Letters Only</option>
+                <option value="numbers-only">Numbers Only</option>
+                <option value="invoice">Invoice</option>
+                <option value="forms">Forms</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
+            <div>
+              <label for="ocr-whitelist">Characters</label>
+              <input
+                type="text"
+                id="ocr-whitelist"
+                placeholder="Leave empty to allow all characters"
+                class="form-input"
+              />
+              <small>Only recognize these specific characters</small>
+            </div>
+          </div>
+        </details>
+
+        <!-- Process Button -->
+        <button id="process-btn" class="btn btn-primary w-full" disabled>
+          <i data-lucide="play"></i>
+          Start OCR
+        </button>
+      </div>
+
+      <!-- Progress -->
+      <div id="ocr-progress" class="hidden settings-panel mt-6">
+        <h3><i data-lucide="loader"></i> Processing...</h3>
+        <div class="mb-4">
+          <div class="flex justify-between text-sm text-gray-400 mb-2">
+            <span id="progress-status">Initializing...</span>
+            <span id="progress-percent">0%</span>
+          </div>
+          <div class="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+            <div id="progress-bar" class="bg-indigo-600 h-full transition-all duration-300" style="width: 0%"></div>
+          </div>
+        </div>
+        <div class="bg-gray-800 rounded-lg p-4 max-h-48 overflow-y-auto">
+          <pre id="progress-log" class="text-xs text-gray-400 font-mono"></pre>
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div id="ocr-results" class="hidden settings-panel mt-6">
+        <h3><i data-lucide="file-text"></i> Extracted Text</h3>
+        
+        <textarea
+          id="ocr-text-output"
+          class="w-full h-64 p-4 bg-gray-800 border border-gray-600 rounded-lg text-gray-200 font-mono text-sm"
+          readonly
+        ></textarea>
+
+        <div class="flex gap-3 mt-4">
+          <button id="copy-text-btn" class="btn btn-secondary flex-1">
+            <i data-lucide="clipboard-copy"></i>
+            Copy Text
+          </button>
+          <button id="download-txt-btn" class="btn btn-secondary flex-1">
+            <i data-lucide="file-down"></i>
+            Download TXT
+          </button>
+          <button id="download-searchable-pdf" class="btn btn-primary flex-1">
+            <i data-lucide="file-check"></i>
+            Download PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  createIcons({
+    icons,
+    nameAttr: 'data-lucide',
+    attrs: {
+      'stroke-width': 2,
+      width: 20,
+      height: 20,
+    },
+  });
+
+  populateLanguageList();
+  setupEventListeners();
+}
+
+function setupEventListeners() {
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   const dropZone = document.getElementById('drop-zone');
   const processBtn = document.getElementById(
     'process-btn'
   ) as HTMLButtonElement;
-  const backBtn = document.getElementById('back-to-tools');
   const langSearch = document.getElementById('lang-search') as HTMLInputElement;
   const langList = document.getElementById('lang-list');
   const selectedLangsDisplay = document.getElementById(
@@ -251,14 +417,6 @@ document.addEventListener('DOMContentLoaded', function () {
   const copyBtn = document.getElementById('copy-text-btn');
   const downloadTxtBtn = document.getElementById('download-txt-btn');
   const downloadPdfBtn = document.getElementById('download-searchable-pdf');
-
-  populateLanguageList();
-
-  if (backBtn) {
-    backBtn.addEventListener('click', function () {
-      window.location.href = (process.env.BASE_URL || '/');
-    });
-  }
 
   if (fileInput && dropZone) {
     fileInput.addEventListener('change', function (e) {
@@ -292,6 +450,10 @@ document.addEventListener('DOMContentLoaded', function () {
           handleFileSelect(dataTransfer.files);
         }
       }
+    });
+
+    dropZone.addEventListener('click', function () {
+      fileInput.click();
     });
 
     fileInput.addEventListener('click', function () {
@@ -413,4 +575,4 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
   }
-});
+}

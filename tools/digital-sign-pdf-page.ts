@@ -1,15 +1,39 @@
 import { createIcons, icons } from 'lucide';
 import { showAlert, showLoader, hideLoader } from '../ui';
 import { readFileAsArrayBuffer, formatBytes, downloadFile, getPDFDocument } from '../utils/helpers';
-import {
-    signPdf,
-    parsePfxFile,
-    parseCombinedPem,
-    getCertificateInfo,
-} from './digital-sign-pdf.js';
+// import {
+//     signPdf,
+//     parsePfxFile,
+//     parseCombinedPem,
+//     getCertificateInfo,
+// } from './digital-sign-pdf.js';
 import { SignatureInfo, VisibleSignatureOptions, DigitalSignState } from '@/types';
 
+// Stub functions until digital-sign-pdf.js is available
+const parseCombinedPem = (content: string, password?: string): any => {
+    throw new Error('Digital signature functionality is not yet implemented');
+};
+const parsePfxFile = (bytes: Uint8Array, password: string): any => {
+    throw new Error('Digital signature functionality is not yet implemented');
+};
+const getCertificateInfo = (cert: any): any => {
+    throw new Error('Digital signature functionality is not yet implemented');
+};
+const signPdf = async (pdfBytes: Uint8Array, certData: any, options: any): Promise<Uint8Array> => {
+    throw new Error('Digital signature functionality is not yet implemented');
+};
+
 const state: DigitalSignState = {
+    file: null,
+    pdfDoc: null,
+    certificateFile: null,
+    signatureInfo: {
+        name: '',
+        reason: '',
+        location: '',
+        contactInfo: ''
+    },
+    visibleSignature: null,
     pdfFile: null,
     pdfBytes: null,
     certFile: null,
@@ -495,7 +519,7 @@ async function handlePasswordInput(): Promise<void> {
             state.certData = parseCombinedPem(pemContent, password);
         } else {
             const certBytes = await readFileAsArrayBuffer(state.certFile) as ArrayBuffer;
-            state.certData = parsePfxFile(certBytes, password);
+            state.certData = parsePfxFile(new Uint8Array(certBytes), password);
         }
 
         updateCertInfo();
@@ -573,7 +597,12 @@ async function processSignature(): Promise<void> {
     const location = getElement<HTMLInputElement>('sign-location')?.value ?? '';
     const contactInfo = getElement<HTMLInputElement>('sign-contact')?.value ?? '';
 
-    const signatureInfo: SignatureInfo = {};
+    const signatureInfo: SignatureInfo = {
+        name: '',
+        reason: '',
+        location: '',
+        contactInfo: ''
+    };
     if (reason) signatureInfo.reason = reason;
     if (location) signatureInfo.location = location;
     if (contactInfo) signatureInfo.contactInfo = contactInfo;

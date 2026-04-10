@@ -3,7 +3,7 @@
  * Centralized configuration for the application
  */
 
-import { InputOption, Tool, ToolCategory } from '../types';
+import { Tool, ToolCategory } from '../types';
 
 export const TOOL_CATEGORIES: ToolCategory[] = [
   {
@@ -79,13 +79,6 @@ export const APP_CONFIG = {
   ],
   supportedPdfFormat: 'application/pdf',
 } as const;
-
-export const INPUT_OPTIONS: InputOption[] = [
-  { id: 'gdrive', label: 'Google Drive', icon: 'add_to_drive' },
-  { id: 'onedrive', label: 'OneDrive', icon: 'cloud_upload' },
-  { id: 'dropbox', label: 'Dropbox', icon: 'inventory_2' },
-  { id: 'url', label: 'URL', icon: 'link' },
-] as const;
 
 export const POPULAR_TOOLS: Tool[] = [
   // PDF Manipulation
@@ -418,7 +411,7 @@ export const POPULAR_TOOLS: Tool[] = [
   {
     id: 'pdf-to-word',
     name: 'PDF to Word',
-    icon: 'file-text',
+    icon: 'description',
     description: 'Convert PDF to DOCX using PyMuPDF.',
     category: 'convert-from-pdf',
   },

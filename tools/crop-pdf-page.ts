@@ -94,7 +94,7 @@ async function handleFile(file: File) {
 
   try {
     const arrayBuffer = await readFileAsArrayBuffer(file);
-    cropperState.originalPdfBytes = arrayBuffer as ArrayBuffer;
+    cropperState.originalPdfBytes = new Uint8Array(arrayBuffer as ArrayBuffer);
     cropperState.pdfDoc = await getPDFDocument({
       data: (arrayBuffer as ArrayBuffer).slice(0),
     }).promise;
@@ -184,13 +184,12 @@ async function displayPageAsImage(num: number) {
 
     image.onload = () => {
       cropperState.cropper = new Cropper(image, {
-        viewMode: 1,
         background: false,
         autoCropArea: 0.8,
         responsive: true,
         rotatable: false,
         zoomable: false,
-      });
+      } as any);
 
       const savedCrop = cropperState.pageCrops[num];
       if (savedCrop) {

@@ -28,13 +28,16 @@ export * from './sign-pdf';
 export * from './split';
 // export * from './table-of-contents';
 export * from './validate-signature-pdf';
-export * from './word-to-pdf';
+export * from './word-to-pdf-page';
 export * from './rotate-pdf-page';
 export { applyRotations } from './rotate-pdf-page';
 export * from './reverse-pages-page';
 export { reversePages } from './reverse-pages-page';
 export * from './duplicate-organize';
-export { processAndSave as duplicateProcessAndSave, setupDuplicateTool } from './duplicate-organize';
+export {
+  processAndSave as duplicateProcessAndSave,
+  setupDuplicateTool,
+} from './duplicate-organize';
 export * from './divide-pages-page';
 export { setupDivideTool } from './divide-pages-page';
 export * from './add-blank-page-page';
@@ -103,11 +106,45 @@ export { linearizePdf } from './linearize-pdf-page';
 export { sanitizePdfDocument, type SanitizeOptions } from './sanitize-pdf-page';
 export { encryptPdfDocument, setupEncryptPdfPage, type EncryptOptions } from './encrypt-pdf-page';
 export { decryptPdfDocument, setupDecryptPdfPage, type DecryptOptions } from './decrypt-pdf-page';
-export { changePermissionsPdf, setupChangePermissionsPage, type ChangePermissionsOptions } from './change-permissions-page';
-export { removeMetadataPdf, setupRemoveMetadataPage, type RemoveMetadataOptions } from './remove-metadata-page';
-export { editMetadataPdf, getMetadataPdf, setupEditMetadataPage, type EditMetadataOptions } from './edit-metadata-page';
-export { viewMetadataPdf, displayMetadataInUI, setupViewMetadataPage, type ViewMetadataResult } from './view-metadata-page';
-export { removeRestrictionsPdf, setupRemoveRestrictionsPage, type RemoveRestrictionsOptions } from './remove-restrictions-page';
-export { removeAnnotationsPdf, setupRemoveAnnotationsPage, type RemoveAnnotationsOptions } from './remove-annotations-page';
-export { extractImagesPdf, downloadImagesAsZip, setupExtractImagesPage, displayExtractedImages, type ExtractedImage, type ExtractImagesOptions } from './extract-images-page';
+export {
+  changePermissionsPdf,
+  setupChangePermissionsPage,
+  type ChangePermissionsOptions,
+} from './change-permissions-page';
+export {
+  removeMetadataPdf,
+  setupRemoveMetadataPage,
+  type RemoveMetadataOptions,
+} from './remove-metadata-page';
+export {
+  editMetadataPdf,
+  getMetadataPdf,
+  setupEditMetadataPage,
+  type EditMetadataOptions,
+} from './edit-metadata-page';
+export {
+  viewMetadataPdf,
+  displayMetadataInUI,
+  setupViewMetadataPage,
+  type ViewMetadataResult,
+} from './view-metadata-page';
+export {
+  removeRestrictionsPdf,
+  setupRemoveRestrictionsPage,
+  type RemoveRestrictionsOptions,
+} from './remove-restrictions-page';
+export {
+  removeAnnotationsPdf,
+  setupRemoveAnnotationsPage,
+  type RemoveAnnotationsOptions,
+} from './remove-annotations-page';
+export {
+  extractImagesPdf,
+  downloadImagesAsZip,
+  setupExtractImagesPage,
+  displayExtractedImages,
+  type ExtractedImage,
+  type ExtractImagesOptions,
+} from './extract-images-page';
+export { setupOcrTool } from './ocr-pdf-page';
 // Note: digital-sign-pdf-page.ts uses DOMContentLoaded and is not exported as a function

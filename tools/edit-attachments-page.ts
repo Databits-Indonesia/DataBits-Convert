@@ -46,25 +46,25 @@ export async function listAttachmentsFromPdf(): Promise<AttachmentInfo[]> {
     const catalog = pdfDoc.context.lookup(pdfDoc.catalog);
     
     if (catalog) {
-      const namesDict = catalog.get(PDFName.of('Names'));
+      const namesDict = (catalog as any).get(PDFName.of('Names'));
       
       if (namesDict) {
         const namesRef = pdfDoc.context.lookup(namesDict);
         
         if (namesRef) {
-          const embeddedFilesDict = namesRef.get(PDFName.of('EmbeddedFiles'));
+          const embeddedFilesDict = (namesRef as any).get(PDFName.of('EmbeddedFiles'));
           
           if (embeddedFilesDict) {
             const embeddedFilesRef = pdfDoc.context.lookup(embeddedFilesDict);
             
             if (embeddedFilesRef) {
-              const namesArray = embeddedFilesRef.get(PDFName.of('Names'));
+              const namesArray = (embeddedFilesRef as any).get(PDFName.of('Names'));
               
               if (namesArray) {
                 const namesArrayRef = pdfDoc.context.lookup(namesArray);
                 
-                if (namesArrayRef && Array.isArray(namesArrayRef.asArray())) {
-                  const entries = namesArrayRef.asArray();
+                if (namesArrayRef && Array.isArray((namesArrayRef as any).asArray())) {
+                  const entries = (namesArrayRef as any).asArray();
                   
                   // Names array contains pairs: [name, fileSpec, name, fileSpec, ...]
                   for (let j = 0; j < entries.length; j += 2) {
@@ -86,23 +86,23 @@ export async function listAttachmentsFromPdf(): Promise<AttachmentInfo[]> {
                       const fileSpec = pdfDoc.context.lookup(fileSpecRef);
                       
                       if (fileSpec) {
-                        const efDictRef = fileSpec.get(PDFName.of('EF'));
+                        const efDictRef = (fileSpec as any).get(PDFName.of('EF'));
                         
                         if (efDictRef) {
                           const efDict = pdfDoc.context.lookup(efDictRef);
                           
                           if (efDict) {
-                            const fileStreamRef = efDict.get(PDFName.of('F'));
+                            const fileStreamRef = (efDict as any).get(PDFName.of('F'));
                             
                             if (fileStreamRef) {
                               const fileStream = pdfDoc.context.lookup(fileStreamRef);
                               
-                              if (fileStream && fileStream.contents) {
+                              if (fileStream && (fileStream as any).contents) {
                                 attachments.push({
                                   name: fileName || `attachment_${attachmentIndex}`,
                                   index: attachmentIndex,
                                   page: 0, // Document-level attachment
-                                  data: fileStream.contents,
+                                  data: (fileStream as any).contents,
                                 });
                                 attachmentIndex++;
                               }
@@ -157,25 +157,25 @@ export async function removeAttachmentsFromPdf(attachmentIndicesToRemove: number
     const catalog = pdfDoc.context.lookup(pdfDoc.catalog);
     
     if (catalog) {
-      const namesDict = catalog.get(PDFName.of('Names'));
+      const namesDict = (catalog as any).get(PDFName.of('Names'));
       
       if (namesDict) {
         const namesRef = pdfDoc.context.lookup(namesDict);
         
         if (namesRef) {
-          const embeddedFilesDict = namesRef.get(PDFName.of('EmbeddedFiles'));
+          const embeddedFilesDict = (namesRef as any).get(PDFName.of('EmbeddedFiles'));
           
           if (embeddedFilesDict) {
             const embeddedFilesRef = pdfDoc.context.lookup(embeddedFilesDict);
             
             if (embeddedFilesRef) {
-              const namesArray = embeddedFilesRef.get(PDFName.of('Names'));
+              const namesArray = (embeddedFilesRef as any).get(PDFName.of('Names'));
               
               if (namesArray) {
                 const namesArrayRef = pdfDoc.context.lookup(namesArray);
                 
-                if (namesArrayRef && Array.isArray(namesArrayRef.asArray())) {
-                  const entries = namesArrayRef.asArray();
+                if (namesArrayRef && Array.isArray((namesArrayRef as any).asArray())) {
+                  const entries = (namesArrayRef as any).asArray();
                   
                   // Create new array without removed attachments
                   const newEntries = [];
@@ -198,11 +198,11 @@ export async function removeAttachmentsFromPdf(attachmentIndicesToRemove: number
                   newEntries.forEach(entry => newNamesArray.push(entry));
                   
                   // Update the Names array
-                  embeddedFilesRef.set(PDFName.of('Names'), newNamesArray);
+                  (embeddedFilesRef as any).set(PDFName.of('Names'), newNamesArray);
                   
                   // If all attachments removed, we could remove the entire EmbeddedFiles entry
                   if (newEntries.length === 0) {
-                    namesRef.delete(PDFName.of('EmbeddedFiles'));
+                    (namesRef as any).delete(PDFName.of('EmbeddedFiles'));
                   }
                 }
               }
@@ -218,7 +218,7 @@ export async function removeAttachmentsFromPdf(attachmentIndicesToRemove: number
     // Download the file
     const originalName = file.name.replace(/\.pdf$/i, '');
     downloadFile(
-      new Blob([modifiedPdfBytes], { type: 'application/pdf' }),
+      new Blob([modifiedPdfBytes as any], { type: 'application/pdf' }),
       `${originalName}_edited.pdf`
     );
 

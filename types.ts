@@ -114,8 +114,9 @@ export interface DecryptPdfState {
 export interface DeletePagesState {
   file: File | null;
   pdfDoc: any | null;
-  pageCount: number;
-  selectedPages: Set<number>;
+  pdfJsDoc: any | null;
+  totalPages: number;
+  pagesToDelete: Set<number>;
 }
 
 export interface EditMetadataState {
@@ -127,7 +128,8 @@ export interface EncryptPdfState {
 }
 
 export interface OcrState {
-  files: File[];
+  file: File | null;
+  searchablePdfBytes: Uint8Array | null;
 }
 
 export interface PageDimensionsState {
@@ -161,9 +163,14 @@ export interface VisibleSignatureOptions {
   y: number;
   width: number;
   height: number;
-  page: number;
+  page: number | string;
   text?: string;
   image?: string;
+  enabled?: boolean;
+  imageData?: ArrayBuffer | string;
+  imageType?: string;
+  textColor?: string;
+  textSize?: number;
 }
 
 export interface DigitalSignState {
@@ -172,6 +179,12 @@ export interface DigitalSignState {
   certificateFile: File | null;
   signatureInfo: SignatureInfo;
   visibleSignature: VisibleSignatureOptions | null;
+  pdfFile: File | null;
+  pdfBytes: Uint8Array | null;
+  certFile: File | null;
+  certData: any | null;
+  sigImageData: ArrayBuffer | string | null;
+  sigImageType: string | null;
 }
 
 export interface SignatureValidationResult {
@@ -191,4 +204,38 @@ export interface ValidateSignatureState {
 
 export interface ViewMetadataState {
   file: File | null;
+}
+
+export interface ExtractImagesState {
+  file: File | null;
+  extractedImages: any[];
+}
+
+export interface EmailAttachment {
+  filename: string;
+  content: Uint8Array;
+  contentType: string;
+  size?: number;
+  contentId?: string;
+}
+
+export interface ParsedEmail {
+  subject: string;
+  from: string;
+  to: string[];
+  cc?: string[];
+  bcc?: string[];
+  date: Date | string | null;
+  rawDateString?: string;
+  body?: string;
+  htmlBody?: string;
+  textBody?: string;
+  attachments: EmailAttachment[];
+}
+
+export interface EmailRenderOptions {
+  includeAttachments?: boolean;
+  attachmentHandling?: 'list' | 'embed' | 'ignore';
+  includeCcBcc?: boolean;
+  pageSize?: string;
 }

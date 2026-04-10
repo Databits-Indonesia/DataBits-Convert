@@ -1,236 +1,126 @@
 import { showLoader, hideLoader, showAlert } from '../ui';
-import {
-    downloadFile,
-    readFileAsArrayBuffer,
-    formatBytes,
-} from '../utils/helpers';
-import { state } from '../state';
-import { createIcons, icons } from 'lucide';
+import { downloadFile } from '../utils/helpers';
+import { getFiles } from '../state';
 import { getLibreOfficeConverter, type LoadProgress } from '../utils/libreoffice-loader';
 
-document.addEventListener('DOMContentLoaded', () => {
-    state.files = [];
+const WORD_EXTENSION_REGEX = /\.(doc|docx|odt|rtf)$/i;
 
-    const fileInput = document.getElementById('file-input') as HTMLInputElement;
-    const dropZone = document.getElementById('drop-zone');
-    const convertOptions = document.getElementById('convert-options');
-    const fileDisplayArea = document.getElementById('file-display-area');
-    const fileControls = document.getElementById('file-controls');
-    const addMoreBtn = document.getElementById('add-more-btn');
-    const clearFilesBtn = document.getElementById('clear-files-btn');
-    const backBtn = document.getElementById('back-to-tools');
-    const processBtn = document.getElementById('process-btn');
+function toPdfFileName(name: string): string {
+  return name.replace(WORD_EXTENSION_REGEX, '') + '.pdf';
+}
 
-    if (backBtn) {
-        backBtn.addEventListener('click', () => {
-            window.location.href = (process.env.BASE_URL || '/');
-        });
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return 'Unknown error';
+}
+
+function hasUnsupportedWordFiles(files: File[]): boolean {
+  return files.some((file) => !WORD_EXTENSION_REGEX.test(file.name));
+}
+
+function deduplicateFileName(name: string, usedNames: Set<string>): string {
+  if (!usedNames.has(name)) {
+    usedNames.add(name);
+    return name;
+  }
+
+  const extensionIndex = name.lastIndexOf('.');
+  const hasExtension = extensionIndex > 0;
+  const baseName = hasExtension ? name.slice(0, extensionIndex) : name;
+  const extension = hasExtension ? name.slice(extensionIndex) : '';
+
+  let counter = 2;
+  let candidate = `${baseName} (${counter})${extension}`;
+
+  while (usedNames.has(candidate)) {
+    counter += 1;
+    candidate = `${baseName} (${counter})${extension}`;
+  }
+
+  usedNames.add(candidate);
+  return candidate;
+}
+
+export async function wordToPdf(filesOverride?: File[]) {
+  const files = filesOverride && filesOverride.length > 0 ? filesOverride : getFiles();
+
+  if (files.length === 0) {
+    showAlert('No Files', 'Please select at least one Word document.');
+    return;
+  }
+
+  if (hasUnsupportedWordFiles(files)) {
+    showAlert('Invalid File Type', 'Please upload only .doc, .docx, .odt, or .rtf files.', 'error');
+    return;
+  }
+
+  try {
+    const converter = getLibreOfficeConverter();
+
+    showLoader('Initializing LibreOffice...');
+    await converter.initialize((progress: LoadProgress) => {
+      showLoader(progress.message);
+    });
+
+    if (files.length === 1) {
+      const file = files[0];
+      showLoader(`Converting ${file.name}...`);
+
+      const pdfBlob = await converter.convertToPdf(file);
+      downloadFile(pdfBlob, toPdfFileName(file.name));
+
+      hideLoader();
+      showAlert('Conversion Complete', `Successfully converted ${file.name} to PDF.`, 'success');
+      return;
     }
 
-    const updateUI = async () => {
-        if (!convertOptions) return;
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
+    const usedNames = new Set<string>();
 
-        if (state.files.length > 0) {
-            if (fileDisplayArea) {
-                fileDisplayArea.innerHTML = '';
+    for (let index = 0; index < files.length; index++) {
+      const file = files[index];
+      showLoader(`Converting ${index + 1}/${files.length}: ${file.name}...`);
 
-                for (let index = 0; index < state.files.length; index++) {
-                    const file = state.files[index];
-                    const fileDiv = document.createElement('div');
-                    fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+      const pdfBlob = await converter.convertToPdf(file);
+      const pdfBuffer = await pdfBlob.arrayBuffer();
+      const zipEntryName = deduplicateFileName(toPdfFileName(file.name), usedNames);
+      zip.file(zipEntryName, pdfBuffer);
+    }
 
-                    const infoContainer = document.createElement('div');
-                    infoContainer.className = 'flex flex-col overflow-hidden';
+    showLoader('Preparing ZIP file...');
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
 
-                    const nameSpan = document.createElement('div');
-                    nameSpan.className = 'truncate font-medium text-gray-200 text-sm mb-1';
-                    nameSpan.textContent = file.name;
+    downloadFile(zipBlob, 'word-converted.zip');
+    hideLoader();
+    showAlert(
+      'Conversion Complete',
+      `Successfully converted ${files.length} Word document(s) to PDF.`,
+      'success'
+    );
+  } catch (error) {
+    hideLoader();
+    showAlert(
+      'Error',
+      `An error occurred during conversion. Error: ${getErrorMessage(error)}`,
+      'error'
+    );
+  }
+}
 
-                    const metaSpan = document.createElement('div');
-                    metaSpan.className = 'text-xs text-gray-400';
-                    metaSpan.textContent = formatBytes(file.size);
+export async function setupWordToPdfTool() {
+  const container = document.getElementById('word-to-pdf-container');
+  if (!container) return;
 
-                    infoContainer.append(nameSpan, metaSpan);
+  container.classList.remove('hidden');
 
-                    const removeBtn = document.createElement('button');
-                    removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
-                    removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
-                    removeBtn.onclick = () => {
-                        state.files = state.files.filter((_, i) => i !== index);
-                        updateUI();
-                    };
-
-                    fileDiv.append(infoContainer, removeBtn);
-                    fileDisplayArea.appendChild(fileDiv);
-                }
-
-                createIcons({ icons });
-            }
-            if (fileControls) fileControls.classList.remove('hidden');
-            convertOptions.classList.remove('hidden');
-        } else {
-            if (fileDisplayArea) fileDisplayArea.innerHTML = '';
-            if (fileControls) fileControls.classList.add('hidden');
-            convertOptions.classList.add('hidden');
-        }
+  const convertBtn = document.getElementById('word-to-pdf-process-btn');
+  if (convertBtn) {
+    convertBtn.onclick = () => {
+      void wordToPdf();
     };
-
-    const resetState = () => {
-        state.files = [];
-        state.pdfDoc = null;
-        updateUI();
-    };
-
-    const convertToPdf = async () => {
-        try {
-            console.log('[Word2PDF] Starting conversion...');
-            console.log('[Word2PDF] Number of files:', state.files.length);
-
-            if (state.files.length === 0) {
-                showAlert('No Files', 'Please select at least one Word document.');
-                hideLoader();
-                return;
-            }
-
-            const converter = getLibreOfficeConverter();
-            console.log('[Word2PDF] Got converter instance');
-
-            // Initialize LibreOffice if not already done
-            console.log('[Word2PDF] Initializing LibreOffice...');
-            await converter.initialize((progress: LoadProgress) => {
-                console.log('[Word2PDF] Init progress:', progress.percent + '%', progress.message);
-                showLoader(progress.message, progress.percent);
-            });
-            console.log('[Word2PDF] LibreOffice initialized successfully!');
-
-            if (state.files.length === 1) {
-                const originalFile = state.files[0];
-                console.log('[Word2PDF] Converting single file:', originalFile.name);
-
-                showLoader('Processing...');
-
-                const pdfBlob = await converter.convertToPdf(originalFile);
-                console.log('[Word2PDF] Conversion complete! PDF size:', pdfBlob.size);
-
-                const fileName = originalFile.name.replace(/\.(doc|docx|odt|rtf)$/i, '') + '.pdf';
-
-                downloadFile(pdfBlob, fileName);
-                console.log('[Word2PDF] File downloaded:', fileName);
-
-                hideLoader();
-
-                showAlert(
-                    'Conversion Complete',
-                    `Successfully converted ${originalFile.name} to PDF.`,
-                    'success',
-                    () => resetState()
-                );
-            } else {
-                console.log('[Word2PDF] Converting multiple files:', state.files.length);
-                showLoader('Processing...');
-                const JSZip = (await import('jszip')).default;
-                const zip = new JSZip();
-
-                for (let i = 0; i < state.files.length; i++) {
-                    const file = state.files[i];
-                    console.log(`[Word2PDF] Converting file ${i + 1}/${state.files.length}:`, file.name);
-                    showLoader(`Converting ${i + 1}/${state.files.length}: ${file.name}...`);
-
-                    const pdfBlob = await converter.convertToPdf(file);
-                    console.log(`[Word2PDF] Converted ${file.name}, PDF size:`, pdfBlob.size);
-
-                    const baseName = file.name.replace(/\.(doc|docx|odt|rtf)$/i, '');
-                    const pdfBuffer = await pdfBlob.arrayBuffer();
-                    zip.file(`${baseName}.pdf`, pdfBuffer);
-                }
-
-                console.log('[Word2PDF] Generating ZIP file...');
-                const zipBlob = await zip.generateAsync({ type: 'blob' });
-                console.log('[Word2PDF] ZIP size:', zipBlob.size);
-
-                downloadFile(zipBlob, 'word-converted.zip');
-
-                hideLoader();
-
-                showAlert(
-                    'Conversion Complete',
-                    `Successfully converted ${state.files.length} Word document(s) to PDF.`,
-                    'success',
-                    () => resetState()
-                );
-            }
-        } catch (e: any) {
-            console.error('[Word2PDF] ERROR:', e);
-            console.error('[Word2PDF] Error stack:', e.stack);
-            hideLoader();
-            showAlert(
-                'Error',
-                `An error occurred during conversion. Error: ${e.message}`
-            );
-        }
-    };
-
-    const handleFileSelect = (files: FileList | null) => {
-        if (files && files.length > 0) {
-            state.files = [...state.files, ...Array.from(files)];
-            updateUI();
-        }
-    };
-
-    if (fileInput && dropZone) {
-        fileInput.addEventListener('change', (e) => {
-            handleFileSelect((e.target as HTMLInputElement).files);
-        });
-
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('bg-gray-700');
-        });
-
-        dropZone.addEventListener('dragleave', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('bg-gray-700');
-        });
-
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('bg-gray-700');
-            const files = e.dataTransfer?.files;
-            if (files && files.length > 0) {
-                const wordFiles = Array.from(files).filter(f => {
-                    const name = f.name.toLowerCase();
-                    return name.endsWith('.doc') || name.endsWith('.docx') || name.endsWith('.odt') || name.endsWith('.rtf');
-                });
-                if (wordFiles.length > 0) {
-                    const dataTransfer = new DataTransfer();
-                    wordFiles.forEach(f => dataTransfer.items.add(f));
-                    handleFileSelect(dataTransfer.files);
-                }
-            }
-        });
-
-        // Clear value on click to allow re-selecting the same file
-        fileInput.addEventListener('click', () => {
-            fileInput.value = '';
-        });
-    }
-
-    if (addMoreBtn) {
-        addMoreBtn.addEventListener('click', () => {
-            fileInput.click();
-        });
-    }
-
-    if (clearFilesBtn) {
-        clearFilesBtn.addEventListener('click', () => {
-            resetState();
-        });
-    }
-
-    if (processBtn) {
-        processBtn.addEventListener('click', convertToPdf);
-    }
-
-    // Initialize UI state (ensures button is hidden when no files)
-    updateUI();
-});
+  }
+}
