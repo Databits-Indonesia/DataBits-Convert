@@ -1,10 +1,5 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
-import {
-  downloadFile,
-  readFileAsArrayBuffer,
-  formatBytes,
-  getPDFDocument,
-} from '../utils/helpers';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
+import { downloadFile, readFileAsArrayBuffer, formatBytes, getPDFDocument } from '../utils/helpers';
 import { state, getFiles } from '../state';
 import { createIcons, icons } from 'lucide';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -20,7 +15,7 @@ export interface RasterizeOptions {
 // Main function to rasterize PDF - exported for use in App.tsx
 export async function rasterizePdf(options: RasterizeOptions): Promise<boolean> {
   const stateFiles = getFiles();
-  
+
   if (stateFiles.length === 0) {
     showAlert('No File', 'Please upload a PDF file first.');
     return false;
@@ -46,11 +41,7 @@ export async function rasterizePdf(options: RasterizeOptions): Promise<boolean> 
       downloadFile(rasterizedBlob, outName);
 
       hideLoader();
-      showAlert(
-        'Rasterization Complete',
-        `Successfully rasterized PDF at ${dpi} DPI.`,
-        'success'
-      );
+      showAlert('Rasterization Complete', `Successfully rasterized PDF at ${dpi} DPI.`, 'success');
       return true;
     } else {
       // Multiple files - create ZIP

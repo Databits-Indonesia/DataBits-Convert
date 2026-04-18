@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile, readFileAsArrayBuffer, getPDFDocument } from '../utils/helpers';
 import { state } from '../state';
 import { renderPagesProgressively, cleanupLazyRendering } from '../utils/render-utils';
@@ -567,7 +567,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (backBtn) {
     backBtn.addEventListener('click', () => {
-      window.location.href = (process.env.BASE_URL || '/');
+      window.location.href = process.env.BASE_URL || '/';
     });
   }
 

@@ -1,4 +1,4 @@
-import { showAlert } from '../ui';
+import { showAlert } from '../components/ui';
 import { downloadFile, formatBytes } from '../utils/helpers';
 import { icons, createIcons } from 'lucide';
 import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';
@@ -16,7 +16,10 @@ export interface ChangePermissionsOptions {
   };
 }
 
-export async function changePermissionsPdf(file: File, options: ChangePermissionsOptions): Promise<Blob> {
+export async function changePermissionsPdf(
+  file: File,
+  options: ChangePermissionsOptions
+): Promise<Blob> {
   const { currentPassword, newUserPassword, newOwnerPassword, permissions } = options;
 
   try {
@@ -24,42 +27,44 @@ export async function changePermissionsPdf(file: File, options: ChangePermission
       showWasmRequiredDialog('pymupdf', () => {
         window.location.reload();
       });
-      throw new Error('PyMuPDF is required for changing PDF permissions. Please configure it in Advanced Settings.');
+      throw new Error(
+        'PyMuPDF is required for changing PDF permissions. Please configure it in Advanced Settings.'
+      );
     }
 
     const pyMuPDF = await loadPyMuPDF();
-    
+
     // Open the PDF document
     const doc = await pyMuPDF.open(file);
-    
+
     // If the document is encrypted, authenticate with current password
     if (doc.isEncrypted) {
       if (!currentPassword) {
         doc.close();
         throw new Error('This PDF is password-protected. Please enter the current password.');
       }
-      
+
       const authenticated = doc.authenticate(currentPassword);
       if (!authenticated) {
         doc.close();
         throw new Error('Invalid current password. Please check your password and try again.');
       }
     }
-    
+
     // Prepare save options
     const saveOptions: any = {
       garbage: 4,
       deflate: true,
       clean: true,
     };
-    
+
     // If new passwords are provided, add encryption
     if (newUserPassword || newOwnerPassword) {
       saveOptions.encryption = {
         userPassword: newUserPassword || '',
         ownerPassword: newOwnerPassword || newUserPassword || '',
       };
-      
+
       // Add permissions if specified
       if (permissions) {
         saveOptions.encryption.permissions = {
@@ -71,13 +76,13 @@ export async function changePermissionsPdf(file: File, options: ChangePermission
       }
     }
     // If no new passwords, the document will be saved without encryption
-    
+
     // Save the document
     const resultBlob = await doc.saveAsBlob(saveOptions);
-    
+
     // Close the document
     doc.close();
-    
+
     return resultBlob;
   } catch (error: any) {
     console.error('Change permissions error:', error);

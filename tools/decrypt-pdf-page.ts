@@ -1,4 +1,4 @@
-import { showAlert } from '../ui';
+import { showAlert } from '../components/ui';
 import { downloadFile, formatBytes } from '../utils/helpers';
 import { icons, createIcons } from 'lucide';
 import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';
@@ -20,38 +20,40 @@ export async function decryptPdfDocument(file: File, options: DecryptOptions): P
       showWasmRequiredDialog('pymupdf', () => {
         window.location.reload();
       });
-      throw new Error('PyMuPDF is required for PDF decryption. Please configure it in Advanced Settings.');
+      throw new Error(
+        'PyMuPDF is required for PDF decryption. Please configure it in Advanced Settings.'
+      );
     }
 
     const pyMuPDF = await loadPyMuPDF();
-    
+
     // Open the encrypted PDF document with password
     const doc = await pyMuPDF.open(file);
-    
+
     // Check if the document is encrypted
     if (!doc.isEncrypted) {
       doc.close();
       throw new Error('This PDF is not encrypted.');
     }
-    
+
     // Authenticate with the password
     const authenticated = doc.authenticate(password);
-    
+
     if (!authenticated) {
       doc.close();
       throw new Error('Invalid password. Please check your password and try again.');
     }
-    
+
     // Save the document without encryption
     const decryptedBlob = await doc.saveAsBlob({
       garbage: 4,
       deflate: true,
       clean: true,
     });
-    
+
     // Close the document
     doc.close();
-    
+
     return decryptedBlob;
   } catch (error: any) {
     console.error('Decryption error:', error);

@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile } from '../utils/helpers';
 import { getFiles } from '../state';
 import jsPDF from 'jspdf';
@@ -6,7 +6,7 @@ import JSZip from 'jszip';
 
 export async function epubToPdf() {
   const files = getFiles();
-  
+
   if (files.length === 0) {
     showAlert('No Files', 'Please select at least one EPUB file.');
     return;
@@ -22,7 +22,7 @@ export async function epubToPdf() {
       // Single file conversion
       const file = files[0];
       const arrayBuffer = await file.arrayBuffer();
-      
+
       // Parse EPUB
       const book = ePub(arrayBuffer);
       await book.ready;
@@ -38,11 +38,11 @@ export async function epubToPdf() {
 
       // Get all sections
       const spine = await book.loaded.spine;
-      
+
       for (const item of spine.items) {
         const doc = await book.load(item.href);
         const content = doc.body ? doc.body.textContent : '';
-        
+
         if (content) {
           if (!firstPage) {
             pdf.addPage();
@@ -85,7 +85,7 @@ export async function epubToPdf() {
         for (const item of spine.items) {
           const doc = await book.load(item.href);
           const content = doc.body ? doc.body.textContent : '';
-          
+
           if (content) {
             if (!firstPage) {
               pdf.addPage();

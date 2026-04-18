@@ -1,6 +1,7 @@
 import React from 'react';
 import ExtractImagesToolPanel from '../ExtractImagesToolPanel';
 import InfoActionPanel from '../InfoActionPanel';
+import { tesseractLanguages } from '../../config/tesseract-languages';
 
 interface AnalysisExtractionSectionProps {
   onExtractImages: () => void;
@@ -11,6 +12,10 @@ const AnalysisExtractionSection: React.FC<AnalysisExtractionSectionProps> = ({
   onExtractImages,
   onDownloadImagesZip,
 }) => {
+  const ocrLanguageOptions = Object.entries(tesseractLanguages)
+    .map(([value, label]) => ({ value, label }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+
   return (
     <>
       <ExtractImagesToolPanel onExtract={onExtractImages} onDownloadZip={onDownloadImagesZip} />
@@ -20,13 +25,14 @@ const AnalysisExtractionSection: React.FC<AnalysisExtractionSectionProps> = ({
         title="Extract Tables"
         description="Extract tables from PDF"
         label="Output Format"
-        selectId="table-format"
+        selectId="extract-tables-format"
         options={[
           { value: 'csv', label: 'CSV' },
-          { value: 'excel', label: 'Excel' },
+          { value: 'markdown', label: 'Markdown' },
           { value: 'json', label: 'JSON' },
         ]}
         actionLabel="Extract Tables"
+        actionButtonId="extract-tables-process-btn"
       />
 
       <InfoActionPanel
@@ -35,14 +41,9 @@ const AnalysisExtractionSection: React.FC<AnalysisExtractionSectionProps> = ({
         description="Extract text from scanned documents"
         label="Language"
         selectId="ocr-language"
-        options={[
-          { value: 'eng', label: 'English' },
-          { value: 'spa', label: 'Spanish' },
-          { value: 'fra', label: 'French' },
-          { value: 'deu', label: 'German' },
-          { value: 'chi_sim', label: 'Chinese (Simplified)' },
-        ]}
+        options={ocrLanguageOptions}
         actionLabel="Perform OCR"
+        actionButtonId="ocr-process-btn"
       />
 
       <div id="prepare-for-ai-container" className="hidden max-w-6xl mx-auto mt-8">
@@ -54,7 +55,10 @@ const AnalysisExtractionSection: React.FC<AnalysisExtractionSectionProps> = ({
             <p className="text-gray-600 dark:text-gray-400">Optimize PDF for AI processing</p>
           </div>
           <div className="flex justify-center">
-            <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+            <button
+              id="prepare-for-ai-process-btn"
+              className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+            >
               Prepare for AI
             </button>
           </div>

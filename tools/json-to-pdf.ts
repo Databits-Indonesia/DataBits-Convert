@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile } from '../utils/helpers';
 import { getFiles } from '../state';
 import jsPDF from 'jspdf';
@@ -65,7 +65,7 @@ export async function jsonToPdf() {
 
       const text = await originalFile.text();
       let jsonData;
-      
+
       try {
         jsonData = JSON.parse(text);
       } catch (e) {
@@ -86,28 +86,28 @@ export async function jsonToPdf() {
       // Format and add JSON content
       pdf.setFontSize(10);
       pdf.setFont('courier', 'normal');
-      
+
       const formattedJson = JSON.stringify(jsonData, null, 2);
       const lines = formattedJson.split('\n');
-      
+
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
       const margin = 14;
-      const maxWidth = pageWidth - (margin * 2);
+      const maxWidth = pageWidth - margin * 2;
       const lineHeight = 5;
       let y = 25;
 
       for (const line of lines) {
         // Split long lines to fit page width
         const wrappedLines = pdf.splitTextToSize(line, maxWidth);
-        
+
         for (const wrappedLine of wrappedLines) {
           // Check if we need a new page
           if (y + lineHeight > pageHeight - margin) {
             pdf.addPage();
             y = margin;
           }
-          
+
           pdf.text(wrappedLine, margin, y);
           y += lineHeight;
         }
@@ -140,7 +140,7 @@ export async function jsonToPdf() {
         try {
           const text = await file.text();
           let jsonData;
-          
+
           try {
             jsonData = JSON.parse(text);
           } catch (e) {
@@ -162,28 +162,28 @@ export async function jsonToPdf() {
           // Format and add JSON content
           pdf.setFontSize(10);
           pdf.setFont('courier', 'normal');
-          
+
           const formattedJson = JSON.stringify(jsonData, null, 2);
           const lines = formattedJson.split('\n');
-          
+
           const pageWidth = pdf.internal.pageSize.getWidth();
           const pageHeight = pdf.internal.pageSize.getHeight();
           const margin = 14;
-          const maxWidth = pageWidth - (margin * 2);
+          const maxWidth = pageWidth - margin * 2;
           const lineHeight = 5;
           let y = 25;
 
           for (const line of lines) {
             // Split long lines to fit page width
             const wrappedLines = pdf.splitTextToSize(line, maxWidth);
-            
+
             for (const wrappedLine of wrappedLines) {
               // Check if we need a new page
               if (y + lineHeight > pageHeight - margin) {
                 pdf.addPage();
                 y = margin;
               }
-              
+
               pdf.text(wrappedLine, margin, y);
               y += lineHeight;
             }

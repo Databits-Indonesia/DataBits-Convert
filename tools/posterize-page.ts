@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile, parsePageRanges, formatBytes } from '../utils/helpers';
 import { PDFDocument, PageSizes } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -26,7 +26,7 @@ export interface PosterizeOptions {
 // Main function to posterize PDF - exported for use in App.tsx
 export async function posterizePdf(options: PosterizeOptions): Promise<boolean> {
   const stateFiles = getFiles();
-  
+
   if (stateFiles.length === 0) {
     showAlert('No File', 'Please upload a PDF file first.');
     return false;
@@ -61,7 +61,7 @@ export async function posterizePdf(options: PosterizeOptions): Promise<boolean> 
 
     for (const pageIndex of pageIndicesToProcess) {
       showLoader(`Processing page ${pageIndex + 1} of ${pageIndicesToProcess.length}...`);
-      
+
       const page = await pdfJsDoc.getPage(Number(pageIndex) + 1);
       const viewport = page.getViewport({ scale: 2.0 });
       tempCanvas.width = viewport.width;
@@ -89,9 +89,13 @@ export async function posterizePdf(options: PosterizeOptions): Promise<boolean> 
           const sx = c * tileWidth - (c > 0 ? overlapInPoints : 0);
           const sy = r * tileHeight - (r > 0 ? overlapInPoints : 0);
           const sWidth =
-            tileWidth + (c > 0 ? overlapInPoints : 0) + (c < options.cols - 1 ? overlapInPoints : 0);
+            tileWidth +
+            (c > 0 ? overlapInPoints : 0) +
+            (c < options.cols - 1 ? overlapInPoints : 0);
           const sHeight =
-            tileHeight + (r > 0 ? overlapInPoints : 0) + (r < options.rows - 1 ? overlapInPoints : 0);
+            tileHeight +
+            (r > 0 ? overlapInPoints : 0) +
+            (r < options.rows - 1 ? overlapInPoints : 0);
 
           const tileCanvas = document.createElement('canvas');
           tileCanvas.width = sWidth;

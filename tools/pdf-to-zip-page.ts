@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile, readFileAsArrayBuffer } from '../utils/helpers';
 import { getFiles } from '../state';
 import JSZip from 'jszip';
@@ -11,7 +11,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 
 export async function pdfToZip() {
   const files = getFiles();
-  
+
   if (files.length === 0) {
     showAlert('No File', 'Please upload a PDF file first.');
     return;
@@ -22,14 +22,18 @@ export async function pdfToZip() {
   try {
     const file = files[0];
     const arrayBuffer = await readFileAsArrayBuffer(file);
-    
+
     const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
     const pdf = await loadingTask.promise;
-    
-    const extractionType = (document.getElementById('pdf-to-zip-type') as HTMLSelectElement)?.value || 'images';
-    const imageFormat = (document.getElementById('pdf-to-zip-format') as HTMLSelectElement)?.value || 'png';
-    const dpi = parseFloat((document.getElementById('pdf-to-zip-dpi') as HTMLSelectElement)?.value || '150');
-    
+
+    const extractionType =
+      (document.getElementById('pdf-to-zip-type') as HTMLSelectElement)?.value || 'images';
+    const imageFormat =
+      (document.getElementById('pdf-to-zip-format') as HTMLSelectElement)?.value || 'png';
+    const dpi = parseFloat(
+      (document.getElementById('pdf-to-zip-dpi') as HTMLSelectElement)?.value || '150'
+    );
+
     const zip = new JSZip();
     const scale = dpi / 72;
 
@@ -37,23 +41,23 @@ export async function pdfToZip() {
       // Extract pages as images
       for (let i = 1; i <= pdf.numPages; i++) {
         showLoader(`Extracting page ${i} of ${pdf.numPages}...`);
-        
+
         const page = await pdf.getPage(i);
         const viewport = page.getViewport({ scale });
-        
+
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
-        
+
         if (!context) {
           throw new Error('Could not get canvas context');
         }
-        
+
         canvas.height = viewport.height;
         canvas.width = viewport.width;
 
         await page.render({
           canvasContext: context,
-          viewport: viewport
+          viewport: viewport,
         }).promise;
 
         // Convert to blob based on format
@@ -74,35 +78,33 @@ export async function pdfToZip() {
       // Extract pages as text files
       for (let i = 1; i <= pdf.numPages; i++) {
         showLoader(`Extracting page ${i} of ${pdf.numPages}...`);
-        
+
         const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
-        
-        const pageText = textContent.items
-          .map((item: any) => item.str)
-          .join(' ');
-        
+
+        const pageText = textContent.items.map((item: any) => item.str).join(' ');
+
         zip.file(`page_${i}.txt`, pageText);
       }
     } else {
       // Both images and text
       for (let i = 1; i <= pdf.numPages; i++) {
         showLoader(`Extracting page ${i} of ${pdf.numPages}...`);
-        
+
         const page = await pdf.getPage(i);
-        
+
         // Extract image
         const viewport = page.getViewport({ scale });
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
-        
+
         if (context) {
           canvas.height = viewport.height;
           canvas.width = viewport.width;
 
           await page.render({
             canvasContext: context,
-            viewport: viewport
+            viewport: viewport,
           }).promise;
 
           const blob = await new Promise<Blob | null>((resolve) => {
@@ -118,13 +120,11 @@ export async function pdfToZip() {
             zip.file(`page_${i}${extension}`, blob);
           }
         }
-        
+
         // Extract text
         const textContent = await page.getTextContent();
-        const pageText = textContent.items
-          .map((item: any) => item.str)
-          .join(' ');
-        
+        const pageText = textContent.items.map((item: any) => item.str).join(' ');
+
         zip.file(`page_${i}.txt`, pageText);
       }
     }
@@ -132,17 +132,14 @@ export async function pdfToZip() {
     showLoader('Creating ZIP file...');
     const zipBlob = await zip.generateAsync({ type: 'blob' });
     const fileName = file.name.replace(/\.pdf$/i, '_extracted.zip');
-    
+
     downloadFile(zipBlob, fileName);
-    
+
     hideLoader();
     showAlert('Success', 'PDF contents extracted to ZIP successfully!', 'success');
   } catch (error: any) {
     console.error('[PDF2ZIP] Error:', error);
     hideLoader();
-    showAlert(
-      'Error',
-      `An error occurred during extraction. ${error.message}`
-    );
+    showAlert('Error', `An error occurred during extraction. ${error.message}`);
   }
 }

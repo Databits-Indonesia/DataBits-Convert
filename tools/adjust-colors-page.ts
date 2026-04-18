@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile, formatBytes } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument } from 'pdf-lib';
@@ -21,7 +21,7 @@ let pdfjsDoc: pdfjsLib.PDFDocumentProxy | null = null;
 // Main function to adjust colors - exported for use in App.tsx
 export async function adjustColorsOfPdf(settings: AdjustColorsSettings): Promise<boolean> {
   const stateFiles = getFiles();
-  
+
   if (stateFiles.length === 0) {
     showAlert('No File', 'Please upload a PDF file first.');
     return false;
@@ -52,17 +52,12 @@ export async function adjustColorsOfPdf(settings: AdjustColorsSettings): Promise
         canvas: renderCanvas,
       }).promise;
 
-      const baseData = renderCtx.getImageData(
-        0,
-        0,
-        renderCanvas.width,
-        renderCanvas.height
-      );
+      const baseData = renderCtx.getImageData(0, 0, renderCanvas.width, renderCanvas.height);
 
       const outputCanvas = document.createElement('canvas');
       outputCanvas.width = renderCanvas.width;
       outputCanvas.height = renderCanvas.height;
-      
+
       const result = applyColorAdjustments(baseData, settings);
       const ctx = outputCanvas.getContext('2d');
       if (ctx) {
@@ -77,10 +72,7 @@ export async function adjustColorsOfPdf(settings: AdjustColorsSettings): Promise
         const pngBytes = await pngBlob.arrayBuffer();
         const pngImage = await newPdfDoc.embedPng(pngBytes);
         const origViewport = page.getViewport({ scale: 1.0 });
-        const newPage = newPdfDoc.addPage([
-          origViewport.width,
-          origViewport.height,
-        ]);
+        const newPage = newPdfDoc.addPage([origViewport.width, origViewport.height]);
         newPage.drawImage(pngImage, {
           x: 0,
           y: 0,
@@ -96,13 +88,9 @@ export async function adjustColorsOfPdf(settings: AdjustColorsSettings): Promise
       new Blob([new Uint8Array(resultBytes)], { type: 'application/pdf' }),
       `${originalName}_color-adjusted.pdf`
     );
-    
+
     hideLoader();
-    showAlert(
-      'Success',
-      'Color adjustments applied successfully!',
-      'success'
-    );
+    showAlert('Success', 'Color adjustments applied successfully!', 'success');
     return true;
   } catch (e: any) {
     console.error(e);
@@ -118,37 +106,25 @@ export async function adjustColorsOfPdf(settings: AdjustColorsSettings): Promise
 function getSettings(): AdjustColorsSettings {
   return {
     brightness: parseInt(
-      (document.getElementById('setting-brightness') as HTMLInputElement)
-        ?.value ?? '0'
+      (document.getElementById('setting-brightness') as HTMLInputElement)?.value ?? '0'
     ),
     contrast: parseInt(
-      (document.getElementById('setting-contrast') as HTMLInputElement)
-        ?.value ?? '0'
+      (document.getElementById('setting-contrast') as HTMLInputElement)?.value ?? '0'
     ),
     saturation: parseInt(
-      (document.getElementById('setting-saturation') as HTMLInputElement)
-        ?.value ?? '0'
+      (document.getElementById('setting-saturation') as HTMLInputElement)?.value ?? '0'
     ),
     hueShift: parseInt(
-      (document.getElementById('setting-hue-shift') as HTMLInputElement)
-        ?.value ?? '0'
+      (document.getElementById('setting-hue-shift') as HTMLInputElement)?.value ?? '0'
     ),
     temperature: parseInt(
-      (document.getElementById('setting-temperature') as HTMLInputElement)
-        ?.value ?? '0'
+      (document.getElementById('setting-temperature') as HTMLInputElement)?.value ?? '0'
     ),
-    tint: parseInt(
-      (document.getElementById('setting-tint') as HTMLInputElement)?.value ??
-        '0'
-    ),
+    tint: parseInt((document.getElementById('setting-tint') as HTMLInputElement)?.value ?? '0'),
     gamma: parseFloat(
-      (document.getElementById('setting-gamma') as HTMLInputElement)?.value ??
-        '1.0'
+      (document.getElementById('setting-gamma') as HTMLInputElement)?.value ?? '1.0'
     ),
-    sepia: parseInt(
-      (document.getElementById('setting-sepia') as HTMLInputElement)?.value ??
-        '0'
-    ),
+    sepia: parseInt((document.getElementById('setting-sepia') as HTMLInputElement)?.value ?? '0'),
   };
 }
 
@@ -157,9 +133,7 @@ const applyEffects = applyColorAdjustments;
 function updatePreview(): void {
   if (!cachedBaselineData) return;
 
-  const previewCanvas = document.getElementById(
-    'preview-canvas'
-  ) as HTMLCanvasElement;
+  const previewCanvas = document.getElementById('preview-canvas') as HTMLCanvasElement;
   if (!previewCanvas) return;
 
   const settings = getSettings();
@@ -170,7 +144,7 @@ function updatePreview(): void {
   );
 
   const result = applyEffects(baselineCopy, settings);
-  
+
   // Draw to canvas
   const ctx = previewCanvas.getContext('2d');
   if (ctx) {
@@ -210,8 +184,7 @@ const updateUI = () => {
 
     files.forEach((file) => {
       const fileDiv = document.createElement('div');
-      fileDiv.className =
-        'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+      fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
 
       const infoContainer = document.createElement('div');
       infoContainer.className = 'flex flex-col overflow-hidden';
@@ -227,8 +200,7 @@ const updateUI = () => {
       infoContainer.append(nameSpan, metaSpan);
 
       const removeBtn = document.createElement('button');
-      removeBtn.className =
-        'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
+      removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
       removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
       removeBtn.onclick = () => {
         files = [];
@@ -240,7 +212,8 @@ const updateUI = () => {
       fileDiv.append(infoContainer, removeBtn);
       fileDisplayArea.appendChild(fileDiv);
 
-      file.arrayBuffer()
+      file
+        .arrayBuffer()
         .then((buffer: ArrayBuffer) => {
           const loadingTask = pdfjsLib.getDocument({ data: buffer });
           return loadingTask.promise;
@@ -276,7 +249,7 @@ async function processAllPages(): Promise<void> {
 
   const settings = getSettings();
   const success = await adjustColorsOfPdf(settings);
-  
+
   if (success) {
     resetState();
   }
@@ -376,9 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const handleFileSelect = async (newFiles: FileList | null) => {
     if (!newFiles || newFiles.length === 0) return;
-    const validFiles = Array.from(newFiles).filter(
-      (file) => file.type === 'application/pdf'
-    );
+    const validFiles = Array.from(newFiles).filter((file) => file.type === 'application/pdf');
 
     if (validFiles.length === 0) {
       showAlert('Invalid File', 'Please upload a PDF file.');

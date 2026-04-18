@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { t } from '../i18n/i18n';
 import { downloadFile, readFileAsArrayBuffer, formatBytes, getPDFDocument } from '../utils/helpers';
 import { state } from '../state';

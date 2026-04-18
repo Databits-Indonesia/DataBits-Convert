@@ -1,10 +1,5 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
-import {
-  downloadFile,
-  readFileAsArrayBuffer,
-  formatBytes,
-  getPDFDocument,
-} from '../utils/helpers';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
+import { downloadFile, readFileAsArrayBuffer, formatBytes, getPDFDocument } from '../utils/helpers';
 import { state } from '../state';
 import { PDFDocument } from 'pdf-lib';
 import { createIcons, icons } from 'lucide';
@@ -63,12 +58,10 @@ async function performCondenseCompression(
   const pymupdf = await loadPyMuPDF();
 
   const preset =
-    CONDENSE_PRESETS[level as keyof typeof CONDENSE_PRESETS] ||
-    CONDENSE_PRESETS.balanced;
+    CONDENSE_PRESETS[level as keyof typeof CONDENSE_PRESETS] || CONDENSE_PRESETS.balanced;
 
   const dpiTarget = customSettings?.dpiTarget ?? preset.images.dpiTarget;
-  const userThreshold =
-    customSettings?.dpiThreshold ?? preset.images.dpiThreshold;
+  const userThreshold = customSettings?.dpiThreshold ?? preset.images.dpiThreshold;
   const dpiThreshold = Math.max(userThreshold, dpiTarget + 10);
 
   const options = {
@@ -98,10 +91,7 @@ async function performCondenseCompression(
     return result;
   } catch (error: any) {
     const errorMessage = error?.message || String(error);
-    if (
-      errorMessage.includes('PatternType') ||
-      errorMessage.includes('pattern')
-    ) {
+    if (errorMessage.includes('PatternType') || errorMessage.includes('pattern')) {
       console.warn(
         '[CompressPDF] Pattern error detected, retrying without image rewriting:',
         errorMessage
@@ -123,15 +113,10 @@ async function performCondenseCompression(
   }
 }
 
-async function performPhotonCompression(
-  arrayBuffer: ArrayBuffer,
-  level: string
-) {
+async function performPhotonCompression(arrayBuffer: ArrayBuffer, level: string) {
   const pdfJsDoc = await getPDFDocument({ data: arrayBuffer }).promise;
   const newPdfDoc = await PDFDocument.create();
-  const settings =
-    PHOTON_PRESETS[level as keyof typeof PHOTON_PRESETS] ||
-    PHOTON_PRESETS.balanced;
+  const settings = PHOTON_PRESETS[level as keyof typeof PHOTON_PRESETS] || PHOTON_PRESETS.balanced;
 
   for (let i = 1; i <= pdfJsDoc.numPages; i++) {
     const page = await pdfJsDoc.getPage(i);
@@ -141,15 +126,10 @@ async function performPhotonCompression(
     canvas.height = viewport.height;
     canvas.width = viewport.width;
 
-    await page.render({ canvasContext: context, viewport, canvas: canvas })
-      .promise;
+    await page.render({ canvasContext: context, viewport, canvas: canvas }).promise;
 
     const jpegBlob = await new Promise<Blob>((resolve) =>
-      canvas.toBlob(
-        (blob) => resolve(blob as Blob),
-        'image/jpeg',
-        settings.quality
-      )
+      canvas.toBlob((blob) => resolve(blob as Blob), 'image/jpeg', settings.quality)
     );
     const jpegBytes = await jpegBlob.arrayBuffer();
     const jpegImage = await newPdfDoc.embedJpg(jpegBytes);
@@ -168,44 +148,25 @@ function resetState() {
   state.files = [];
   state.pdfDoc = null;
 
-  const compressionLevel = document.getElementById(
-    'compression-level'
-  ) as HTMLSelectElement;
+  const compressionLevel = document.getElementById('compression-level') as HTMLSelectElement;
   if (compressionLevel) compressionLevel.value = 'balanced';
 
-  const algorithmSelect = document.getElementById(
-    'compression-algorithm'
-  ) as HTMLSelectElement;
+  const algorithmSelect = document.getElementById('compression-algorithm') as HTMLSelectElement;
   if (algorithmSelect) algorithmSelect.value = 'condense';
 
   const customSettingsPanel = document.getElementById('custom-settings-panel');
   if (customSettingsPanel) customSettingsPanel.classList.add('hidden');
 
-  const customSettingsChevron = document.getElementById(
-    'custom-settings-chevron'
-  );
-  if (customSettingsChevron)
-    customSettingsChevron.style.transform = 'rotate(0deg)';
+  const customSettingsChevron = document.getElementById('custom-settings-chevron');
+  if (customSettingsChevron) customSettingsChevron.style.transform = 'rotate(0deg)';
 
-  const imageQuality = document.getElementById(
-    'image-quality'
-  ) as HTMLInputElement;
+  const imageQuality = document.getElementById('image-quality') as HTMLInputElement;
   const dpiTarget = document.getElementById('dpi-target') as HTMLInputElement;
-  const dpiThreshold = document.getElementById(
-    'dpi-threshold'
-  ) as HTMLInputElement;
-  const removeMetadata = document.getElementById(
-    'remove-metadata'
-  ) as HTMLInputElement;
-  const subsetFonts = document.getElementById(
-    'subset-fonts'
-  ) as HTMLInputElement;
-  const convertToGrayscale = document.getElementById(
-    'convert-to-grayscale'
-  ) as HTMLInputElement;
-  const removeThumbnails = document.getElementById(
-    'remove-thumbnails'
-  ) as HTMLInputElement;
+  const dpiThreshold = document.getElementById('dpi-threshold') as HTMLInputElement;
+  const removeMetadata = document.getElementById('remove-metadata') as HTMLInputElement;
+  const subsetFonts = document.getElementById('subset-fonts') as HTMLInputElement;
+  const convertToGrayscale = document.getElementById('convert-to-grayscale') as HTMLInputElement;
+  const removeThumbnails = document.getElementById('remove-thumbnails') as HTMLInputElement;
 
   if (imageQuality) imageQuality.value = '75';
   if (dpiTarget) dpiTarget.value = '96';
@@ -235,15 +196,13 @@ function updateUI() {
       for (let index = 0; index < state.files.length; index++) {
         const file = state.files[index];
         const fileDiv = document.createElement('div');
-        fileDiv.className =
-          'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+        fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
 
         const infoContainer = document.createElement('div');
         infoContainer.className = 'flex flex-col overflow-hidden';
 
         const nameSpan = document.createElement('div');
-        nameSpan.className =
-          'truncate font-medium text-gray-200 text-sm mb-1';
+        nameSpan.className = 'truncate font-medium text-gray-200 text-sm mb-1';
         nameSpan.textContent = file.name;
 
         const metaSpan = document.createElement('div');
@@ -253,8 +212,7 @@ function updateUI() {
         infoContainer.append(nameSpan, metaSpan);
 
         const removeBtn = document.createElement('button');
-        removeBtn.className =
-          'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
+        removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
         removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
         removeBtn.onclick = () => {
           state.files = state.files.filter((_, i) => i !== index);
@@ -276,18 +234,16 @@ function updateUI() {
 }
 
 export async function compress() {
-  const level = (
-    document.getElementById('compression-level') as HTMLSelectElement
-  )?.value || 'balanced';
-  const algorithm = (
-    document.getElementById('compression-algorithm') as HTMLSelectElement
-  )?.value || 'condense';
+  const level =
+    (document.getElementById('compression-level') as HTMLSelectElement)?.value || 'balanced';
+  const algorithm =
+    (document.getElementById('compression-algorithm') as HTMLSelectElement)?.value || 'condense';
   const convertToGrayscale =
-    (document.getElementById('convert-to-grayscale') as HTMLInputElement)
-      ?.checked ?? false;
+    (document.getElementById('convert-to-grayscale') as HTMLInputElement)?.checked ?? false;
 
   const customSettingsPanel = document.getElementById('custom-settings-panel');
-  const useCustomSettings = customSettingsPanel && !customSettingsPanel.classList.contains('hidden');
+  const useCustomSettings =
+    customSettingsPanel && !customSettingsPanel.classList.contains('hidden');
 
   let customSettings:
     | {
@@ -303,26 +259,17 @@ export async function compress() {
 
   if (useCustomSettings) {
     const imageQuality =
-      parseInt(
-        (document.getElementById('image-quality') as HTMLInputElement)?.value
-      ) || 75;
+      parseInt((document.getElementById('image-quality') as HTMLInputElement)?.value) || 75;
     const dpiTarget =
-      parseInt(
-        (document.getElementById('dpi-target') as HTMLInputElement)?.value
-      ) || 96;
+      parseInt((document.getElementById('dpi-target') as HTMLInputElement)?.value) || 96;
     const dpiThreshold =
-      parseInt(
-        (document.getElementById('dpi-threshold') as HTMLInputElement)?.value
-      ) || 150;
+      parseInt((document.getElementById('dpi-threshold') as HTMLInputElement)?.value) || 150;
     const removeMetadata =
-      (document.getElementById('remove-metadata') as HTMLInputElement)
-        ?.checked ?? true;
+      (document.getElementById('remove-metadata') as HTMLInputElement)?.checked ?? true;
     const subsetFonts =
-      (document.getElementById('subset-fonts') as HTMLInputElement)
-        ?.checked ?? true;
+      (document.getElementById('subset-fonts') as HTMLInputElement)?.checked ?? true;
     const removeThumbnails =
-      (document.getElementById('remove-thumbnails') as HTMLInputElement)
-        ?.checked ?? true;
+      (document.getElementById('remove-thumbnails') as HTMLInputElement)?.checked ?? true;
 
     customSettings = {
       imageQuality,
@@ -357,28 +304,18 @@ export async function compress() {
 
       if (algorithm === 'condense') {
         showLoader('Running Condense compression...');
-        const result = await performCondenseCompression(
-          originalFile,
-          level,
-          customSettings
-        );
+        const result = await performCondenseCompression(originalFile, level, customSettings);
         resultBlob = result.blob;
         resultSize = result.compressedSize;
         usedMethod = 'Condense';
 
         if ((result as any).usedFallback) {
-          usedMethod +=
-            ' (without image optimization due to unsupported patterns)';
+          usedMethod += ' (without image optimization due to unsupported patterns)';
         }
       } else {
         showLoader('Running Photon compression...');
-        const arrayBuffer = (await readFileAsArrayBuffer(
-          originalFile
-        )) as ArrayBuffer;
-        const resultBytes = await performPhotonCompression(
-          arrayBuffer,
-          level
-        );
+        const arrayBuffer = (await readFileAsArrayBuffer(originalFile)) as ArrayBuffer;
+        const resultBytes = await performPhotonCompression(arrayBuffer, level);
         const buffer = resultBytes.buffer.slice(
           resultBytes.byteOffset,
           resultBytes.byteOffset + resultBytes.byteLength
@@ -391,13 +328,9 @@ export async function compress() {
       const originalSize = formatBytes(originalFile.size);
       const compressedSize = formatBytes(resultSize);
       const savings = originalFile.size - resultSize;
-      const savingsPercent =
-        savings > 0 ? ((savings / originalFile.size) * 100).toFixed(1) : 0;
+      const savingsPercent = savings > 0 ? ((savings / originalFile.size) * 100).toFixed(1) : 0;
 
-      downloadFile(
-        resultBlob,
-        originalFile.name.replace(/\.pdf$/i, '') + '_compressed.pdf'
-      );
+      downloadFile(resultBlob, originalFile.name.replace(/\.pdf$/i, '') + '_compressed.pdf');
 
       hideLoader();
 
@@ -425,23 +358,15 @@ export async function compress() {
 
       for (let i = 0; i < state.files.length; i++) {
         const file = state.files[i];
-        showLoader(
-          `Compressing ${i + 1}/${state.files.length}: ${file.name}...`
-        );
+        showLoader(`Compressing ${i + 1}/${state.files.length}: ${file.name}...`);
         totalOriginalSize += file.size;
 
         let resultBytes: Uint8Array;
         if (algorithm === 'condense') {
-          const result = await performCondenseCompression(
-            file,
-            level,
-            customSettings
-          );
+          const result = await performCondenseCompression(file, level, customSettings);
           resultBytes = new Uint8Array(await result.blob.arrayBuffer());
         } else {
-          const arrayBuffer = (await readFileAsArrayBuffer(
-            file
-          )) as ArrayBuffer;
+          const arrayBuffer = (await readFileAsArrayBuffer(file)) as ArrayBuffer;
           resultBytes = await performPhotonCompression(arrayBuffer, level);
         }
 
@@ -453,9 +378,7 @@ export async function compress() {
       const zipBlob = await zip.generateAsync({ type: 'blob' });
       const totalSavings = totalOriginalSize - totalCompressedSize;
       const totalSavingsPercent =
-        totalSavings > 0
-          ? ((totalSavings / totalOriginalSize) * 100).toFixed(1)
-          : 0;
+        totalSavings > 0 ? ((totalSavings / totalOriginalSize) * 100).toFixed(1) : 0;
 
       downloadFile(zipBlob, 'compressed-pdfs.zip');
 
@@ -480,28 +403,19 @@ export async function compress() {
   } catch (e: any) {
     hideLoader();
     console.error('[CompressPDF] Error:', e);
-    showAlert(
-      'Error',
-      `An error occurred during compression. Error: ${e.message}`
-    );
+    showAlert('Error', `An error occurred during compression. Error: ${e.message}`);
   }
 }
 
 export async function setupCompressTool() {
   document.getElementById('compress-tool-container')?.classList.remove('hidden');
 
-  const algorithmSelect = document.getElementById(
-    'compression-algorithm'
-  ) as HTMLSelectElement;
+  const algorithmSelect = document.getElementById('compression-algorithm') as HTMLSelectElement;
   const condenseInfo = document.getElementById('condense-info');
   const photonInfo = document.getElementById('photon-info');
-  const toggleCustomSettings = document.getElementById(
-    'toggle-custom-settings'
-  );
+  const toggleCustomSettings = document.getElementById('toggle-custom-settings');
   const customSettingsPanel = document.getElementById('custom-settings-panel');
-  const customSettingsChevron = document.getElementById(
-    'custom-settings-chevron'
-  );
+  const customSettingsChevron = document.getElementById('custom-settings-chevron');
 
   if (algorithmSelect && condenseInfo && photonInfo) {
     algorithmSelect.addEventListener('change', () => {
@@ -518,10 +432,9 @@ export async function setupCompressTool() {
   if (toggleCustomSettings && customSettingsPanel && customSettingsChevron) {
     toggleCustomSettings.addEventListener('click', () => {
       customSettingsPanel.classList.toggle('hidden');
-      customSettingsChevron.style.transform =
-        customSettingsPanel.classList.contains('hidden')
-          ? 'rotate(0deg)'
-          : 'rotate(180deg)';
+      customSettingsChevron.style.transform = customSettingsPanel.classList.contains('hidden')
+        ? 'rotate(0deg)'
+        : 'rotate(180deg)';
     });
   }
 

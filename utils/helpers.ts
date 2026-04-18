@@ -36,7 +36,7 @@ export async function readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
 /**
  * Get a PDF.js document from array buffer
  */
-export function getPDFDocument(options: { data: ArrayBuffer | Uint8Array }) {
+export function getPDFDocument(options: { data: ArrayBuffer | Uint8Array; password?: string }) {
   return pdfjsLib.getDocument({
     ...options,
     // Ensure OpenJPEG wasm is resolvable in PDF.js v5+

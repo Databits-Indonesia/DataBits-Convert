@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile, formatBytes } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
@@ -19,11 +19,11 @@ const pageState: AddAttachmentState = {
 // Helper function to parse page ranges
 function parsePageRange(range: string, totalPages: number): number[] {
   const pages: number[] = [];
-  const parts = range.split(',').map(p => p.trim());
+  const parts = range.split(',').map((p) => p.trim());
 
   for (const part of parts) {
     if (part.includes('-')) {
-      const [start, end] = part.split('-').map(s => parseInt(s.trim(), 10));
+      const [start, end] = part.split('-').map((s) => parseInt(s.trim(), 10));
       if (!isNaN(start) && !isNaN(end)) {
         for (let i = Math.max(1, start); i <= Math.min(end, totalPages); i++) {
           pages.push(i - 1); // Convert to 0-based index
@@ -47,7 +47,7 @@ export async function addAttachmentsToPdf(
   pageRange?: string
 ) {
   const files = getFiles();
-  
+
   if (files.length === 0) {
     showAlert('No File', 'Please upload a PDF file first.');
     return;
@@ -76,7 +76,7 @@ export async function addAttachmentsToPdf(
     if (attachmentLevel === 'page' && pageRange) {
       const totalPages = pdfDoc.getPageCount();
       pageIndices = parsePageRange(pageRange, totalPages);
-      
+
       if (pageIndices.length === 0) {
         throw new Error('Invalid page range specified.');
       }
@@ -96,16 +96,16 @@ export async function addAttachmentsToPdf(
         // Fallback based on extension
         const ext = file.name.split('.').pop()?.toLowerCase();
         const mimeMap: Record<string, string> = {
-          'pdf': 'application/pdf',
-          'txt': 'text/plain',
-          'jpg': 'image/jpeg',
-          'jpeg': 'image/jpeg',
-          'png': 'image/png',
-          'doc': 'application/msword',
-          'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          'xls': 'application/vnd.ms-excel',
-          'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          'zip': 'application/zip',
+          pdf: 'application/pdf',
+          txt: 'text/plain',
+          jpg: 'image/jpeg',
+          jpeg: 'image/jpeg',
+          png: 'image/png',
+          doc: 'application/msword',
+          docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          xls: 'application/vnd.ms-excel',
+          xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          zip: 'application/zip',
         };
         mimeType = mimeMap[ext || ''] || 'application/octet-stream';
       }

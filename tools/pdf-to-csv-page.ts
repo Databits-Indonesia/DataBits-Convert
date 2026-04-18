@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile, readFileAsArrayBuffer } from '../utils/helpers';
 import { getFiles } from '../state';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -16,11 +16,7 @@ function rowsToCsv(rows: string[][]): string {
         .map((cell) => {
           const cellStr = cell ?? '';
           // Escape cells containing commas, quotes, or newlines
-          if (
-            cellStr.includes(',') ||
-            cellStr.includes('"') ||
-            cellStr.includes('\n')
-          ) {
+          if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
             return `"${cellStr.replace(/"/g, '""')}"`;
           }
           return cellStr;
@@ -32,7 +28,7 @@ function rowsToCsv(rows: string[][]): string {
 
 export async function pdfToCsv() {
   const files = getFiles();
-  
+
   if (files.length === 0) {
     showAlert('No File', 'Please upload a PDF file first.');
     return;
@@ -43,15 +39,17 @@ export async function pdfToCsv() {
   try {
     const file = files[0];
     const arrayBuffer = await readFileAsArrayBuffer(file);
-    
+
     const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
     const pdf = await loadingTask.promise;
-    
-    const includePageNumbers = (document.getElementById('pdf-to-csv-page-numbers') as HTMLInputElement)?.checked || false;
-    const separator = (document.getElementById('pdf-to-csv-separator') as HTMLSelectElement)?.value || 'comma';
-    
+
+    const includePageNumbers =
+      (document.getElementById('pdf-to-csv-page-numbers') as HTMLInputElement)?.checked || false;
+    const separator =
+      (document.getElementById('pdf-to-csv-separator') as HTMLSelectElement)?.value || 'comma';
+
     const rows: string[][] = [];
-    
+
     // Add header if page numbers are included
     if (includePageNumbers) {
       rows.push(['Page', 'Content']);
@@ -59,21 +57,21 @@ export async function pdfToCsv() {
 
     for (let i = 1; i <= pdf.numPages; i++) {
       showLoader(`Processing page ${i} of ${pdf.numPages}...`);
-      
+
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
-      
+
       // Extract text items
       const textItems = textContent.items.map((item: any) => item.str);
       const pageText = textItems.join(' ');
-      
+
       if (includePageNumbers) {
         rows.push([`${i}`, pageText]);
       } else {
         // Try to structure the text into columns (simple heuristic)
         const chunks: string[] = [];
         let currentChunk = '';
-        
+
         textItems.forEach((text: string, idx: number) => {
           if (text.trim()) {
             currentChunk += (currentChunk ? ' ' : '') + text;
@@ -84,11 +82,11 @@ export async function pdfToCsv() {
             }
           }
         });
-        
+
         if (currentChunk) {
           chunks.push(currentChunk);
         }
-        
+
         if (chunks.length > 0) {
           rows.push(chunks);
         } else {
@@ -99,35 +97,38 @@ export async function pdfToCsv() {
 
     showLoader('Creating CSV file...');
     let csvContent: string;
-    
+
     // Use different separator if specified
     if (separator === 'semicolon') {
-      csvContent = rows.map(row => row.map(cell => {
-        const cellStr = cell ?? '';
-        if (cellStr.includes(';') || cellStr.includes('"') || cellStr.includes('\n')) {
-          return `"${cellStr.replace(/"/g, '""')}"`;
-        }
-        return cellStr;
-      }).join(';')).join('\n');
+      csvContent = rows
+        .map((row) =>
+          row
+            .map((cell) => {
+              const cellStr = cell ?? '';
+              if (cellStr.includes(';') || cellStr.includes('"') || cellStr.includes('\n')) {
+                return `"${cellStr.replace(/"/g, '""')}"`;
+              }
+              return cellStr;
+            })
+            .join(';')
+        )
+        .join('\n');
     } else if (separator === 'tab') {
-      csvContent = rows.map(row => row.join('\t')).join('\n');
+      csvContent = rows.map((row) => row.join('\t')).join('\n');
     } else {
       csvContent = rowsToCsv(rows);
     }
-    
+
     const fileName = file.name.replace(/\.pdf$/i, '.csv');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    
+
     downloadFile(blob, fileName);
-    
+
     hideLoader();
     showAlert('Success', 'PDF converted to CSV successfully!', 'success');
   } catch (error: any) {
     console.error('[PDF2CSV] Error:', error);
     hideLoader();
-    showAlert(
-      'Error',
-      `An error occurred during conversion. ${error.message}`
-    );
+    showAlert('Error', `An error occurred during conversion. ${error.message}`);
   }
 }

@@ -1,14 +1,11 @@
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui';
+import { showAlert, showLoader, hideLoader } from '../components/ui';
 import { downloadFile, formatBytes } from '../utils/helpers';
 import { isWasmAvailable, getWasmBaseUrl } from '../config/wasm-cdn-config';
 import { showWasmRequiredDialog } from '../utils/wasm-provider';
 import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';
 import heic2any from 'heic2any';
-import {
-  getSelectedQuality,
-  compressImageFile,
-} from '../utils/image-compress';
+import { getSelectedQuality, compressImageFile } from '../utils/image-compress';
 
 const SUPPORTED_FORMATS =
   '.jpg,.jpeg,.png,.bmp,.gif,.tiff,.tif,.pnm,.pgm,.pbm,.ppm,.pam,.jxr,.jpx,.jp2,.psd,.svg,.heic,.heif,.webp';
@@ -85,7 +82,7 @@ function initializePage() {
   }
 
   document.getElementById('back-to-tools')?.addEventListener('click', () => {
-    window.location.href = (process.env.BASE_URL || '/');
+    window.location.href = process.env.BASE_URL || '/';
   });
 }
 
@@ -142,8 +139,7 @@ function updateUI() {
 
     files.forEach((file, index) => {
       const fileDiv = document.createElement('div');
-      fileDiv.className =
-        'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+      fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
 
       const infoContainer = document.createElement('div');
       infoContainer.className = 'flex items-center gap-2 overflow-hidden';
@@ -159,8 +155,7 @@ function updateUI() {
       infoContainer.append(nameSpan, sizeSpan);
 
       const removeBtn = document.createElement('button');
-      removeBtn.className =
-        'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
+      removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
       removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
       removeBtn.onclick = () => {
         files = files.filter((_, i) => i !== index);
@@ -195,9 +190,7 @@ async function preprocessFile(file: File): Promise<File> {
         quality: 0.9,
       });
 
-      const blob = Array.isArray(conversionResult)
-        ? conversionResult[0]
-        : conversionResult;
+      const blob = Array.isArray(conversionResult) ? conversionResult[0] : conversionResult;
       return new File([blob], file.name.replace(/\.(heic|heif)$/i, '.png'), {
         type: 'image/png',
       });
@@ -289,10 +282,7 @@ async function convertToPdf() {
     });
   } catch (e: any) {
     console.error('[ImageToPDF]', e);
-    showAlert(
-      'Conversion Error',
-      e.message || 'Failed to convert images to PDF.'
-    );
+    showAlert('Conversion Error', e.message || 'Failed to convert images to PDF.');
   } finally {
     hideLoader();
   }

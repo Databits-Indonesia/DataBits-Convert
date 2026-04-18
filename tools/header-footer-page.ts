@@ -1,5 +1,5 @@
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui';
+import { showAlert, showLoader, hideLoader } from '../components/ui';
 import { downloadFile, hexToRgb, formatBytes, parsePageRanges } from '../utils/helpers';
 import { PDFDocument as PDFLibDocument, rgb, StandardFonts } from 'pdf-lib';
 import { getFiles } from '../state';
@@ -26,7 +26,7 @@ interface HeaderFooterOptions {
 // Main function to add header and footer - exported for use in App.tsx
 export async function addHeaderFooterToPdf(options: HeaderFooterOptions): Promise<boolean> {
   const files = getFiles();
-  
+
   if (files.length === 0) {
     showAlert('No File', 'Please upload a PDF file first.');
     return false;
@@ -62,17 +62,21 @@ export async function addHeaderFooterToPdf(options: HeaderFooterOptions): Promis
       throw new Error('Invalid page range specified.');
     }
 
-    const drawOptions = { font: helveticaFont, size: fontSize, color: rgb(fontColor.r, fontColor.g, fontColor.b) };
+    const drawOptions = {
+      font: helveticaFont,
+      size: fontSize,
+      color: rgb(fontColor.r, fontColor.g, fontColor.b),
+    };
 
     for (const pageIndex of indicesToProcess) {
       const page = allPages[pageIndex];
       const { width, height } = page.getSize();
       const pageNumber = pageIndex + 1;
-      
+
       // Replace placeholders
       const processText = (text: string) =>
         text.replace(/{page}/g, String(pageNumber)).replace(/{total}/g, String(totalPages));
-      
+
       const processed = {
         headerLeft: processText(texts.headerLeft),
         headerCenter: processText(texts.headerCenter),
@@ -172,7 +176,10 @@ function initializePage() {
       if (e.dataTransfer?.files.length) handleFiles(e.dataTransfer.files);
     });
   }
-  if (backBtn) backBtn.addEventListener('click', () => { window.location.href = '/'; });
+  if (backBtn)
+    backBtn.addEventListener('click', () => {
+      window.location.href = '/';
+    });
   if (processBtn) processBtn.addEventListener('click', addHeaderFooter);
 }
 
@@ -251,7 +258,8 @@ async function addHeaderFooter() {
     footerLeft: (document.getElementById('footer-left') as HTMLInputElement)?.value || '',
     footerCenter: (document.getElementById('footer-center') as HTMLInputElement)?.value || '',
     footerRight: (document.getElementById('footer-right') as HTMLInputElement)?.value || '',
-    fontSize: parseInt((document.getElementById('font-size') as HTMLInputElement)?.value || '10') || 10,
+    fontSize:
+      parseInt((document.getElementById('font-size') as HTMLInputElement)?.value || '10') || 10,
     fontColor: (document.getElementById('font-color') as HTMLInputElement)?.value || '#000000',
     pageRange: (document.getElementById('page-range') as HTMLInputElement)?.value || '',
   };

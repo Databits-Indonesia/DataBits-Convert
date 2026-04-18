@@ -1,11 +1,20 @@
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui';
-import { downloadFile, hexToRgb, formatBytes, getPDFDocument, readFileAsArrayBuffer } from '../utils/helpers';
+import { showAlert, showLoader, hideLoader } from '../components/ui';
+import {
+  downloadFile,
+  hexToRgb,
+  formatBytes,
+  getPDFDocument,
+  readFileAsArrayBuffer,
+} from '../utils/helpers';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 import { getFiles } from '../state';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
 
 interface TextColorState {
   file: File | null;
@@ -17,7 +26,7 @@ const pageState: TextColorState = { file: null, pdfDoc: null };
 // Main function to change text color - exported for use in App.tsx
 export async function changeTextColorOfPdf(colorHex: string): Promise<boolean> {
   const files = getFiles();
-  
+
   if (files.length === 0) {
     showAlert('No File', 'Please upload a PDF file first.');
     return false;
@@ -29,9 +38,9 @@ export async function changeTextColorOfPdf(colorHex: string): Promise<boolean> {
     const file = files[0];
     const { r, g, b } = hexToRgb(colorHex);
     const darknessThreshold = 120;
-    
+
     const newPdfDoc = await PDFLibDocument.create();
-    
+
     // Load PDF with pdfjs-dist using ArrayBuffer directly
     const arrayBuffer = await file.arrayBuffer();
     const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
@@ -49,10 +58,14 @@ export async function changeTextColorOfPdf(colorHex: string): Promise<boolean> {
 
       const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
-      
+
       // Change dark pixels (text) to the selected color
       for (let j = 0; j < data.length; j += 4) {
-        if (data[j] < darknessThreshold && data[j + 1] < darknessThreshold && data[j + 2] < darknessThreshold) {
+        if (
+          data[j] < darknessThreshold &&
+          data[j + 1] < darknessThreshold &&
+          data[j + 2] < darknessThreshold
+        ) {
           data[j] = r * 255;
           data[j + 1] = g * 255;
           data[j + 2] = b * 255;
@@ -72,14 +85,14 @@ export async function changeTextColorOfPdf(colorHex: string): Promise<boolean> {
       const newPage = newPdfDoc.addPage([viewport.width, viewport.height]);
       newPage.drawImage(pngImage, { x: 0, y: 0, width: viewport.width, height: viewport.height });
     }
-    
+
     const newPdfBytes = await newPdfDoc.save();
     const originalName = file.name.replace(/\.pdf$/i, '');
     downloadFile(
-      new Blob([new Uint8Array(newPdfBytes)], { type: 'application/pdf' }), 
+      new Blob([new Uint8Array(newPdfBytes)], { type: 'application/pdf' }),
       `${originalName}_text-color.pdf`
     );
-    
+
     hideLoader();
     showAlert('Success', 'Text color changed successfully!', 'success');
     return true;
@@ -124,7 +137,10 @@ function initializePage() {
       if (e.dataTransfer?.files.length) handleFiles(e.dataTransfer.files);
     });
   }
-  if (backBtn) backBtn.addEventListener('click', () => { window.location.href = '/'; });
+  if (backBtn)
+    backBtn.addEventListener('click', () => {
+      window.location.href = '/';
+    });
   if (processBtn) processBtn.addEventListener('click', changeTextColor);
 }
 
@@ -193,10 +209,10 @@ async function changeTextColor() {
     showAlert('Error', 'Please upload a PDF file first.');
     return;
   }
-  
+
   const colorHex = (document.getElementById('text-color-input') as HTMLInputElement).value;
   const success = await changeTextColorOfPdf(colorHex);
-  
+
   if (success) {
     resetState();
   }

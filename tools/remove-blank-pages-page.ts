@@ -2,7 +2,7 @@ import { PDFDocument } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 import { createIcons, icons } from 'lucide';
 import { initPagePreview } from '../utils/page-preview';
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile } from '../utils/helpers';
 import { state } from '../state';
 
@@ -60,7 +60,7 @@ function resetState() {
   if (area) area.innerHTML = '';
   document.getElementById('remove-blank-options-panel')?.classList.add('hidden');
   document.getElementById('remove-blank-preview-panel')?.classList.add('hidden');
-  
+
   const slider = document.getElementById('remove-blank-sensitivity-slider') as HTMLInputElement;
   if (slider) slider.value = '80';
   const sliderLabel = document.getElementById('remove-blank-sensitivity-value');
@@ -72,7 +72,7 @@ async function handleFileUpload() {
     showAlert('Error', 'Please upload a valid PDF file.');
     return;
   }
-  
+
   const file = state.files[0];
   showLoader('Loading PDF...');
   try {
@@ -94,7 +94,9 @@ async function handleFileUpload() {
 function setupButtonListeners() {
   const detectBtn = document.getElementById('remove-blank-detect-btn');
   const processBtn = document.getElementById('remove-blank-process-btn');
-  const sensitivitySlider = document.getElementById('remove-blank-sensitivity-slider') as HTMLInputElement;
+  const sensitivitySlider = document.getElementById(
+    'remove-blank-sensitivity-slider'
+  ) as HTMLInputElement;
   const sensitivityValue = document.getElementById('remove-blank-sensitivity-value');
 
   if (sensitivitySlider && sensitivityValue) {
@@ -113,10 +115,7 @@ function setupButtonListeners() {
   }
 }
 
-async function isPageBlank(
-  page: any,
-  maxNonWhitePercent = 0.5
-): Promise<boolean> {
+async function isPageBlank(page: any, maxNonWhitePercent = 0.5): Promise<boolean> {
   const viewport = page.getViewport({ scale: 0.5 });
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
@@ -159,7 +158,9 @@ async function detectBlankPages() {
     return showAlert('Error', 'Please upload a PDF first.');
 
   const file = state.files[0];
-  const sensitivitySlider = document.getElementById('remove-blank-sensitivity-slider') as HTMLInputElement;
+  const sensitivitySlider = document.getElementById(
+    'remove-blank-sensitivity-slider'
+  ) as HTMLInputElement;
   const sensitivityPercent = parseInt(sensitivitySlider?.value || '80');
   const maxNonWhitePercent = 5 - (sensitivityPercent / 100) * 4.9;
 
@@ -287,7 +288,7 @@ async function processRemoveBlankPages() {
 
     const newPdfBytes = await newPdf.save();
     const originalName = state.files[0].name.replace(/\.pdf$/i, '');
-    
+
     downloadFile(
       new Blob([new Uint8Array(newPdfBytes)], { type: 'application/pdf' }),
       `${originalName}_blank-pages-removed.pdf`
@@ -308,17 +309,17 @@ async function processRemoveBlankPages() {
 
 export async function setupRemoveBlankPagesTool() {
   console.log('[RemoveBlankPages] setupRemoveBlankPagesTool called');
-  
+
   const container = document.getElementById('remove-blank-pages-container');
   console.log('[RemoveBlankPages] Container element:', container);
-  
+
   if (container) {
     container.classList.remove('hidden');
     console.log('[RemoveBlankPages] Container shown');
   } else {
     console.error('[RemoveBlankPages] Container not found!');
   }
-  
+
   if (state.files.length > 0) {
     console.log('[RemoveBlankPages] Loading PDF from files');
     await handleFileUpload();

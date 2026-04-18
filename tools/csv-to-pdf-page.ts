@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile } from '../utils/helpers';
 import { getFiles } from '../state';
 import jsPDF from 'jspdf';
@@ -184,7 +184,7 @@ export async function csvToPdf() {
  * Simple CSV parser
  */
 function parseCSV(text: string): string[][] {
-  const lines = text.split('\n').filter(line => line.trim());
+  const lines = text.split('\n').filter((line) => line.trim());
   const rows: string[][] = [];
 
   for (const line of lines) {

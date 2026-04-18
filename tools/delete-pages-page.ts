@@ -1,5 +1,5 @@
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui';
+import { showAlert, showLoader, hideLoader } from '../components/ui';
 import {
   readFileAsArrayBuffer,
   formatBytes,
@@ -37,9 +37,7 @@ function initializePage() {
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   const dropZone = document.getElementById('drop-zone');
   const processBtn = document.getElementById('process-btn');
-  const pagesInput = document.getElementById(
-    'pages-to-delete'
-  ) as HTMLInputElement;
+  const pagesInput = document.getElementById('pages-to-delete') as HTMLInputElement;
 
   if (fileInput) fileInput.addEventListener('change', handleFileUpload);
 
@@ -67,7 +65,7 @@ function initializePage() {
   if (pagesInput) pagesInput.addEventListener('input', updatePreview);
 
   document.getElementById('back-to-tools')?.addEventListener('click', () => {
-    window.location.href = (process.env.BASE_URL || '/');
+    window.location.href = process.env.BASE_URL || '/';
   });
 }
 
@@ -77,10 +75,7 @@ function handleFileUpload(e: Event) {
 }
 
 async function handleFile(file: File) {
-  if (
-    file.type !== 'application/pdf' &&
-    !file.name.toLowerCase().endsWith('.pdf')
-  ) {
+  if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
     showAlert('Invalid File', 'Please select a PDF file.');
     return;
   }
@@ -117,8 +112,7 @@ function updateFileDisplay() {
 
   fileDisplayArea.innerHTML = '';
   const fileDiv = document.createElement('div');
-  fileDiv.className =
-    'flex items-center justify-between bg-gray-700 p-3 rounded-lg';
+  fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg';
 
   const infoContainer = document.createElement('div');
   infoContainer.className = 'flex flex-col flex-1 min-w-0';
@@ -148,8 +142,7 @@ function showOptions() {
   const totalPagesSpan = document.getElementById('total-pages');
 
   if (deleteOptions) deleteOptions.classList.remove('hidden');
-  if (totalPagesSpan)
-    totalPagesSpan.textContent = deleteState.totalPages.toString();
+  if (totalPagesSpan) totalPagesSpan.textContent = deleteState.totalPages.toString();
 }
 
 async function renderThumbnails() {
@@ -187,8 +180,7 @@ async function renderThumbnails() {
     const deleteOverlay = document.createElement('div');
     deleteOverlay.className =
       'absolute inset-0 bg-red-500/50 hidden items-center justify-center rounded-lg';
-    deleteOverlay.innerHTML =
-      '<i data-lucide="x" class="w-8 h-8 text-white"></i>';
+    deleteOverlay.innerHTML = '<i data-lucide="x" class="w-8 h-8 text-white"></i>';
 
     imgContainer.appendChild(img);
     wrapper.append(imgContainer, pageLabel, deleteOverlay);
@@ -214,9 +206,7 @@ function togglePageDelete(pageNum: number, wrapper: HTMLElement) {
 }
 
 function updateInputFromSelection() {
-  const pagesInput = document.getElementById(
-    'pages-to-delete'
-  ) as HTMLInputElement;
+  const pagesInput = document.getElementById('pages-to-delete') as HTMLInputElement;
   if (pagesInput) {
     const sorted = Array.from(deleteState.pagesToDelete).sort((a, b) => a - b);
     pagesInput.value = sorted.join(', ');
@@ -224,9 +214,7 @@ function updateInputFromSelection() {
 }
 
 function updatePreview() {
-  const pagesInput = document.getElementById(
-    'pages-to-delete'
-  ) as HTMLInputElement;
+  const pagesInput = document.getElementById('pages-to-delete') as HTMLInputElement;
   if (!pagesInput) return;
 
   deleteState.pagesToDelete = new Set(
@@ -264,10 +252,7 @@ async function deletePages() {
 
   try {
     const srcBytes = await deleteState.pdfDoc.save();
-    const resultBytes = await deletePdfPages(
-      new Uint8Array(srcBytes),
-      deleteState.pagesToDelete
-    );
+    const resultBytes = await deletePdfPages(new Uint8Array(srcBytes), deleteState.pagesToDelete);
     const baseName = deleteState.file?.name.replace('.pdf', '') || 'document';
     downloadFile(
       new Blob([resultBytes as unknown as BlobPart], {
@@ -300,9 +285,7 @@ function resetState() {
   document.getElementById('delete-options')?.classList.add('hidden');
   const fileDisplayArea = document.getElementById('file-display-area');
   if (fileDisplayArea) fileDisplayArea.innerHTML = '';
-  const pagesInput = document.getElementById(
-    'pages-to-delete'
-  ) as HTMLInputElement;
+  const pagesInput = document.getElementById('pages-to-delete') as HTMLInputElement;
   if (pagesInput) pagesInput.value = '';
   const container = document.getElementById('delete-pages-preview');
   if (container) container.innerHTML = '';

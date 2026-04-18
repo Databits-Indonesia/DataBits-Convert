@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile, getPDFDocument } from '../utils/helpers';
 import { state } from '../state';
 
@@ -124,7 +124,7 @@ export async function setupDeletePagesTool() {
   // Load the PDF document into state if not already loaded
   if (!state.pdfDoc && state.files.length > 0) {
     try {
-      const { showLoader, hideLoader } = await import('../ui');
+      const { showLoader, hideLoader } = await import('../components/ui');
       const { readFileAsArrayBuffer } = await import('../utils/helpers');
       const { setPdfDoc } = await import('../state');
 
@@ -139,7 +139,7 @@ export async function setupDeletePagesTool() {
 
       hideLoader();
     } catch (error) {
-      const { hideLoader, showAlert } = await import('../ui');
+      const { hideLoader, showAlert } = await import('../components/ui');
       hideLoader();
       showAlert('Error', 'Failed to load PDF document.');
       console.error('Error loading PDF:', error);

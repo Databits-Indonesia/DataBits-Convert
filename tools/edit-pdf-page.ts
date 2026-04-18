@@ -1,12 +1,9 @@
 // Logic for PDF Editor Page
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui';
+import { showAlert, showLoader, hideLoader } from '../components/ui';
 import { formatBytes, downloadFile } from '../utils/helpers';
 
-const embedPdfWasmUrl = new URL(
-  'embedpdf-snippet/dist/pdfium.wasm',
-  import.meta.url
-).href;
+const embedPdfWasmUrl = new URL('embedpdf-snippet/dist/pdfium.wasm', import.meta.url).href;
 
 let viewerInstance: any = null;
 let docManagerPlugin: any = null;
@@ -82,7 +79,7 @@ function initializePage() {
   }
 
   document.getElementById('back-to-tools')?.addEventListener('click', () => {
-    window.location.href = (process.env.BASE_URL || '/');
+    window.location.href = process.env.BASE_URL || '/';
   });
 }
 
@@ -94,9 +91,7 @@ async function handleFileUpload(e: Event) {
 }
 
 async function handleFiles(files: FileList) {
-  const pdfFiles = Array.from(files).filter(
-    (f) => f.type === 'application/pdf'
-  );
+  const pdfFiles = Array.from(files).filter((f) => f.type === 'application/pdf');
   if (pdfFiles.length === 0) {
     showAlert('Invalid File', 'Please upload a valid PDF file.');
     return;
@@ -151,9 +146,7 @@ async function handleFiles(files: FileList) {
         if (pendingEntry) {
           pendingEntry.removeAttribute('data-pending-name');
           fileEntryMap.set(docId, pendingEntry);
-          const removeBtn = pendingEntry.querySelector(
-            '[data-remove-btn]'
-          ) as HTMLElement;
+          const removeBtn = pendingEntry.querySelector('[data-remove-btn]') as HTMLElement;
           if (removeBtn) {
             removeBtn.onclick = () => {
               docManagerPlugin.closeDocument(docId);
@@ -209,7 +202,7 @@ async function handleFiles(files: FileList) {
         backBtn.parentNode?.replaceChild(newBackBtn, backBtn);
 
         newBackBtn.addEventListener('click', () => {
-          window.location.href = (process.env.BASE_URL || '/');
+          window.location.href = process.env.BASE_URL || '/';
         });
       }
     } else {
@@ -235,8 +228,7 @@ async function handleFiles(files: FileList) {
 function addFileEntries(fileDisplayArea: HTMLElement, files: File[]) {
   for (const file of files) {
     const fileDiv = document.createElement('div');
-    fileDiv.className =
-      'flex items-center justify-between bg-gray-700 p-3 rounded-lg';
+    fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg';
     fileDiv.setAttribute('data-pending-name', file.name);
 
     const infoContainer = document.createElement('div');

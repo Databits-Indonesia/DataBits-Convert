@@ -2,6 +2,7 @@
  * UI Helper Functions
  * Provides toast/alert notifications and loader functionality
  */
+import { formatBytes } from '../utils/helpers';
 
 let loaderElement: HTMLElement | null = null;
 let alertElement: HTMLElement | null = null;
@@ -16,7 +17,8 @@ export function showLoader(message: string = 'Loading...') {
   // Create loader element
   loaderElement = document.createElement('div');
   loaderElement.id = 'app-loader';
-  loaderElement.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+  loaderElement.className =
+    'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
   loaderElement.innerHTML = `
     <div class="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-lg flex flex-col items-center gap-4">
       <div class="spinner w-12 h-12 border-4 border-gray-300 dark:border-gray-600 border-t-primary rounded-full animate-spin"></div>
@@ -53,13 +55,13 @@ export function showAlert(
   // Create alert element
   alertElement = document.createElement('div');
   alertElement.id = 'app-alert';
-  
+
   // Determine styling based on type
   let bgColor = 'bg-blue-50 dark:bg-blue-900';
   let borderColor = 'border-blue-200 dark:border-blue-700';
   let textColor = 'text-blue-800 dark:text-blue-200';
   let iconColor = 'text-blue-500';
-  
+
   switch (type) {
     case 'success':
       bgColor = 'bg-green-50 dark:bg-green-900';
@@ -80,9 +82,9 @@ export function showAlert(
       iconColor = 'text-red-500';
       break;
   }
-  
+
   alertElement.className = `fixed top-4 right-4 max-w-md z-50 ${bgColor} ${borderColor} ${textColor} px-4 py-4 rounded-lg border shadow-lg`;
-  
+
   const getIcon = () => {
     switch (type) {
       case 'success':
@@ -95,7 +97,7 @@ export function showAlert(
         return 'ℹ';
     }
   };
-  
+
   alertElement.innerHTML = `
     <div class="flex gap-3">
       <div class="flex-shrink-0 text-xl font-bold ${iconColor}">
@@ -108,9 +110,9 @@ export function showAlert(
       <button id="alert-close-btn" class="flex-shrink-0 text-lg font-bold opacity-50 hover:opacity-100">×</button>
     </div>
   `;
-  
+
   document.body.appendChild(alertElement);
-  
+
   // Add close button handler
   const closeBtn = alertElement.querySelector('#alert-close-btn');
   if (closeBtn) {
@@ -122,7 +124,7 @@ export function showAlert(
       if (onClose) onClose();
     });
   }
-  
+
   // Auto-hide after 5 seconds
   setTimeout(() => {
     if (alertElement && alertElement.parentElement) {
@@ -132,3 +134,24 @@ export function showAlert(
     }
   }, 5000);
 }
+
+export const renderFileDisplay = (container: HTMLElement, files: File[]) => {
+  container.textContent = '';
+  if (files.length > 0) {
+    files.forEach((file: File) => {
+      const fileDiv = document.createElement('div');
+      fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'truncate font-medium text-gray-200';
+      nameSpan.textContent = file.name;
+
+      const sizeSpan = document.createElement('span');
+      sizeSpan.className = 'flex-shrink-0 ml-4 text-gray-400';
+      sizeSpan.textContent = formatBytes(file.size);
+
+      fileDiv.append(nameSpan, sizeSpan);
+      container.appendChild(fileDiv);
+    });
+  }
+};

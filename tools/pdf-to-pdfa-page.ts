@@ -1,10 +1,5 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
-import {
-  downloadFile,
-  readFileAsArrayBuffer,
-  formatBytes,
-  getPDFDocument,
-} from '../utils/helpers';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
+import { downloadFile, readFileAsArrayBuffer, formatBytes, getPDFDocument } from '../utils/helpers';
 import { state } from '../state';
 import { createIcons, icons } from 'lucide';
 import { convertFileToPdfA, type PdfALevel } from '../utils/ghostscript-loader';

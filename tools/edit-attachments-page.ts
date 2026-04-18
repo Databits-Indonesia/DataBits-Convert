@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile, formatBytes } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument as PDFLibDocument, PDFName, PDFArray, PDFDict } from 'pdf-lib';
@@ -26,7 +26,7 @@ const pageState: EditAttachmentState = {
 // Main function to list attachments - exported for use in App.tsx
 export async function listAttachmentsFromPdf(): Promise<AttachmentInfo[]> {
   const files = getFiles();
-  
+
   if (files.length === 0) {
     showAlert('No File', 'Please upload a PDF file first.');
     return [];
@@ -44,36 +44,36 @@ export async function listAttachmentsFromPdf(): Promise<AttachmentInfo[]> {
 
     // Get embedded files (attachments) using pdf-lib's context API
     const catalog = pdfDoc.context.lookup(pdfDoc.catalog);
-    
+
     if (catalog) {
       const namesDict = (catalog as any).get(PDFName.of('Names'));
-      
+
       if (namesDict) {
         const namesRef = pdfDoc.context.lookup(namesDict);
-        
+
         if (namesRef) {
           const embeddedFilesDict = (namesRef as any).get(PDFName.of('EmbeddedFiles'));
-          
+
           if (embeddedFilesDict) {
             const embeddedFilesRef = pdfDoc.context.lookup(embeddedFilesDict);
-            
+
             if (embeddedFilesRef) {
               const namesArray = (embeddedFilesRef as any).get(PDFName.of('Names'));
-              
+
               if (namesArray) {
                 const namesArrayRef = pdfDoc.context.lookup(namesArray);
-                
+
                 if (namesArrayRef && Array.isArray((namesArrayRef as any).asArray())) {
                   const entries = (namesArrayRef as any).asArray();
-                  
+
                   // Names array contains pairs: [name, fileSpec, name, fileSpec, ...]
                   for (let j = 0; j < entries.length; j += 2) {
                     if (j + 1 >= entries.length) break;
-                    
+
                     try {
                       const nameObj = entries[j];
                       const fileSpecRef = entries[j + 1];
-                      
+
                       // Get file name
                       let fileName = 'attachment';
                       if (nameObj && typeof nameObj.decodeText === 'function') {
@@ -81,22 +81,22 @@ export async function listAttachmentsFromPdf(): Promise<AttachmentInfo[]> {
                       } else if (nameObj) {
                         fileName = String(nameObj).replace(/[()]/g, '');
                       }
-                      
+
                       // Get file spec
                       const fileSpec = pdfDoc.context.lookup(fileSpecRef);
-                      
+
                       if (fileSpec) {
                         const efDictRef = (fileSpec as any).get(PDFName.of('EF'));
-                        
+
                         if (efDictRef) {
                           const efDict = pdfDoc.context.lookup(efDictRef);
-                          
+
                           if (efDict) {
                             const fileStreamRef = (efDict as any).get(PDFName.of('F'));
-                            
+
                             if (fileStreamRef) {
                               const fileStream = pdfDoc.context.lookup(fileStreamRef);
-                              
+
                               if (fileStream && (fileStream as any).contents) {
                                 attachments.push({
                                   name: fileName || `attachment_${attachmentIndex}`,
@@ -133,9 +133,11 @@ export async function listAttachmentsFromPdf(): Promise<AttachmentInfo[]> {
 }
 
 // Main function to remove attachments - exported for use in App.tsx
-export async function removeAttachmentsFromPdf(attachmentIndicesToRemove: number[]): Promise<boolean> {
+export async function removeAttachmentsFromPdf(
+  attachmentIndicesToRemove: number[]
+): Promise<boolean> {
   const files = getFiles();
-  
+
   if (files.length === 0) {
     showAlert('No File', 'Please upload a PDF file first.');
     return false;
@@ -155,51 +157,51 @@ export async function removeAttachmentsFromPdf(attachmentIndicesToRemove: number
 
     // Get the Names dictionary
     const catalog = pdfDoc.context.lookup(pdfDoc.catalog);
-    
+
     if (catalog) {
       const namesDict = (catalog as any).get(PDFName.of('Names'));
-      
+
       if (namesDict) {
         const namesRef = pdfDoc.context.lookup(namesDict);
-        
+
         if (namesRef) {
           const embeddedFilesDict = (namesRef as any).get(PDFName.of('EmbeddedFiles'));
-          
+
           if (embeddedFilesDict) {
             const embeddedFilesRef = pdfDoc.context.lookup(embeddedFilesDict);
-            
+
             if (embeddedFilesRef) {
               const namesArray = (embeddedFilesRef as any).get(PDFName.of('Names'));
-              
+
               if (namesArray) {
                 const namesArrayRef = pdfDoc.context.lookup(namesArray);
-                
+
                 if (namesArrayRef && Array.isArray((namesArrayRef as any).asArray())) {
                   const entries = (namesArrayRef as any).asArray();
-                  
+
                   // Create new array without removed attachments
                   const newEntries = [];
                   let currentIndex = 0;
-                  
+
                   for (let j = 0; j < entries.length; j += 2) {
                     if (j + 1 >= entries.length) break;
-                    
+
                     // If this attachment is NOT in the removal list, keep it
                     if (!attachmentIndicesToRemove.includes(currentIndex)) {
                       newEntries.push(entries[j]);
                       newEntries.push(entries[j + 1]);
                     }
-                    
+
                     currentIndex++;
                   }
-                  
+
                   // Create new PDFArray with remaining attachments
                   const newNamesArray = PDFArray.withContext(pdfDoc.context);
-                  newEntries.forEach(entry => newNamesArray.push(entry));
-                  
+                  newEntries.forEach((entry) => newNamesArray.push(entry));
+
                   // Update the Names array
                   (embeddedFilesRef as any).set(PDFName.of('Names'), newNamesArray);
-                  
+
                   // If all attachments removed, we could remove the entire EmbeddedFiles entry
                   if (newEntries.length === 0) {
                     (namesRef as any).delete(PDFName.of('EmbeddedFiles'));
@@ -404,7 +406,7 @@ async function saveChanges() {
 
   const indicesToRemove = Array.from(pageState.attachmentsToRemove);
   const success = await removeAttachmentsFromPdf(indicesToRemove);
-  
+
   if (success) {
     resetState();
   }

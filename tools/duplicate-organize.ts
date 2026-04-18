@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile, getPDFDocument } from '../utils/helpers';
 import { state } from '../state';
 import { renderPagesProgressively, cleanupLazyRendering } from '../utils/render-utils';
@@ -7,7 +7,10 @@ import { icons, createIcons } from 'lucide';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
 
 const duplicateOrganizeState = {
   sortableInstances: {} as any,
@@ -53,16 +56,14 @@ function attachEventListeners(element: any) {
   };
 
   // Duplicate button listener
-  element
-    .querySelector('.duplicate-btn')
-    .addEventListener('click', (e: any) => {
-      e.stopPropagation();
-      const clone = element.cloneNode(true);
-      element.after(clone);
-      attachEventListeners(clone);
-      renumberPages();
-      initializePageGridSortable();
-    });
+  element.querySelector('.duplicate-btn').addEventListener('click', (e: any) => {
+    e.stopPropagation();
+    const clone = element.cloneNode(true);
+    element.after(clone);
+    attachEventListeners(clone);
+    renumberPages();
+    initializePageGridSortable();
+  });
 
   element.querySelector('.delete-btn').addEventListener('click', (e: any) => {
     e.stopPropagation();
@@ -71,10 +72,7 @@ function attachEventListeners(element: any) {
       renumberPages();
       initializePageGridSortable();
     } else {
-      showAlert(
-        'Cannot Delete',
-        'You cannot delete the last page of the document.'
-      );
+      showAlert('Cannot Delete', 'You cannot delete the last page of the document.');
     }
   });
 }
@@ -98,8 +96,7 @@ export async function renderDuplicateOrganizeThumbnails() {
   // Function to create wrapper element for each page
   const createWrapper = (canvas: HTMLCanvasElement, pageNumber: number) => {
     const wrapper = document.createElement('div');
-    wrapper.className =
-      'page-thumbnail relative cursor-move flex flex-col items-center gap-2';
+    wrapper.className = 'page-thumbnail relative cursor-move flex flex-col items-center gap-2';
     wrapper.dataset.originalPageIndex = (pageNumber - 1).toString();
 
     const imgContainer = document.createElement('div');
@@ -147,22 +144,17 @@ export async function renderDuplicateOrganizeThumbnails() {
 
   try {
     // Render pages progressively with lazy loading
-    await renderPagesProgressively(
-      pdfjsDoc,
-      grid,
-      createWrapper,
-      {
-        batchSize: 8,
-        useLazyLoading: true,
-        lazyLoadMargin: '400px',
-        onProgress: (current, total) => {
-          showLoader(`Rendering page previews: ${current}/${total}`);
-        },
-        onBatchComplete: () => {
-          createIcons({ icons });
-        }
-      }
-    );
+    await renderPagesProgressively(pdfjsDoc, grid, createWrapper, {
+      batchSize: 8,
+      useLazyLoading: true,
+      lazyLoadMargin: '400px',
+      onProgress: (current, total) => {
+        showLoader(`Rendering page previews: ${current}/${total}`);
+      },
+      onBatchComplete: () => {
+        createIcons({ icons });
+      },
+    });
 
     initializePageGridSortable();
   } catch (error) {
@@ -185,7 +177,7 @@ export async function processAndSave() {
 
     const finalIndices = Array.from(finalPageElements)
       .map((el) => parseInt((el as HTMLElement).dataset.originalPageIndex || '', 10))
-      .filter(index => !isNaN(index) && index >= 0);
+      .filter((index) => !isNaN(index) && index >= 0);
 
     console.log('Saving PDF with indices:', finalIndices);
     console.log('Original PDF Page Count:', state.pdfDoc?.getPageCount());
@@ -198,7 +190,7 @@ export async function processAndSave() {
     const newPdfDoc = await PDFLibDocument.create();
 
     const totalPages = state.pdfDoc.getPageCount();
-    const invalidIndices = finalIndices.filter(i => i >= totalPages);
+    const invalidIndices = finalIndices.filter((i) => i >= totalPages);
     if (invalidIndices.length > 0) {
       console.error('Found invalid indices:', invalidIndices);
       showAlert('Error', 'Some pages could not be processed. Please try again.');
@@ -228,7 +220,7 @@ export async function setupDuplicateTool() {
   const saveBtn = document.getElementById('duplicate-save-btn');
   if (saveBtn) {
     console.log('[Duplicate] Adding click listener to save button');
-    saveBtn.onclick = function() {
+    saveBtn.onclick = function () {
       console.log('[Duplicate] Save button clicked!');
       processAndSave();
     };

@@ -5,6 +5,7 @@ interface SimpleToolPanelProps {
   title: string;
   description: string;
   actionLabel: string;
+  onAction?: () => void | Promise<void>;
 }
 
 const SimpleToolPanel: React.FC<SimpleToolPanelProps> = ({
@@ -12,6 +13,7 @@ const SimpleToolPanel: React.FC<SimpleToolPanelProps> = ({
   title,
   description,
   actionLabel,
+  onAction,
 }) => {
   return (
     <div id={containerId} className="hidden max-w-6xl mx-auto mt-8">
@@ -21,7 +23,11 @@ const SimpleToolPanel: React.FC<SimpleToolPanelProps> = ({
           <p className="text-gray-600 dark:text-gray-400">{description}</p>
         </div>
         <div className="flex justify-center">
-          <button className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105">
+          <button
+            type="button"
+            onClick={() => void onAction?.()}
+            className="px-8 py-3 bg-primary text-white text-lg font-semibold rounded-full shadow-lg hover:bg-gray-800 transition-all hover:scale-105"
+          >
             {actionLabel}
           </button>
         </div>

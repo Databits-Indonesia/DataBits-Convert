@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile, formatBytes } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument as PDFLibDocument, PDFName } from 'pdf-lib';
@@ -16,7 +16,7 @@ const pageState: ExtractState = {
 // Main function to extract attachments - exported for use in App.tsx
 export async function extractAttachmentsFromPdf() {
   const files = getFiles();
-  
+
   if (files.length === 0) {
     showAlert('No File', 'Please upload a PDF file first.');
     return;
@@ -37,36 +37,36 @@ export async function extractAttachmentsFromPdf() {
 
       // Get embedded files (attachments) using pdf-lib's context API
       const catalog = pdfDoc.context.lookup(pdfDoc.catalog);
-      
+
       if (catalog) {
         const namesDict = catalog.get(PDFName.of('Names'));
-        
+
         if (namesDict) {
           const namesRef = pdfDoc.context.lookup(namesDict);
-          
+
           if (namesRef) {
             const embeddedFilesDict = namesRef.get(PDFName.of('EmbeddedFiles'));
-            
+
             if (embeddedFilesDict) {
               const embeddedFilesRef = pdfDoc.context.lookup(embeddedFilesDict);
-              
+
               if (embeddedFilesRef) {
                 const namesArray = embeddedFilesRef.get(PDFName.of('Names'));
-                
+
                 if (namesArray) {
                   const namesArrayRef = pdfDoc.context.lookup(namesArray);
-                  
+
                   if (namesArrayRef && Array.isArray(namesArrayRef.asArray())) {
                     const entries = namesArrayRef.asArray();
-                    
+
                     // Names array contains pairs: [name, fileSpec, name, fileSpec, ...]
                     for (let j = 0; j < entries.length; j += 2) {
                       if (j + 1 >= entries.length) break;
-                      
+
                       try {
                         const nameObj = entries[j];
                         const fileSpecRef = entries[j + 1];
-                        
+
                         // Get file name
                         let fileName = 'attachment';
                         if (nameObj && typeof nameObj.decodeText === 'function') {
@@ -74,22 +74,22 @@ export async function extractAttachmentsFromPdf() {
                         } else if (nameObj) {
                           fileName = String(nameObj).replace(/[()]/g, '');
                         }
-                        
+
                         // Get file spec
                         const fileSpec = pdfDoc.context.lookup(fileSpecRef);
-                        
+
                         if (fileSpec) {
                           const efDictRef = fileSpec.get(PDFName.of('EF'));
-                          
+
                           if (efDictRef) {
                             const efDict = pdfDoc.context.lookup(efDictRef);
-                            
+
                             if (efDict) {
                               const fileStreamRef = efDict.get(PDFName.of('F'));
-                              
+
                               if (fileStreamRef) {
                                 const fileStream = pdfDoc.context.lookup(fileStreamRef);
-                                
+
                                 if (fileStream && fileStream.contents) {
                                   allAttachments.push({
                                     name: fileName || `attachment_${allAttachments.length + 1}`,
@@ -131,7 +131,7 @@ export async function extractAttachmentsFromPdf() {
     }
 
     const zipBlob = await zip.generateAsync({ type: 'blob' });
-    
+
     // Download the zip file
     downloadFile(zipBlob, 'extracted-attachments.zip');
 

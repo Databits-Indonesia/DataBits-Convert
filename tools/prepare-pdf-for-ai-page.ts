@@ -1,225 +1,141 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
-import {
-  downloadFile,
-  readFileAsArrayBuffer,
-  formatBytes,
-  getPDFDocument,
-} from '../utils/helpers';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
+import { downloadFile } from '../utils/helpers';
 import { state } from '../state';
-import { createIcons, icons } from 'lucide';
-import { isWasmAvailable, getWasmBaseUrl } from '../config/wasm-cdn-config';
-import { showWasmRequiredDialog } from '../utils/wasm-provider';
-import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';
+import { loadPyMuPDF } from '../utils/pymupdf-loader';
+import type { PyMuPDFInstance } from '@/types';
+import { batchDecryptIfNeeded } from '../utils/password-prompt';
+import { deduplicateFileName } from '../utils/deduplicate-filename';
 
-document.addEventListener('DOMContentLoaded', () => {
-  const fileInput = document.getElementById('file-input') as HTMLInputElement;
-  const dropZone = document.getElementById('drop-zone');
-  const processBtn = document.getElementById('process-btn');
-  const fileDisplayArea = document.getElementById('file-display-area');
-  const extractOptions = document.getElementById('extract-options');
-  const fileControls = document.getElementById('file-controls');
-  const addMoreBtn = document.getElementById('add-more-btn');
-  const clearFilesBtn = document.getElementById('clear-files-btn');
-  const backBtn = document.getElementById('back-to-tools');
+let isPrepareForAiSetup = false;
 
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env?.BASE_URL || '/';
-    });
-  }
+function getPrepareForAiElement(id: string): HTMLElement | null {
+  const direct = document.getElementById(id);
+  if (direct) return direct;
 
-  const updateUI = async () => {
-    if (!fileDisplayArea || !extractOptions || !processBtn || !fileControls) return;
+  const container = document.getElementById('prepare-for-ai-container');
+  if (!container) return null;
 
-    if (state.files.length > 0) {
-      fileDisplayArea.innerHTML = '';
+  return container.querySelector(`#${id}`) as HTMLElement | null;
+}
 
-      for (let index = 0; index < state.files.length; index++) {
-        const file = state.files[index];
-        const fileDiv = document.createElement('div');
-        fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+function setProcessButtonLoading(isLoading: boolean) {
+  const processBtn = getPrepareForAiElement(
+    'prepare-for-ai-process-btn'
+  ) as HTMLButtonElement | null;
+  if (!processBtn) return;
 
-        const infoContainer = document.createElement('div');
-        infoContainer.className = 'flex flex-col overflow-hidden';
+  const idleLabel = processBtn.dataset.idleLabel || processBtn.textContent || 'Prepare for AI';
+  processBtn.dataset.idleLabel = idleLabel;
+  processBtn.disabled = isLoading;
+  processBtn.textContent = isLoading ? 'Preparing...' : idleLabel;
+}
 
-        const nameSpan = document.createElement('div');
-        nameSpan.className = 'truncate font-medium text-gray-200 text-sm mb-1';
-        nameSpan.textContent = file.name;
-
-        const metaSpan = document.createElement('div');
-        metaSpan.className = 'text-xs text-gray-400';
-        metaSpan.textContent = `${formatBytes(file.size)} • Loading pages...`;
-
-        infoContainer.append(nameSpan, metaSpan);
-
-        const removeBtn = document.createElement('button');
-        removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
-        removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
-        removeBtn.onclick = () => {
-          state.files = state.files.filter((_, i) => i !== index);
-          updateUI();
-        };
-
-        fileDiv.append(infoContainer, removeBtn);
-        fileDisplayArea.appendChild(fileDiv);
-
-        try {
-          const arrayBuffer = await readFileAsArrayBuffer(file);
-          const pdfDoc = await getPDFDocument({ data: arrayBuffer }).promise;
-          metaSpan.textContent = `${formatBytes(file.size)} • ${pdfDoc.numPages} pages`;
-        } catch (error) {
-          console.error('Error loading PDF:', error);
-          metaSpan.textContent = `${formatBytes(file.size)} • Could not load page count`;
-        }
-      }
-
-      createIcons({ icons });
-      fileControls.classList.remove('hidden');
-      extractOptions.classList.remove('hidden');
-      (processBtn as HTMLButtonElement).disabled = false;
-    } else {
-      fileDisplayArea.innerHTML = '';
-      fileControls.classList.add('hidden');
-      extractOptions.classList.add('hidden');
-      (processBtn as HTMLButtonElement).disabled = true;
+async function extractForAI() {
+  try {
+    if (state.files.length === 0) {
+      showAlert('No Files', 'Please upload at least one PDF file first.');
+      return;
     }
-  };
 
-  const resetState = () => {
-    state.files = [];
-    state.pdfDoc = null;
-    updateUI();
-  };
+    setProcessButtonLoading(true);
+    showLoader('Loading engine...');
 
-  const extractForAI = async () => {
-    try {
-      if (state.files.length === 0) {
-        showAlert('No Files', 'Please select at least one PDF file.');
-        return;
-      }
+    const pymupdf = await loadPyMuPDF();
 
-      showLoader('Loading engine...');
-      const pymupdf = await loadPyMuPDF();
+    hideLoader();
+    state.files = await batchDecryptIfNeeded(state.files);
+    showLoader('Extracting...');
 
-      const total = state.files.length;
-      let completed = 0;
-      let failed = 0;
+    const total = state.files.length;
+    let completed = 0;
+    let failed = 0;
 
-      if (total === 1) {
-        const file = state.files[0];
-        showLoader(`Extracting ${file.name} for AI...`);
+    if (total === 1) {
+      const file = state.files[0];
+      showLoader(`Extracting ${file.name} for AI...`);
 
-        const llamaDocs = await (pymupdf as any).pdfToLlamaIndex(file);
+      const llamaDocs = await (pymupdf as PyMuPDFInstance).pdfToLlamaIndex(file);
+      const outName = file.name.replace(/\.pdf$/i, '') + '_llm.json';
+      const jsonContent = JSON.stringify(llamaDocs, null, 2);
+      downloadFile(new Blob([jsonContent], { type: 'application/json' }), outName);
+
+      hideLoader();
+      showAlert('Extraction Complete', 'Successfully extracted PDF for AI/LLM use.', 'success');
+      return;
+    }
+
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
+    const usedNames = new Set<string>();
+
+    for (let fi = 0; fi < state.files.length; fi++) {
+      try {
+        const file = state.files[fi];
+        showLoader(`Extracting ${file.name} for AI (${fi + 1}/${total})...`);
+
+        const llamaDocs = await (pymupdf as PyMuPDFInstance).pdfToLlamaIndex(file);
         const outName = file.name.replace(/\.pdf$/i, '') + '_llm.json';
         const jsonContent = JSON.stringify(llamaDocs, null, 2);
-        downloadFile(new Blob([jsonContent], { type: 'application/json' }), outName);
+        const zipEntryName = deduplicateFileName(outName, usedNames);
+        zip.file(zipEntryName, jsonContent);
 
-        hideLoader();
-        showAlert(
-          'Extraction Complete',
-          `Successfully extracted PDF for AI/LLM use.`,
-          'success',
-          () => resetState()
-        );
-      } else {
-        // Multiple files - create ZIP
-        const JSZip = (await import('jszip')).default;
-        const zip = new JSZip();
-
-        for (const file of state.files) {
-          try {
-            showLoader(`Extracting ${file.name} for AI (${completed + 1}/${total})...`);
-
-            const llamaDocs = await (pymupdf as any).pdfToLlamaIndex(file);
-            const outName = file.name.replace(/\.pdf$/i, '') + '_llm.json';
-            const jsonContent = JSON.stringify(llamaDocs, null, 2);
-            zip.file(outName, jsonContent);
-
-            completed++;
-          } catch (error) {
-            console.error(`Failed to extract ${file.name}:`, error);
-            failed++;
-          }
-        }
-
-        showLoader('Creating ZIP archive...');
-        const zipBlob = await zip.generateAsync({ type: 'blob' });
-
-        downloadFile(zipBlob, 'pdf-for-ai.zip');
-
-        hideLoader();
-
-        if (failed === 0) {
-          showAlert(
-            'Extraction Complete',
-            `Successfully extracted ${completed} PDF(s) for AI/LLM use.`,
-            'success',
-            () => resetState()
-          );
-        } else {
-          showAlert(
-            'Extraction Partial',
-            `Extracted ${completed} PDF(s), failed ${failed}.`,
-            'warning',
-            () => resetState()
-          );
-        }
+        completed++;
+      } catch (error) {
+        console.error(`Failed to extract ${state.files[fi].name}:`, error);
+        failed++;
       }
-    } catch (e: any) {
-      hideLoader();
-      showAlert('Error', `An error occurred during extraction. Error: ${e.message}`);
     }
-  };
 
-  const handleFileSelect = (files: FileList | null) => {
-    if (files && files.length > 0) {
-      const pdfFiles = Array.from(files).filter(
-        (f) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
+    showLoader('Creating ZIP archive...');
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    downloadFile(zipBlob, 'pdf-for-ai.zip');
+
+    hideLoader();
+
+    if (failed === 0) {
+      showAlert(
+        'Extraction Complete',
+        `Successfully extracted ${completed} PDF(s) for AI/LLM use.`,
+        'success'
       );
-      if (pdfFiles.length > 0) {
-        state.files = [...state.files, ...pdfFiles];
-        updateUI();
-      }
+    } else {
+      showAlert(
+        'Extraction Partial',
+        `Extracted ${completed} PDF(s), failed ${failed}.`,
+        'warning'
+      );
     }
-  };
+  } catch (e: unknown) {
+    hideLoader();
+    showAlert(
+      'Error',
+      `An error occurred during extraction. Error: ${e instanceof Error ? e.message : String(e)}`
+    );
+  } finally {
+    setProcessButtonLoading(false);
+  }
+}
 
-  if (fileInput && dropZone) {
-    fileInput.addEventListener('change', (e) => {
-      handleFileSelect((e.target as HTMLInputElement).files);
-    });
+export function setupPrepareForAiPage() {
+  if (isPrepareForAiSetup) return;
+  isPrepareForAiSetup = true;
 
-    dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropZone.classList.add('bg-gray-700');
-    });
+  const container = document.getElementById('prepare-for-ai-container');
+  if (container) {
+    container.classList.remove('hidden');
+  }
 
-    dropZone.addEventListener('dragleave', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-      handleFileSelect(e.dataTransfer?.files ?? null);
-    });
-
-    fileInput.addEventListener('click', () => {
-      fileInput.value = '';
+  const backBtn = getPrepareForAiElement('back-to-tools');
+  if (backBtn) {
+    backBtn.addEventListener('click', () => {
+      window.location.href = process.env.BASE_URL || '/';
     });
   }
 
-  if (addMoreBtn) {
-    addMoreBtn.addEventListener('click', () => {
-      fileInput.click();
-    });
-  }
-
-  if (clearFilesBtn) {
-    clearFilesBtn.addEventListener('click', resetState);
-  }
-
+  const processBtn = getPrepareForAiElement('prepare-for-ai-process-btn');
   if (processBtn) {
-    processBtn.addEventListener('click', extractForAI);
+    processBtn.addEventListener('click', () => {
+      void extractForAI();
+    });
   }
-});
+}

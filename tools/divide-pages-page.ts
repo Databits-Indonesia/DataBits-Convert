@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile, formatBytes, parsePageRanges } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
@@ -61,7 +61,7 @@ async function updateUI() {
       const arrayBuffer = await file.arrayBuffer();
       const pdfDoc = await PDFLibDocument.load(arrayBuffer, {
         ignoreEncryption: true,
-        throwOnInvalidObject: false
+        throwOnInvalidObject: false,
       });
       const totalPages = pdfDoc.getPageCount();
       hideLoader();
@@ -85,20 +85,20 @@ async function updateUI() {
 
 function setupButtonListeners(pdfDoc: PDFLibDocument, totalPages: number) {
   console.log('[Divide] setupButtonListeners called');
-  
+
   const processBtn = document.getElementById('divide-process-btn');
   console.log('[Divide] processBtn:', processBtn);
 
   if (processBtn) {
     console.log('[Divide] Adding click listener to process button');
-    processBtn.onclick = function() {
+    processBtn.onclick = function () {
       console.log('[Divide] Process button clicked!');
       dividePages(pdfDoc, totalPages);
     };
   } else {
     console.warn('[Divide] Process button not found!');
   }
-  
+
   (window as any).testDividePages = () => dividePages(pdfDoc, totalPages);
   console.log('[Divide] Test function available as: window.testDividePages()');
 }
@@ -121,7 +121,7 @@ async function dividePages(pdfDoc: PDFLibDocument, totalPages: number) {
     pagesToDivide = new Set(Array.from({ length: totalPages }, (_, i) => i + 1));
   } else {
     const parsedIndices = parsePageRanges(pageRangeValue, totalPages);
-    pagesToDivide = new Set(parsedIndices.map(i => i + 1));
+    pagesToDivide = new Set(parsedIndices.map((i) => i + 1));
 
     if (pagesToDivide.size === 0) {
       showAlert('Invalid Range', 'Please enter a valid page range (e.g., 1-5, 8, 11-13).');
@@ -196,4 +196,3 @@ export async function setupDivideTool() {
     await updateUI();
   }
 }
-

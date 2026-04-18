@@ -1,94 +1,60 @@
-import { repairPdf } from './repair-pdf.js';
+import { repairPdf } from './repair-pdf';
 import { state } from '../state';
-import { renderFileDisplay } from '../ui';
 
-document.addEventListener('DOMContentLoaded', () => {
-  const fileInput = document.getElementById('file-input') as HTMLInputElement;
-  const dropZone = document.getElementById('drop-zone');
-  const processBtn = document.getElementById('process-btn');
-  const fileDisplayArea = document.getElementById('file-display-area');
+let isRepairSetup = false;
 
-  const fileControls = document.getElementById('file-controls');
-  const addMoreBtn = document.getElementById('add-more-btn');
-  const clearFilesBtn = document.getElementById('clear-files-btn');
-  const backBtn = document.getElementById('back-to-tools');
+function getRepairElement<T extends HTMLElement = HTMLElement>(id: string): T | null {
+  const direct = document.getElementById(id) as T | null;
+  if (direct) return direct;
 
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env?.BASE_URL || '/';
-    });
+  const container = document.getElementById('repair-container');
+  if (!container) return null;
+
+  return container.querySelector(`#${id}`) as T | null;
+}
+
+function setProcessButtonLoading(isLoading: boolean) {
+  const processBtn = getRepairElement<HTMLButtonElement>('repair-process-btn');
+  if (!processBtn) return;
+
+  const idleLabel = processBtn.dataset.idleLabel || processBtn.textContent || 'Repair PDF';
+  processBtn.dataset.idleLabel = idleLabel;
+  processBtn.disabled = isLoading;
+  processBtn.textContent = isLoading ? 'Repairing...' : idleLabel;
+}
+
+function updateRepairButtonState() {
+  const processBtn = getRepairElement<HTMLButtonElement>('repair-process-btn');
+  if (!processBtn) return;
+  processBtn.disabled = state.files.length === 0;
+}
+
+export function setupRepairPage() {
+  const container = document.getElementById('repair-container');
+  if (container) {
+    container.classList.remove('hidden');
   }
 
-  const updateUI = () => {
-    if (state.files.length > 0) {
-      renderFileDisplay(fileDisplayArea, state.files);
-      if (processBtn) processBtn.classList.remove('hidden');
-      if (fileControls) fileControls.classList.remove('hidden');
-    } else {
-      if (fileDisplayArea) fileDisplayArea.innerHTML = '';
-      if (processBtn) processBtn.classList.add('hidden');
-      if (fileControls) fileControls.classList.add('hidden');
+  updateRepairButtonState();
+
+  if (isRepairSetup) return;
+  isRepairSetup = true;
+
+  const processBtn = getRepairElement<HTMLButtonElement>('repair-process-btn');
+  if (!processBtn) return;
+
+  processBtn.addEventListener('click', async () => {
+    if (state.files.length === 0) {
+      processBtn.disabled = true;
+      return;
     }
-  };
 
-  if (fileInput && dropZone) {
-    fileInput.addEventListener('change', async (e) => {
-      const files = (e.target as HTMLInputElement).files;
-      if (files && files.length > 0) {
-        state.files = [...state.files, ...Array.from(files)];
-        updateUI();
-      }
-    });
-
-    dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropZone.classList.add('bg-gray-700');
-    });
-
-    dropZone.addEventListener('dragleave', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-      const files = e.dataTransfer?.files;
-      if (files && files.length > 0) {
-        const pdfFiles = Array.from(files).filter(
-          (f) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
-        );
-        if (pdfFiles.length > 0) {
-          state.files = [...state.files, ...pdfFiles];
-          updateUI();
-        }
-      }
-    });
-
-    // Clear value on click to allow re-selecting the same file
-    fileInput.addEventListener('click', () => {
-      fileInput.value = '';
-    });
-  }
-
-  if (addMoreBtn) {
-    addMoreBtn.addEventListener('click', () => {
-      fileInput.click();
-    });
-  }
-
-  if (clearFilesBtn) {
-    clearFilesBtn.addEventListener('click', () => {
-      state.files = [];
-      updateUI();
-    });
-  }
-
-  if (processBtn) {
-    processBtn.addEventListener('click', async () => {
+    setProcessButtonLoading(true);
+    try {
       await repairPdf();
-    });
-  }
-
-  updateUI();
-});
+    } finally {
+      setProcessButtonLoading(false);
+      updateRepairButtonState();
+    }
+  });
+}

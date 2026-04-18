@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile, readFileAsArrayBuffer } from '../utils/helpers';
 import { getFiles } from '../state';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -10,7 +10,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 
 export async function pdfToJson() {
   const files = getFiles();
-  
+
   if (files.length === 0) {
     showAlert('No File', 'Please upload a PDF file first.');
     return;
@@ -21,19 +21,21 @@ export async function pdfToJson() {
   try {
     const file = files[0];
     const arrayBuffer = await readFileAsArrayBuffer(file);
-    
+
     const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
     const pdf = await loadingTask.promise;
-    
-    const includeMetadata = (document.getElementById('pdf-to-json-metadata') as HTMLInputElement)?.checked || false;
-    const formatOption = (document.getElementById('pdf-to-json-format') as HTMLSelectElement)?.value || 'structured';
-    
+
+    const includeMetadata =
+      (document.getElementById('pdf-to-json-metadata') as HTMLInputElement)?.checked || false;
+    const formatOption =
+      (document.getElementById('pdf-to-json-format') as HTMLSelectElement)?.value || 'structured';
+
     const jsonData: any = {
       document: {
         title: file.name,
         pageCount: pdf.numPages,
       },
-      pages: []
+      pages: [],
     };
 
     // Add metadata if requested
@@ -47,11 +49,11 @@ export async function pdfToJson() {
 
     for (let i = 1; i <= pdf.numPages; i++) {
       showLoader(`Processing page ${i} of ${pdf.numPages}...`);
-      
+
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
       const viewport = page.getViewport({ scale: 1.0 });
-      
+
       const pageData: any = {
         pageNumber: i,
         width: viewport.width,
@@ -70,9 +72,7 @@ export async function pdfToJson() {
         }));
       } else if (formatOption === 'simple') {
         // Simple format - just text
-        pageData.text = textContent.items
-          .map((item: any) => item.str)
-          .join(' ');
+        pageData.text = textContent.items.map((item: any) => item.str).join(' ');
       } else {
         // Full format - complete text content with all properties
         pageData.textContent = textContent.items.map((item: any) => ({
@@ -85,26 +85,25 @@ export async function pdfToJson() {
           hasEOL: item.hasEOL,
         }));
       }
-      
+
       jsonData.pages.push(pageData);
     }
 
     showLoader('Creating JSON file...');
-    const indent = (document.getElementById('pdf-to-json-indent') as HTMLInputElement)?.checked ? 2 : 0;
+    const indent = (document.getElementById('pdf-to-json-indent') as HTMLInputElement)?.checked
+      ? 2
+      : 0;
     const jsonString = JSON.stringify(jsonData, null, indent);
     const fileName = file.name.replace(/\.pdf$/i, '.json');
     const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8' });
-    
+
     downloadFile(blob, fileName);
-    
+
     hideLoader();
     showAlert('Success', 'PDF converted to JSON successfully!', 'success');
   } catch (error: any) {
     console.error('[PDF2JSON] Error:', error);
     hideLoader();
-    showAlert(
-      'Error',
-      `An error occurred during conversion. ${error.message}`
-    );
+    showAlert('Error', `An error occurred during conversion. ${error.message}`);
   }
 }

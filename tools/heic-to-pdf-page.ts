@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile } from '../utils/helpers';
 import { getFiles } from '../state';
 import heic2any from 'heic2any';
@@ -29,8 +29,8 @@ export async function heicToPdf() {
 
     // Validate HEIC/HEIF files
     const heicFiles = Array.from(selectedFiles).filter(
-      (file) => 
-        file.name.toLowerCase().endsWith('.heic') || 
+      (file) =>
+        file.name.toLowerCase().endsWith('.heic') ||
         file.name.toLowerCase().endsWith('.heif') ||
         file.type === 'image/heic' ||
         file.type === 'image/heif'
@@ -42,7 +42,11 @@ export async function heicToPdf() {
     }
 
     if (heicFiles.length < selectedFiles.length) {
-      showAlert('Invalid Files', `Only ${heicFiles.length} of ${selectedFiles.length} files were HEIC/HEIF images.`, 'warning');
+      showAlert(
+        'Invalid Files',
+        `Only ${heicFiles.length} of ${selectedFiles.length} files were HEIC/HEIF images.`,
+        'warning'
+      );
     }
 
     // Process the valid files
@@ -64,9 +68,7 @@ export async function heicToPdf() {
           quality: 0.92,
         });
 
-        const pngBlob = Array.isArray(conversionResult)
-          ? conversionResult[0]
-          : conversionResult;
+        const pngBlob = Array.isArray(conversionResult) ? conversionResult[0] : conversionResult;
 
         const pngBytes = new Uint8Array(await pngBlob.arrayBuffer());
 

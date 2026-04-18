@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile } from '../utils/helpers';
 import { getFiles } from '../state';
 import { getLibreOfficeConverter, type LoadProgress } from '../utils/libreoffice-loader';

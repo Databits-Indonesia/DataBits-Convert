@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { getFiles } from '../state';
 import { readFileAsArrayBuffer } from '../utils/helpers';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -70,7 +70,7 @@ function extractSignatures(pdfBytes: Uint8Array): ExtractedSignature[] {
       const searchStart = Math.max(0, sigMatch.index - 5000);
       const searchEnd = Math.min(pdfString.length, sigMatch.index + 10000);
       const context = pdfString.substring(searchStart, searchEnd);
-      
+
       const byteRangeMatch = context.match(/\/ByteRange\s*\[\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*\]/);
       if (!byteRangeMatch) continue;
 
@@ -160,7 +160,7 @@ function getSignatureAlgorithmName(oid: string): string {
 
 async function detectBSrEQRCode(pdf: any): Promise<BSrEQRCodeInfo> {
   const result: BSrEQRCodeInfo = {
-    found: false
+    found: false,
   };
 
   try {
@@ -168,24 +168,24 @@ async function detectBSrEQRCode(pdf: any): Promise<BSrEQRCodeInfo> {
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const viewport = page.getViewport({ scale: 2.0 });
-      
+
       // Create canvas to render page
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
-      
+
       if (!context) continue;
-      
+
       canvas.height = viewport.height;
       canvas.width = viewport.width;
 
       await page.render({
         canvasContext: context,
-        viewport: viewport
+        viewport: viewport,
       }).promise;
 
       // Get image data for QR code detection
       const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-      
+
       // Detect QR code using jsQR
       const qrCode = jsQR(imageData.data, imageData.width, imageData.height, {
         inversionAttempts: 'dontInvert',
@@ -193,10 +193,10 @@ async function detectBSrEQRCode(pdf: any): Promise<BSrEQRCodeInfo> {
 
       if (qrCode && qrCode.data) {
         const qrData = qrCode.data;
-        
+
         // Check if QR code is from BSrE/BSSN
         // BSrE QR codes typically contain certificate information or verification URLs
-        const isBSrE = 
+        const isBSrE =
           qrData.toLowerCase().includes('bsre') ||
           qrData.toLowerCase().includes('bssn') ||
           qrData.toLowerCase().includes('balai sertifikasi elektronik') ||
@@ -210,7 +210,7 @@ async function detectBSrEQRCode(pdf: any): Promise<BSrEQRCodeInfo> {
           result.found = true;
           result.pageNumber = i;
           result.data = qrData;
-          
+
           // Try to extract information from QR data
           try {
             // Parse common BSrE QR code formats
@@ -218,12 +218,12 @@ async function detectBSrEQRCode(pdf: any): Promise<BSrEQRCodeInfo> {
               const issuerMatch = qrData.match(/issuer=([^&\n]+)/i);
               if (issuerMatch) result.issuer = decodeURIComponent(issuerMatch[1]);
             }
-            
+
             if (qrData.includes('serial=') || qrData.includes('sn=')) {
               const serialMatch = qrData.match(/(?:serial|sn)=([^&\n]+)/i);
               if (serialMatch) result.serialNumber = serialMatch[1];
             }
-            
+
             if (qrData.includes('date=') || qrData.includes('timestamp=')) {
               const dateMatch = qrData.match(/(?:date|timestamp)=([^&\n]+)/i);
               if (dateMatch) result.signatureDate = dateMatch[1];
@@ -231,7 +231,7 @@ async function detectBSrEQRCode(pdf: any): Promise<BSrEQRCodeInfo> {
           } catch (e) {
             console.warn('Error parsing BSrE QR code data:', e);
           }
-          
+
           break; // Found BSrE QR code, stop scanning
         }
       }
@@ -277,7 +277,8 @@ function validateSignature(
 
     const subjectCN = signerCert.subject.getField('CN');
     const subjectO = signerCert.subject.getField('O');
-    const subjectE = signerCert.subject.getField('E') || signerCert.subject.getField('emailAddress');
+    const subjectE =
+      signerCert.subject.getField('E') || signerCert.subject.getField('emailAddress');
     const issuerCN = signerCert.issuer.getField('CN');
     const issuerO = signerCert.issuer.getField('O');
 
@@ -298,8 +299,8 @@ function validateSignature(
     // Check if certificate is from BSrE/BSSN
     const issuerStr = result.issuer.toLowerCase() + (result.issuerOrg?.toLowerCase() || '');
     const signerStr = result.signerName.toLowerCase() + (result.signerOrg?.toLowerCase() || '');
-    
-    result.isBSrE = 
+
+    result.isBSrE =
       issuerStr.includes('bsre') ||
       issuerStr.includes('bssn') ||
       issuerStr.includes('balai sertifikasi elektronik') ||
@@ -319,7 +320,6 @@ function validateSignature(
     }
 
     result.isValid = true;
-
   } catch (e) {
     result.errorMessage = e instanceof Error ? e.message : 'Failed to parse signature';
   }
@@ -329,7 +329,7 @@ function validateSignature(
 
 export async function validateSignaturePdf() {
   const files = getFiles();
-  
+
   if (files.length === 0) {
     showAlert('No File', 'Please upload a PDF file first.');
     return;
@@ -341,19 +341,19 @@ export async function validateSignaturePdf() {
     const file = files[0];
     const arrayBuffer = await readFileAsArrayBuffer(file);
     const pdfBytes = new Uint8Array(arrayBuffer);
-    
+
     // Load PDF with pdf.js for QR code detection
     const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
     const pdf = await loadingTask.promise;
-    
+
     // Detect BSrE QR code signatures
     showLoader('Detecting BSrE QR code signatures...');
     const bsreQRCode = await detectBSrEQRCode(pdf);
-    
+
     // Extract traditional digital signatures using node-forge
     showLoader('Extracting digital signatures...');
     const signatures = extractSignatures(pdfBytes);
-    
+
     if (signatures.length === 0 && !bsreQRCode.found) {
       hideLoader();
       showAlert(
@@ -366,13 +366,13 @@ export async function validateSignaturePdf() {
 
     // Validate each signature
     showLoader('Validating certificates...');
-    const results = signatures.map(sig => validateSignature(sig, pdfBytes));
-    
+    const results = signatures.map((sig) => validateSignature(sig, pdfBytes));
+
     hideLoader();
-    
+
     // Display results
     let message = '';
-    
+
     // Display BSrE QR Code information first
     if (bsreQRCode.found) {
       message += '🇮🇩 BSrE QR Code Signature Detected!\n';
@@ -385,12 +385,12 @@ export async function validateSignaturePdf() {
       message += `QR Data: ${bsreQRCode.data?.substring(0, 100)}${bsreQRCode.data && bsreQRCode.data.length > 100 ? '...' : ''}\n`;
       message += '\n';
     }
-    
+
     // Display traditional digital signatures
     if (results.length > 0) {
       message += `Found ${results.length} Digital Signature${results.length > 1 ? 's' : ''}:\n`;
       message += '═══════════════════════════════════\n\n';
-      
+
       results.forEach((result, index) => {
         message += `Signature ${index + 1}:`;
         if (result.isBSrE) message += ' 🇮🇩 [BSrE Certificate]';
@@ -409,28 +409,20 @@ export async function validateSignaturePdf() {
         message += '\n';
       });
     }
-    
-    const hasErrors = results.some(r => r.errorMessage);
-    const allExpired = results.length > 0 && results.every(r => r.isExpired);
-    const hasBSrE = bsreQRCode.found || results.some(r => r.isBSrE);
-    
+
+    const hasErrors = results.some((r) => r.errorMessage);
+    const allExpired = results.length > 0 && results.every((r) => r.isExpired);
+    const hasBSrE = bsreQRCode.found || results.some((r) => r.isBSrE);
+
     let title = 'Validation Complete';
     if (hasErrors) title = 'Validation Errors';
     else if (allExpired) title = 'Signatures Expired';
     else if (hasBSrE) title = 'BSrE Signature Detected';
-    
-    showAlert(
-      title,
-      message,
-      hasErrors ? 'error' : allExpired ? 'warning' : 'success'
-    );
-    
+
+    showAlert(title, message, hasErrors ? 'error' : allExpired ? 'warning' : 'success');
   } catch (error: any) {
     console.error('[ValidateSignature] Error:', error);
     hideLoader();
-    showAlert(
-      'Error',
-      `An error occurred while validating signatures: ${error.message}`
-    );
+    showAlert('Error', `An error occurred while validating signatures: ${error.message}`);
   }
 }

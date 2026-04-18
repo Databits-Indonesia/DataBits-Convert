@@ -1,10 +1,16 @@
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui';
+import { showAlert, showLoader, hideLoader } from '../components/ui';
 import { downloadFile, hexToRgb, formatBytes } from '../utils/helpers';
 import { PDFDocument as PDFLibDocument, rgb, StandardFonts } from 'pdf-lib';
 import { state } from '../state';
 
-type PageNumberPosition = 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
+type PageNumberPosition =
+  | 'top-left'
+  | 'top-center'
+  | 'top-right'
+  | 'bottom-left'
+  | 'bottom-center'
+  | 'bottom-right';
 type PageNumberFormat = 'simple' | 'page_x_of_y';
 
 let pdfDoc: PDFLibDocument | null = null;
@@ -23,8 +29,7 @@ function updateFileDisplay() {
   const file = state.files[0];
   fileDisplayArea.innerHTML = '';
   const fileDiv = document.createElement('div');
-  fileDiv.className =
-    'flex items-center justify-between bg-gray-700 p-3 rounded-lg';
+  fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg';
 
   const infoContainer = document.createElement('div');
   infoContainer.className = 'flex flex-col flex-1 min-w-0';
@@ -94,13 +99,10 @@ async function addPageNumbers() {
     const position = (document.getElementById('page-numbers-position') as HTMLSelectElement)
       .value as PageNumberPosition;
     const fontSize =
-      parseInt(
-        (document.getElementById('page-numbers-font-size') as HTMLInputElement).value
-      ) || 12;
-    const format =
-      (document.getElementById('page-numbers-format') as HTMLSelectElement).value as PageNumberFormat;
-    const colorHex = (document.getElementById('page-numbers-text-color') as HTMLInputElement)
-      .value;
+      parseInt((document.getElementById('page-numbers-font-size') as HTMLInputElement).value) || 12;
+    const format = (document.getElementById('page-numbers-format') as HTMLSelectElement)
+      .value as PageNumberFormat;
+    const colorHex = (document.getElementById('page-numbers-text-color') as HTMLInputElement).value;
     const textColor = hexToRgb(colorHex);
 
     // Create a new PDF with page numbers
@@ -112,10 +114,10 @@ async function addPageNumbers() {
     for (let i = 0; i < totalPages; i++) {
       const [copiedPage] = await newPdfDoc.copyPages(pdfDoc, [i]);
       newPdfDoc.addPage(copiedPage);
-      
+
       const page = newPdfDoc.getPage(i);
       const { width, height } = page.getSize();
-      
+
       // Generate page number text
       let text: string;
       if (format === 'page_x_of_y') {
@@ -123,14 +125,14 @@ async function addPageNumbers() {
       } else {
         text = `${i + 1}`;
       }
-      
+
       const textWidth = font.widthOfTextAtSize(text, fontSize);
       const textHeight = fontSize;
-      
+
       // Calculate position
       let x: number, y: number;
       const margin = 20;
-      
+
       switch (position) {
         case 'top-left':
           x = margin;
@@ -160,7 +162,7 @@ async function addPageNumbers() {
           x = (width - textWidth) / 2;
           y = margin;
       }
-      
+
       page.drawText(text, {
         x,
         y,
@@ -172,12 +174,12 @@ async function addPageNumbers() {
 
     const newPdfBytes = await newPdfDoc.save();
     const originalName = state.files[0].name.replace(/\.pdf$/i, '');
-    
+
     downloadFile(
       new Blob([newPdfBytes], { type: 'application/pdf' }),
       `${originalName}_paginated.pdf`
     );
-    
+
     showAlert('Success', 'Page numbers added successfully!', 'success', () => {
       resetState();
     });
@@ -191,17 +193,17 @@ async function addPageNumbers() {
 
 export async function setupPageNumbersTool() {
   console.log('[PageNumbers] setupPageNumbersTool called');
-  
+
   const container = document.getElementById('page-numbers-container');
   console.log('[PageNumbers] Container element:', container);
-  
+
   if (container) {
     container.classList.remove('hidden');
     console.log('[PageNumbers] Container shown');
   } else {
     console.error('[PageNumbers] Container not found!');
   }
-  
+
   if (state.files.length > 0) {
     console.log('[PageNumbers] Loading PDF from files');
     await handleFileUpload();

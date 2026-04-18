@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile } from '../utils/helpers';
 import { getFiles } from '../state';
 import { jsPDF } from 'jspdf';
@@ -66,7 +66,7 @@ export async function txtToPdf() {
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     const margin = 20;
-    const maxWidth = pageWidth - (margin * 2);
+    const maxWidth = pageWidth - margin * 2;
     const lineHeight = 7;
     const fontSize = 12;
 
@@ -79,7 +79,7 @@ export async function txtToPdf() {
     for (const file of files) {
       try {
         const text = await file.text();
-        
+
         if (!text.trim()) {
           continue;
         }
@@ -94,7 +94,7 @@ export async function txtToPdf() {
         pdf.setFontSize(14);
         pdf.setFont('helvetica', 'bold');
         pdf.text(file.name, margin, margin);
-        
+
         pdf.setFontSize(fontSize);
         pdf.setFont('helvetica', 'normal');
 
@@ -105,14 +105,14 @@ export async function txtToPdf() {
         for (const line of lines) {
           // Split long lines to fit page width
           const wrappedLines = pdf.splitTextToSize(line || ' ', maxWidth);
-          
+
           for (const wrappedLine of wrappedLines) {
             // Check if we need a new page
             if (y + lineHeight > pageHeight - margin) {
               pdf.addPage();
               y = margin;
             }
-            
+
             pdf.text(wrappedLine, margin, y);
             y += lineHeight;
           }

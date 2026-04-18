@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile, formatBytes } from '../utils/helpers';
 import { state } from '../state';
 import { createIcons, icons } from 'lucide';
@@ -34,11 +34,7 @@ const IMAGE_SIGNATURES = {
   avif: [0x00, 0x00, 0x00],
 };
 
-function matchesSignature(
-  data: Uint8Array,
-  signature: number[],
-  offset = 0
-): boolean {
+function matchesSignature(data: Uint8Array, signature: number[], offset = 0): boolean {
   for (let i = 0; i < signature.length; i++) {
     if (data[offset + i] !== signature[i]) return false;
   }
@@ -62,19 +58,9 @@ function detectImageFormat(
   ) {
     return 'webp';
   }
-  if (
-    data[4] === 0x66 &&
-    data[5] === 0x74 &&
-    data[6] === 0x79 &&
-    data[7] === 0x70
-  ) {
+  if (data[4] === 0x66 && data[5] === 0x74 && data[6] === 0x79 && data[7] === 0x70) {
     const brand = String.fromCharCode(data[8], data[9], data[10], data[11]);
-    if (
-      brand === 'avif' ||
-      brand === 'avis' ||
-      brand === 'mif1' ||
-      brand === 'miaf'
-    ) {
+    if (brand === 'avif' || brand === 'avis' || brand === 'mif1' || brand === 'miaf') {
       return 'avif';
     }
   }
@@ -85,10 +71,7 @@ function isCbzFile(filename: string): boolean {
   return filename.toLowerCase().endsWith('.cbz');
 }
 
-async function convertImageToPng(
-  imageData: ArrayBuffer,
-  filename: string
-): Promise<Blob> {
+async function convertImageToPng(imageData: ArrayBuffer, filename: string): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const blob = new Blob([imageData]);
     const url = URL.createObjectURL(blob);
@@ -131,9 +114,7 @@ async function convertCbzToPdf(file: File): Promise<Blob> {
       const ext = name.toLowerCase().substring(name.lastIndexOf('.'));
       return ALL_IMAGE_EXTENSIONS.includes(ext);
     })
-    .sort((a, b) =>
-      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
-    );
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
 
   for (const filename of imageFiles) {
     const zipEntry = zip.files[filename];
@@ -157,9 +138,7 @@ async function convertCbzToPdf(file: File): Promise<Blob> {
     }
 
     const image =
-      embedMethod === 'png'
-        ? await pdfDoc.embedPng(imageBytes)
-        : await pdfDoc.embedJpg(imageBytes);
+      embedMethod === 'png' ? await pdfDoc.embedPng(imageBytes) : await pdfDoc.embedJpg(imageBytes);
     const page = pdfDoc.addPage([image.width, image.height]);
     page.drawImage(image, {
       x: 0,
@@ -192,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (backBtn) {
     backBtn.addEventListener('click', () => {
-      window.location.href = (process.env.BASE_URL || '/');
+      window.location.href = process.env.BASE_URL || '/';
     });
   }
 
@@ -205,8 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
       for (let index = 0; index < state.files.length; index++) {
         const file = state.files[index];
         const fileDiv = document.createElement('div');
-        fileDiv.className =
-          'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+        fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
 
         const infoContainer = document.createElement('div');
         infoContainer.className = 'flex flex-col overflow-hidden';
@@ -222,8 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
         infoContainer.append(nameSpan, metaSpan);
 
         const removeBtn = document.createElement('button');
-        removeBtn.className =
-          'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
+        removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
         removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
         removeBtn.onclick = () => {
           state.files = state.files.filter((_, i) => i !== index);
@@ -286,9 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         for (let i = 0; i < state.files.length; i++) {
           const file = state.files[i];
-          showLoader(
-            `Converting ${i + 1}/${state.files.length}: ${file.name}...`
-          );
+          showLoader(`Converting ${i + 1}/${state.files.length}: ${file.name}...`);
 
           let pdfBlob: Blob;
           if (isCbzFile(file.name)) {
@@ -317,10 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e: any) {
       console.error(`[${TOOL_NAME}2PDF] ERROR:`, e);
       hideLoader();
-      showAlert(
-        'Error',
-        `An error occurred during conversion. Error: ${e.message}`
-      );
+      showAlert('Error', `An error occurred during conversion. Error: ${e.message}`);
     }
   };
 

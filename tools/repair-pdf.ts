@@ -1,12 +1,15 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile, initializeQpdf, readFileAsArrayBuffer } from '../utils/helpers';
 import { state } from '../state';
 import JSZip from 'jszip';
+import { deduplicateFileName } from '../utils/deduplicate-filename';
+import { batchDecryptIfNeeded } from '../utils/password-prompt';
+import type { QpdfInstanceExtended } from '@/types';
 
 export async function repairPdfFile(file: File): Promise<Uint8Array | null> {
   const inputPath = '/input.pdf';
   const outputPath = '/repaired_form.pdf';
-  let qpdf: any;
+  let qpdf: QpdfInstanceExtended;
 
   try {
     qpdf = await initializeQpdf();
@@ -15,7 +18,8 @@ export async function repairPdfFile(file: File): Promise<Uint8Array | null> {
 
     qpdf.FS.writeFile(inputPath, uint8Array);
 
-    const args = [inputPath, '--decrypt', outputPath];
+    // Let qpdf rebuild structure/xref tables when possible.
+    const args = [inputPath, outputPath];
 
     try {
       qpdf.callMain(args);
@@ -62,7 +66,9 @@ export async function repairPdf() {
   const failedRepairs: string[] = [];
 
   try {
+    const decryptedFiles = await batchDecryptIfNeeded(state.files);
     showLoader('Initializing repair engine...');
+    state.files = decryptedFiles;
 
     for (let i = 0; i < state.files.length; i++) {
       const file = state.files[i];
@@ -97,13 +103,17 @@ export async function repairPdf() {
 
     if (successfulRepairs.length === 1) {
       const file = successfulRepairs[0];
-      const blob = new Blob([file.data as any], { type: 'application/pdf' });
+      const blob = new Blob([new Uint8Array(file.data)], {
+        type: 'application/pdf',
+      });
       downloadFile(blob, file.name);
     } else {
       showLoader('Creating ZIP archive...');
       const zip = new JSZip();
+      const usedNames = new Set<string>();
       successfulRepairs.forEach((file) => {
-        zip.file(file.name, file.data);
+        const zipEntryName = deduplicateFileName(file.name, usedNames);
+        zip.file(zipEntryName, file.data);
       });
 
       const zipBlob = await zip.generateAsync({ type: 'blob' });
@@ -114,7 +124,7 @@ export async function repairPdf() {
     if (failedRepairs.length === 0) {
       showAlert('Success', 'All files repaired successfully!');
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Critical error during repair:', error);
     hideLoader();
     showAlert('Error', 'An unexpected error occurred during the repair process.');

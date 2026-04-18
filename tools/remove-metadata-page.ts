@@ -1,4 +1,4 @@
-import { showAlert } from '../ui';
+import { showAlert } from '../components/ui';
 import { downloadFile, formatBytes } from '../utils/helpers';
 import { PDFDocument, PDFName } from 'pdf-lib';
 import { icons, createIcons } from 'lucide';
@@ -15,7 +15,7 @@ function removeMetadataFromDoc(pdfDoc: PDFDocument, options: RemoveMetadataOptio
     removeDocumentInfo = true,
     removeXmpMetadata = true,
     removePieceInfo = true,
-    removeDocumentIds = true
+    removeDocumentIds = true,
   } = options;
 
   if (removeDocumentInfo) {
@@ -67,7 +67,10 @@ function removeMetadataFromDoc(pdfDoc: PDFDocument, options: RemoveMetadataOptio
   }
 }
 
-export async function removeMetadataPdf(file: File, options: RemoveMetadataOptions = {}): Promise<Blob> {
+export async function removeMetadataPdf(
+  file: File,
+  options: RemoveMetadataOptions = {}
+): Promise<Blob> {
   try {
     const arrayBuffer = await file.arrayBuffer();
     const pdfDoc = await PDFDocument.load(arrayBuffer);

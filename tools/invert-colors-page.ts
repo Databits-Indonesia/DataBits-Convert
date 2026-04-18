@@ -1,5 +1,5 @@
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui';
+import { showAlert, showLoader, hideLoader } from '../components/ui';
 import { downloadFile, formatBytes } from '../utils/helpers';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
 import { invertColors } from '../utils/image-effects';
@@ -21,7 +21,7 @@ const pageState: InvertColorsState = { file: null, pdfDoc: null };
 // Main function to invert colors - exported for use in App.tsx
 export async function invertColorsOfPdf(): Promise<boolean> {
   const files = getFiles();
-  
+
   if (files.length === 0) {
     showAlert('No File', 'Please upload a PDF file first.');
     return false;
@@ -32,7 +32,7 @@ export async function invertColorsOfPdf(): Promise<boolean> {
   try {
     const file = files[0];
     const newPdfDoc = await PDFLibDocument.create();
-    
+
     // Load PDF with pdfjs-dist using ArrayBuffer directly
     const arrayBuffer = await file.arrayBuffer();
     const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
@@ -55,8 +55,7 @@ export async function invertColorsOfPdf(): Promise<boolean> {
       const pngImageBytes = await new Promise<Uint8Array>((resolve) =>
         canvas.toBlob((blob) => {
           const reader = new FileReader();
-          reader.onload = () =>
-            resolve(new Uint8Array(reader.result as ArrayBuffer));
+          reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer));
           reader.readAsArrayBuffer(blob!);
         }, 'image/png')
       );
@@ -70,14 +69,14 @@ export async function invertColorsOfPdf(): Promise<boolean> {
         height: image.height,
       });
     }
-    
+
     const newPdfBytes = await newPdfDoc.save();
     const originalName = file.name.replace(/\.pdf$/i, '');
     downloadFile(
       new Blob([new Uint8Array(newPdfBytes)], { type: 'application/pdf' }),
       `${originalName}_inverted.pdf`
     );
-    
+
     hideLoader();
     showAlert('Success', 'Colors inverted successfully!', 'success');
     return true;
@@ -160,8 +159,7 @@ function updateFileDisplay() {
   if (!fileDisplayArea || !pageState.file || !pageState.pdfDoc) return;
   fileDisplayArea.innerHTML = '';
   const fileDiv = document.createElement('div');
-  fileDiv.className =
-    'flex items-center justify-between bg-gray-700 p-3 rounded-lg';
+  fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg';
   const infoContainer = document.createElement('div');
   infoContainer.className = 'flex flex-col flex-1 min-w-0';
   const nameSpan = document.createElement('div');
@@ -195,9 +193,9 @@ async function handleInvertColors() {
     showAlert('Error', 'Please upload a PDF file first.');
     return;
   }
-  
+
   const success = await invertColorsOfPdf();
-  
+
   if (success) {
     resetState();
   }

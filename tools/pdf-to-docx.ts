@@ -5,7 +5,7 @@
  * Preserves text, formatting, images, and layout.
  */
 
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile } from '../utils/helpers';
 import { getFiles } from '../state';
 import { loadPyMuPDF } from '../utils/pymupdf-loader';

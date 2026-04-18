@@ -1,11 +1,8 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile, formatBytes, getPDFDocument } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
-import {
-  renderPagesProgressively,
-  cleanupLazyRendering,
-} from '../utils/render-utils';
+import { renderPagesProgressively, cleanupLazyRendering } from '../utils/render-utils';
 import * as pdfjsLib from 'pdfjs-dist';
 import { state } from '../state';
 
@@ -46,30 +43,22 @@ function updateAllRotationDisplays() {
   for (let i = 0; i < rotateState.rotations.length; i++) {
     const container = document.querySelector(`[data-page-index="${i}"]`);
     if (container) {
-      const wrapper = container.querySelector(
-        '.thumbnail-wrapper'
-      ) as HTMLElement;
-      if (wrapper)
-        wrapper.style.transform = `rotate(${rotateState.rotations[i]}deg)`;
+      const wrapper = container.querySelector('.thumbnail-wrapper') as HTMLElement;
+      if (wrapper) wrapper.style.transform = `rotate(${rotateState.rotations[i]}deg)`;
     }
   }
 }
 
-function createPageWrapper(
-  canvas: HTMLCanvasElement,
-  pageNumber: number
-): HTMLElement {
+function createPageWrapper(canvas: HTMLCanvasElement, pageNumber: number): HTMLElement {
   const pageIndex = pageNumber - 1;
 
   const container = document.createElement('div');
-  container.className =
-    'page-thumbnail relative bg-gray-700 rounded-lg overflow-hidden';
+  container.className = 'page-thumbnail relative bg-gray-700 rounded-lg overflow-hidden';
   container.dataset.pageIndex = pageIndex.toString();
   container.dataset.pageNumber = pageNumber.toString();
 
   const canvasWrapper = document.createElement('div');
-  canvasWrapper.className =
-    'thumbnail-wrapper flex items-center justify-center p-2 h-36';
+  canvasWrapper.className = 'thumbnail-wrapper flex items-center justify-center p-2 h-36';
   canvasWrapper.style.transition = 'transform 0.3s ease';
   // Apply initial rotation if it exists
   const initialRotation = rotateState.rotations[pageIndex] || 0;
@@ -97,11 +86,8 @@ function createPageWrapper(
   rotateLeftBtn.onclick = function (e) {
     e.stopPropagation();
     rotateState.rotations[pageIndex] = rotateState.rotations[pageIndex] - 90;
-    const wrapper = container.querySelector(
-      '.thumbnail-wrapper'
-    ) as HTMLElement;
-    if (wrapper)
-      wrapper.style.transform = `rotate(${rotateState.rotations[pageIndex]}deg)`;
+    const wrapper = container.querySelector('.thumbnail-wrapper') as HTMLElement;
+    if (wrapper) wrapper.style.transform = `rotate(${rotateState.rotations[pageIndex]}deg)`;
   };
 
   const rotateRightBtn = document.createElement('button');
@@ -111,11 +97,8 @@ function createPageWrapper(
   rotateRightBtn.onclick = function (e) {
     e.stopPropagation();
     rotateState.rotations[pageIndex] = rotateState.rotations[pageIndex] + 90;
-    const wrapper = container.querySelector(
-      '.thumbnail-wrapper'
-    ) as HTMLElement;
-    if (wrapper)
-      wrapper.style.transform = `rotate(${rotateState.rotations[pageIndex]}deg)`;
+    const wrapper = container.querySelector('.thumbnail-wrapper') as HTMLElement;
+    if (wrapper) wrapper.style.transform = `rotate(${rotateState.rotations[pageIndex]}deg)`;
   };
 
   controls.append(rotateLeftBtn, rotateRightBtn);
@@ -135,20 +118,15 @@ async function renderThumbnails() {
 
   pageThumbnails.innerHTML = '';
 
-  await renderPagesProgressively(
-    rotateState.pdfJsDoc,
-    pageThumbnails,
-    createPageWrapper,
-    {
-      batchSize: 8,
-      useLazyLoading: true,
-      lazyLoadMargin: '200px',
-      eagerLoadBatches: 2,
-      onBatchComplete: function () {
-        createIcons({ icons });
-      },
-    }
-  );
+  await renderPagesProgressively(rotateState.pdfJsDoc, pageThumbnails, createPageWrapper, {
+    batchSize: 8,
+    useLazyLoading: true,
+    lazyLoadMargin: '200px',
+    eagerLoadBatches: 2,
+    onBatchComplete: function () {
+      createIcons({ icons });
+    },
+  });
 
   createIcons({ icons });
 }
@@ -164,8 +142,7 @@ async function updateUI() {
   if (state.files.length > 0) {
     const file = state.files[0]; // Use first file from state
     const fileDiv = document.createElement('div');
-    fileDiv.className =
-      'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+    fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
 
     const infoContainer = document.createElement('div');
     infoContainer.className = 'flex flex-col overflow-hidden';
@@ -201,8 +178,7 @@ async function updateUI() {
         throwOnInvalidObject: false,
       });
 
-      rotateState.pdfJsDoc = await getPDFDocument({ data: arrayBuffer.slice(0) })
-        .promise;
+      rotateState.pdfJsDoc = await getPDFDocument({ data: arrayBuffer.slice(0) }).promise;
 
       const pageCount = rotateState.pdfDoc.getPageCount();
       rotateState.rotations = new Array(pageCount).fill(0);
@@ -230,7 +206,7 @@ async function updateUI() {
 
 function setupButtonListeners() {
   console.log('[Rotate] setupButtonListeners called');
-  
+
   const processBtn = document.getElementById('rotate-process-btn');
   const rotateAllLeft = document.getElementById('rotate-all-left');
   const rotateAllRight = document.getElementById('rotate-all-right');
@@ -261,14 +237,14 @@ function setupButtonListeners() {
 
   if (processBtn) {
     console.log('[Rotate] Adding click listener to process button');
-    processBtn.onclick = function() {
+    processBtn.onclick = function () {
       console.log('[Rotate] Process button clicked!');
       applyRotations();
     };
   } else {
     console.warn('[Rotate] Process button not found!');
   }
-  
+
   // Also expose on window for debugging
   (window as any).testRotateApply = applyRotations;
   console.log('[Rotate] Test function available as: window.testRotateApply()');
@@ -279,7 +255,7 @@ async function applyRotations() {
   console.log('[Rotate] rotateState.pdfDoc:', rotateState.pdfDoc);
   console.log('[Rotate] state.files:', state.files);
   console.log('[Rotate] rotateState.rotations:', rotateState.rotations);
-  
+
   if (!rotateState.pdfDoc || state.files.length === 0) {
     showAlert('Error', 'Please upload a PDF first.');
     return;
@@ -290,7 +266,7 @@ async function applyRotations() {
   try {
     const pages = rotateState.pdfDoc.getPages();
     console.log('[Rotate] Pages count:', pages.length);
-    
+
     for (let i = 0; i < pages.length; i++) {
       if (rotateState.rotations[i] !== 0) {
         const currentRotation = pages[i].getRotation().angle;
@@ -299,11 +275,11 @@ async function applyRotations() {
         pages[i].setRotation({ type: 'degrees', angle: newRotation });
       }
     }
-    
+
     console.log('[Rotate] Saving PDF...');
     const pdfBytes = await rotateState.pdfDoc.save();
     console.log('[Rotate] PDF saved, size:', pdfBytes.length);
-    
+
     const originalName = state.files[0].name.replace(/\.pdf$/i, '');
     const filename = `${originalName}_rotated.pdf`;
     console.log('[Rotate] Downloading as:', filename);
@@ -318,15 +294,10 @@ async function applyRotations() {
     console.log('[Rotate] Download triggered');
     hideLoader();
 
-    showAlert(
-      'Success',
-      'Rotations applied successfully!',
-      'success',
-      function () {
-        state.files = [];
-        resetState();
-      }
-    );
+    showAlert('Success', 'Rotations applied successfully!', 'success', function () {
+      state.files = [];
+      resetState();
+    });
   } catch (e) {
     console.error('[Rotate] Error:', e);
     hideLoader();
@@ -348,4 +319,3 @@ export async function setupRotateTool() {
     await updateUI();
   }
 }
-

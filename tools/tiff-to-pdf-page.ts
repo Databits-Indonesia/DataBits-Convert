@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile } from '../utils/helpers';
 import { getFiles } from '../state';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
@@ -12,7 +12,7 @@ async function tiffToPng(file: File): Promise<Blob> {
     try {
       const arrayBuffer = await file.arrayBuffer();
       const tiffImages = decode(arrayBuffer);
-      
+
       if (!tiffImages || tiffImages.length === 0) {
         reject(new Error('No images found in TIFF file'));
         return;
@@ -23,7 +23,7 @@ async function tiffToPng(file: File): Promise<Blob> {
       const canvas = document.createElement('canvas');
       canvas.width = tiffImage.width;
       canvas.height = tiffImage.height;
-      
+
       const ctx = canvas.getContext('2d');
       if (!ctx) {
         reject(new Error('Could not get canvas context'));
@@ -73,7 +73,7 @@ export async function tiffToPdf() {
 
     // Validate TIFF files
     const tiffFiles = Array.from(selectedFiles).filter(
-      (file) => 
+      (file) =>
         file.type === 'image/tiff' ||
         file.type === 'image/tif' ||
         file.name.toLowerCase().endsWith('.tiff') ||
@@ -86,7 +86,11 @@ export async function tiffToPdf() {
     }
 
     if (tiffFiles.length < selectedFiles.length) {
-      showAlert('Invalid Files', `Only ${tiffFiles.length} of ${selectedFiles.length} files were TIFF images.`, 'warning');
+      showAlert(
+        'Invalid Files',
+        `Only ${tiffFiles.length} of ${selectedFiles.length} files were TIFF images.`,
+        'warning'
+      );
     }
 
     // Process the valid files

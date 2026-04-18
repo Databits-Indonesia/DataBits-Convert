@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { createIcons, icons } from 'lucide';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
 import { downloadFile, getPDFDocument } from '../utils/helpers';

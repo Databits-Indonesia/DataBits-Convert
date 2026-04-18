@@ -1,4 +1,4 @@
-import { showAlert } from '../ui';
+import { showAlert } from '../components/ui';
 import { downloadFile, formatBytes } from '../utils/helpers';
 import { icons, createIcons } from 'lucide';
 import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';
@@ -8,7 +8,10 @@ export interface RemoveRestrictionsOptions {
   password?: string;
 }
 
-export async function removeRestrictionsPdf(file: File, options: RemoveRestrictionsOptions = {}): Promise<Blob> {
+export async function removeRestrictionsPdf(
+  file: File,
+  options: RemoveRestrictionsOptions = {}
+): Promise<Blob> {
   const { password } = options;
 
   try {
@@ -16,28 +19,32 @@ export async function removeRestrictionsPdf(file: File, options: RemoveRestricti
       showWasmRequiredDialog('pymupdf', () => {
         window.location.reload();
       });
-      throw new Error('PyMuPDF is required for removing PDF restrictions. Please configure it in Advanced Settings.');
+      throw new Error(
+        'PyMuPDF is required for removing PDF restrictions. Please configure it in Advanced Settings.'
+      );
     }
 
     const pyMuPDF = await loadPyMuPDF();
-    
+
     // Open the PDF document
     const doc = await pyMuPDF.open(file);
-    
+
     // If the document is encrypted, authenticate with password
     if (doc.isEncrypted) {
       if (!password) {
         doc.close();
-        throw new Error('This PDF is password-protected. Please enter the password to remove restrictions.');
+        throw new Error(
+          'This PDF is password-protected. Please enter the password to remove restrictions.'
+        );
       }
-      
+
       const authenticated = doc.authenticate(password);
       if (!authenticated) {
         doc.close();
         throw new Error('Invalid password. Please check your password and try again.');
       }
     }
-    
+
     // Save the document without encryption/restrictions
     // By saving without encryption parameters, all restrictions are removed
     const resultBlob = await doc.saveAsBlob({
@@ -45,10 +52,10 @@ export async function removeRestrictionsPdf(file: File, options: RemoveRestricti
       deflate: true,
       clean: true,
     });
-    
+
     // Close the document
     doc.close();
-    
+
     return resultBlob;
   } catch (error: any) {
     console.error('Remove restrictions error:', error);

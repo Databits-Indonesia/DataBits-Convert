@@ -1,12 +1,7 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { createIcons, icons } from 'lucide';
 import * as pdfjsLib from 'pdfjs-dist';
-import {
-  downloadFile,
-  getPDFDocument,
-  readFileAsArrayBuffer,
-  formatBytes,
-} from '../utils/helpers';
+import { downloadFile, getPDFDocument, readFileAsArrayBuffer, formatBytes } from '../utils/helpers';
 import { state } from '../state';
 import { renderPagesProgressively, cleanupLazyRendering } from '../utils/render-utils';
 import { initPagePreview } from '../utils/page-preview';

@@ -1,18 +1,9 @@
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui';
-import {
-  downloadFile,
-  hexToRgb,
-  formatBytes,
-  readFileAsArrayBuffer,
-} from '../utils/helpers';
+import { showAlert, showLoader, hideLoader } from '../components/ui';
+import { downloadFile, hexToRgb, formatBytes, readFileAsArrayBuffer } from '../utils/helpers';
 import { getFiles } from '../state';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
-import {
-  addTextWatermark,
-  addImageWatermark,
-  parsePageRange,
-} from '../utils/pdf-operations';
+import { addTextWatermark, addImageWatermark, parsePageRange } from '../utils/pdf-operations';
 import { AddWatermarkState, PageWatermarkConfig } from '@/types';
 import * as pdfjsLib from 'pdfjs-dist';
 
@@ -124,8 +115,7 @@ async function handleFiles(files: FileList) {
     pageState.file = file;
     pageState.pdfBytes = pdfBytes;
 
-    cachedPdfjsDoc = await pdfjsLib.getDocument({ data: pdfBytes.slice() })
-      .promise;
+    cachedPdfjsDoc = await pdfjsLib.getDocument({ data: pdfBytes.slice() }).promise;
     totalPageCount = cachedPdfjsDoc.numPages;
     currentPageNum = 1;
     pageWatermarks.clear();
@@ -156,8 +146,7 @@ function updateFileDisplay() {
   if (!fileDisplayArea || !pageState.file || !pageState.pdfDoc) return;
   fileDisplayArea.innerHTML = '';
   const fileDiv = document.createElement('div');
-  fileDiv.className =
-    'flex items-center justify-between bg-gray-700 p-3 rounded-lg';
+  fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg';
   const infoContainer = document.createElement('div');
   infoContainer.className = 'flex flex-col flex-1 min-w-0';
   const nameSpan = document.createElement('div');
@@ -198,9 +187,7 @@ function resetState() {
 function setupPageNavigation() {
   const prevBtn = document.getElementById('prev-page-btn');
   const nextBtn = document.getElementById('next-page-btn');
-  const pageInput = document.getElementById(
-    'page-num-input'
-  ) as HTMLInputElement;
+  const pageInput = document.getElementById('page-num-input') as HTMLInputElement;
 
   prevBtn?.addEventListener('click', () => changePage(currentPageNum - 1));
   nextBtn?.addEventListener('click', () => changePage(currentPageNum + 1));
@@ -220,9 +207,7 @@ function setupPageNavigation() {
     }
   });
 
-  const applyAllCheckbox = document.getElementById(
-    'apply-all-pages'
-  ) as HTMLInputElement;
+  const applyAllCheckbox = document.getElementById('apply-all-pages') as HTMLInputElement;
   const pageRangeSection = document.getElementById('page-range-section');
   applyAllCheckbox?.addEventListener('change', () => {
     const wasApplyAll = applyToAllPages;
@@ -246,9 +231,7 @@ function setupPageNavigation() {
 function updatePageNavUI() {
   const prevBtn = document.getElementById('prev-page-btn') as HTMLButtonElement;
   const nextBtn = document.getElementById('next-page-btn') as HTMLButtonElement;
-  const pageInput = document.getElementById(
-    'page-num-input'
-  ) as HTMLInputElement;
+  const pageInput = document.getElementById('page-num-input') as HTMLInputElement;
   const totalSpan = document.getElementById('total-pages');
 
   if (prevBtn) prevBtn.disabled = currentPageNum <= 1;
@@ -295,38 +278,19 @@ function getCurrentConfig(): PageWatermarkConfig {
     type: watermarkType,
     x: pageState.watermarkX,
     y: pageState.watermarkY,
-    text:
-      (document.getElementById('watermark-text') as HTMLInputElement)?.value ||
-      '',
-    fontSize:
-      parseInt(
-        (document.getElementById('font-size') as HTMLInputElement)?.value
-      ) || 72,
-    color:
-      (document.getElementById('text-color') as HTMLInputElement)?.value ||
-      '#888888',
+    text: (document.getElementById('watermark-text') as HTMLInputElement)?.value || '',
+    fontSize: parseInt((document.getElementById('font-size') as HTMLInputElement)?.value) || 72,
+    color: (document.getElementById('text-color') as HTMLInputElement)?.value || '#888888',
     opacityText:
-      parseFloat(
-        (document.getElementById('opacity-text') as HTMLInputElement)?.value
-      ) || 0.3,
-    angleText:
-      parseInt(
-        (document.getElementById('angle-text') as HTMLInputElement)?.value
-      ) || 0,
+      parseFloat((document.getElementById('opacity-text') as HTMLInputElement)?.value) || 0.3,
+    angleText: parseInt((document.getElementById('angle-text') as HTMLInputElement)?.value) || 0,
     imageDataUrl: imageWatermarkDataUrl,
     imageFile: imageWatermarkFile,
     imageScale:
-      parseInt(
-        (document.getElementById('image-scale') as HTMLInputElement)?.value
-      ) || 100,
+      parseInt((document.getElementById('image-scale') as HTMLInputElement)?.value) || 100,
     opacityImage:
-      parseFloat(
-        (document.getElementById('opacity-image') as HTMLInputElement)?.value
-      ) || 0.3,
-    angleImage:
-      parseInt(
-        (document.getElementById('angle-image') as HTMLInputElement)?.value
-      ) || 0,
+      parseFloat((document.getElementById('opacity-image') as HTMLInputElement)?.value) || 0.3,
+    angleImage: parseInt((document.getElementById('angle-image') as HTMLInputElement)?.value) || 0,
   };
 }
 
@@ -370,14 +334,10 @@ function loadPageConfig(pageNum: number) {
     imageOptions?.classList.remove('hidden');
   }
 
-  const watermarkText = document.getElementById(
-    'watermark-text'
-  ) as HTMLInputElement;
+  const watermarkText = document.getElementById('watermark-text') as HTMLInputElement;
   const fontSize = document.getElementById('font-size') as HTMLInputElement;
   const textColor = document.getElementById('text-color') as HTMLInputElement;
-  const opacityText = document.getElementById(
-    'opacity-text'
-  ) as HTMLInputElement;
+  const opacityText = document.getElementById('opacity-text') as HTMLInputElement;
   const angleText = document.getElementById('angle-text') as HTMLInputElement;
   const opacityValueText = document.getElementById('opacity-value-text');
   const angleValueText = document.getElementById('angle-value-text');
@@ -387,14 +347,11 @@ function loadPageConfig(pageNum: number) {
   if (textColor) textColor.value = config.color;
   if (opacityText) opacityText.value = String(config.opacityText);
   if (angleText) angleText.value = String(config.angleText);
-  if (opacityValueText)
-    opacityValueText.textContent = String(config.opacityText);
+  if (opacityValueText) opacityValueText.textContent = String(config.opacityText);
   if (angleValueText) angleValueText.textContent = String(config.angleText);
 
   const imageScale = document.getElementById('image-scale') as HTMLInputElement;
-  const opacityImage = document.getElementById(
-    'opacity-image'
-  ) as HTMLInputElement;
+  const opacityImage = document.getElementById('opacity-image') as HTMLInputElement;
   const angleImage = document.getElementById('angle-image') as HTMLInputElement;
   const imageScaleValue = document.getElementById('image-scale-value');
   const opacityValueImage = document.getElementById('opacity-value-image');
@@ -404,8 +361,7 @@ function loadPageConfig(pageNum: number) {
   if (opacityImage) opacityImage.value = String(config.opacityImage);
   if (angleImage) angleImage.value = String(config.angleImage);
   if (imageScaleValue) imageScaleValue.textContent = String(config.imageScale);
-  if (opacityValueImage)
-    opacityValueImage.textContent = String(config.opacityImage);
+  if (opacityValueImage) opacityValueImage.textContent = String(config.opacityImage);
   if (angleValueImage) angleValueImage.textContent = String(config.angleImage);
 
   updatePresetHighlight(config.x, config.y);
@@ -425,9 +381,7 @@ async function renderPreview() {
   let availableHeight: number;
 
   if (isDesktop) {
-    const controlsCard = document.querySelector(
-      '.lg\\:w-80 > div'
-    ) as HTMLElement;
+    const controlsCard = document.querySelector('.lg\\:w-80 > div') as HTMLElement;
     if (controlsCard && controlsCard.offsetHeight > 100) {
       const cardHeader = wrapper.parentElement?.querySelector(
         '.flex.items-center.justify-between'
@@ -437,9 +391,7 @@ async function renderPreview() {
       availableHeight = controlsCard.offsetHeight - headerH - cardPadding;
     } else {
       availableHeight =
-        wrapper.clientHeight > 100
-          ? wrapper.clientHeight - 16
-          : window.innerHeight * 0.8;
+        wrapper.clientHeight > 100 ? wrapper.clientHeight - 16 : window.innerHeight * 0.8;
     }
   } else {
     availableHeight = Math.min(window.innerHeight * 0.55, 600);
@@ -449,10 +401,7 @@ async function renderPreview() {
   pdfPageWidth = unscaledViewport.width;
   pdfPageHeight = unscaledViewport.height;
 
-  previewScale = Math.min(
-    availableWidth / pdfPageWidth,
-    availableHeight / pdfPageHeight
-  );
+  previewScale = Math.min(availableWidth / pdfPageWidth, availableHeight / pdfPageHeight);
   const displayWidth = Math.floor(pdfPageWidth * previewScale);
   const displayHeight = Math.floor(pdfPageHeight * previewScale);
 
@@ -510,14 +459,10 @@ function setupEditorControls() {
     updateWatermarkOverlay();
   });
 
-  const watermarkText = document.getElementById(
-    'watermark-text'
-  ) as HTMLInputElement;
+  const watermarkText = document.getElementById('watermark-text') as HTMLInputElement;
   const fontSize = document.getElementById('font-size') as HTMLInputElement;
   const textColor = document.getElementById('text-color') as HTMLInputElement;
-  const opacityText = document.getElementById(
-    'opacity-text'
-  ) as HTMLInputElement;
+  const opacityText = document.getElementById('opacity-text') as HTMLInputElement;
   const angleText = document.getElementById('angle-text') as HTMLInputElement;
   const opacityValueText = document.getElementById('opacity-value-text');
   const angleValueText = document.getElementById('angle-value-text');
@@ -536,9 +481,7 @@ function setupEditorControls() {
     updateWatermarkOverlay();
   });
 
-  const opacityImage = document.getElementById(
-    'opacity-image'
-  ) as HTMLInputElement;
+  const opacityImage = document.getElementById('opacity-image') as HTMLInputElement;
   const angleImage = document.getElementById('angle-image') as HTMLInputElement;
   const imageScale = document.getElementById('image-scale') as HTMLInputElement;
   const opacityValueImage = document.getElementById('opacity-value-image');
@@ -560,9 +503,7 @@ function setupEditorControls() {
     updateWatermarkOverlay();
   });
 
-  const imageInput = document.getElementById(
-    'image-watermark-input'
-  ) as HTMLInputElement;
+  const imageInput = document.getElementById('image-watermark-input') as HTMLInputElement;
   imageInput?.addEventListener('change', () => {
     const file = imageInput.files?.[0];
     if (!file) return;
@@ -605,12 +546,8 @@ function updatePresetHighlight(x: number, y: number) {
 
 function updateWatermarkOverlay() {
   const box = document.getElementById('watermark-box') as HTMLElement;
-  const textOverlay = document.getElementById(
-    'watermark-overlay'
-  ) as HTMLElement;
-  const imageOverlay = document.getElementById(
-    'image-watermark-overlay'
-  ) as HTMLImageElement;
+  const textOverlay = document.getElementById('watermark-overlay') as HTMLElement;
+  const imageOverlay = document.getElementById('image-watermark-overlay') as HTMLImageElement;
   if (!box || !textOverlay || !imageOverlay) return;
 
   const container = document.getElementById('preview-container');
@@ -625,23 +562,13 @@ function updateWatermarkOverlay() {
     imageOverlay.classList.add('hidden');
 
     const text =
-      (document.getElementById('watermark-text') as HTMLInputElement)?.value ||
-      'CONFIDENTIAL';
+      (document.getElementById('watermark-text') as HTMLInputElement)?.value || 'CONFIDENTIAL';
     const fontSizePdf =
-      parseInt(
-        (document.getElementById('font-size') as HTMLInputElement)?.value
-      ) || 72;
-    const color =
-      (document.getElementById('text-color') as HTMLInputElement)?.value ||
-      '#888888';
+      parseInt((document.getElementById('font-size') as HTMLInputElement)?.value) || 72;
+    const color = (document.getElementById('text-color') as HTMLInputElement)?.value || '#888888';
     const opacity =
-      parseFloat(
-        (document.getElementById('opacity-text') as HTMLInputElement)?.value
-      ) || 0.3;
-    const angle =
-      parseInt(
-        (document.getElementById('angle-text') as HTMLInputElement)?.value
-      ) || 0;
+      parseFloat((document.getElementById('opacity-text') as HTMLInputElement)?.value) || 0.3;
+    const angle = parseInt((document.getElementById('angle-text') as HTMLInputElement)?.value) || 0;
 
     const fontSizePreview = fontSizePdf * previewScale;
 
@@ -667,17 +594,11 @@ function updateWatermarkOverlay() {
       imageOverlay.src = imageWatermarkDataUrl;
 
       const scale =
-        parseInt(
-          (document.getElementById('image-scale') as HTMLInputElement)?.value
-        ) || 100;
+        parseInt((document.getElementById('image-scale') as HTMLInputElement)?.value) || 100;
       const opacity =
-        parseFloat(
-          (document.getElementById('opacity-image') as HTMLInputElement)?.value
-        ) || 0.3;
+        parseFloat((document.getElementById('opacity-image') as HTMLInputElement)?.value) || 0.3;
       const angle =
-        parseInt(
-          (document.getElementById('angle-image') as HTMLInputElement)?.value
-        ) || 0;
+        parseInt((document.getElementById('angle-image') as HTMLInputElement)?.value) || 0;
 
       imageOverlay.style.opacity = String(opacity);
       imageOverlay.style.maxWidth = (scale / 100) * containerW * 0.5 + 'px';
@@ -705,21 +626,14 @@ function setupDragHandlers(container: HTMLElement) {
       const centerY = pageState.watermarkY * containerRect.height;
       const pointerX = e.clientX - containerRect.left;
       const pointerY = e.clientY - containerRect.top;
-      resizeStartDistance = Math.max(
-        Math.hypot(pointerX - centerX, pointerY - centerY),
-        10
-      );
+      resizeStartDistance = Math.max(Math.hypot(pointerX - centerX, pointerY - centerY), 10);
 
       if (watermarkType === 'text') {
         resizeStartFontSize =
-          parseInt(
-            (document.getElementById('font-size') as HTMLInputElement).value
-          ) || 72;
+          parseInt((document.getElementById('font-size') as HTMLInputElement).value) || 72;
       } else {
         resizeStartImageScale =
-          parseInt(
-            (document.getElementById('image-scale') as HTMLInputElement).value
-          ) || 100;
+          parseInt((document.getElementById('image-scale') as HTMLInputElement).value) || 100;
       }
 
       container.setPointerCapture(e.pointerId);
@@ -744,29 +658,16 @@ function setupDragHandlers(container: HTMLElement) {
       const centerY = pageState.watermarkY * containerRect.height;
       const pointerX = e.clientX - containerRect.left;
       const pointerY = e.clientY - containerRect.top;
-      const currentDistance = Math.hypot(
-        pointerX - centerX,
-        pointerY - centerY
-      );
+      const currentDistance = Math.hypot(pointerX - centerX, pointerY - centerY);
       const ratio = currentDistance / resizeStartDistance;
 
       if (watermarkType === 'text') {
-        const newSize = Math.max(
-          10,
-          Math.min(200, Math.round(resizeStartFontSize * ratio))
-        );
-        const fontSizeInput = document.getElementById(
-          'font-size'
-        ) as HTMLInputElement;
+        const newSize = Math.max(10, Math.min(200, Math.round(resizeStartFontSize * ratio)));
+        const fontSizeInput = document.getElementById('font-size') as HTMLInputElement;
         fontSizeInput.value = String(newSize);
       } else {
-        const newScale = Math.max(
-          10,
-          Math.min(200, Math.round(resizeStartImageScale * ratio))
-        );
-        const scaleInput = document.getElementById(
-          'image-scale'
-        ) as HTMLInputElement;
+        const newScale = Math.max(10, Math.min(200, Math.round(resizeStartImageScale * ratio)));
+        const scaleInput = document.getElementById('image-scale') as HTMLInputElement;
         scaleInput.value = String(newScale);
         const scaleValue = document.getElementById('image-scale-value');
         if (scaleValue) scaleValue.textContent = String(newScale);
@@ -823,9 +724,7 @@ async function applyWatermark() {
       const posY = 1 - config.y;
 
       const pageRangeStr =
-        (
-          document.getElementById('page-range-input') as HTMLInputElement
-        )?.value.trim() || 'all';
+        (document.getElementById('page-range-input') as HTMLInputElement)?.value.trim() || 'all';
       const pageIndices =
         pageRangeStr.toLowerCase() === 'all'
           ? Array.from({ length: pageState.pdfDoc!.getPageCount() }, (_, i) => i)
@@ -833,8 +732,7 @@ async function applyWatermark() {
 
       if (config.type === 'text') {
         const text = config.text;
-        if (!text.trim())
-          throw new Error('Please enter text for the watermark.');
+        if (!text.trim()) throw new Error('Please enter text for the watermark.');
         const textColor = hexToRgb(config.color);
 
         resultBytes = new Uint8Array(
@@ -851,8 +749,7 @@ async function applyWatermark() {
         );
       } else {
         const imageFile = config.imageFile;
-        if (!imageFile)
-          throw new Error('Please select an image file for the watermark.');
+        if (!imageFile) throw new Error('Please select an image file for the watermark.');
         const imageBytes = await readFileAsArrayBuffer(imageFile);
 
         let imageType: 'png' | 'jpg';
@@ -861,9 +758,7 @@ async function applyWatermark() {
         } else if (imageFile.type === 'image/jpeg') {
           imageType = 'jpg';
         } else {
-          throw new Error(
-            'Unsupported Image. Please use a PNG or JPG for the watermark.'
-          );
+          throw new Error('Unsupported Image. Please use a PNG or JPG for the watermark.');
         }
 
         resultBytes = new Uint8Array(
@@ -880,19 +775,15 @@ async function applyWatermark() {
         );
       }
     } else {
-      const configGroups: Map<
-        string,
-        { config: PageWatermarkConfig; indices: number[] }
-      > = new Map();
+      const configGroups: Map<string, { config: PageWatermarkConfig; indices: number[] }> =
+        new Map();
 
       for (let i = 1; i <= totalPageCount; i++) {
         const config = pageWatermarks.get(i);
         if (!config) continue;
 
         const hasContent =
-          config.type === 'text'
-            ? config.text.trim().length > 0
-            : config.imageFile !== null;
+          config.type === 'text' ? config.text.trim().length > 0 : config.imageFile !== null;
         if (!hasContent) continue;
 
         const key = JSON.stringify({
@@ -962,9 +853,7 @@ async function applyWatermark() {
       }
     }
 
-    const flattenCheckbox = document.getElementById(
-      'flatten-watermark'
-    ) as HTMLInputElement;
+    const flattenCheckbox = document.getElementById('flatten-watermark') as HTMLInputElement;
     if (flattenCheckbox?.checked) {
       const watermarkedPdf = await pdfjsLib.getDocument({
         data: resultBytes.slice(),
@@ -986,18 +875,11 @@ async function applyWatermark() {
         await page.render({ canvasContext: ctx, canvas, viewport }).promise;
 
         const jpegBytes = await new Promise<ArrayBuffer>((resolve) =>
-          canvas.toBlob(
-            (blob) => blob?.arrayBuffer().then(resolve),
-            'image/jpeg',
-            0.92
-          )
+          canvas.toBlob((blob) => blob?.arrayBuffer().then(resolve), 'image/jpeg', 0.92)
         );
 
         const image = await flattenedDoc.embedJpg(jpegBytes);
-        const newPage = flattenedDoc.addPage([
-          unscaledVP.width,
-          unscaledVP.height,
-        ]);
+        const newPage = flattenedDoc.addPage([unscaledVP.width, unscaledVP.height]);
         newPage.drawImage(image, {
           x: 0,
           y: 0,
@@ -1025,16 +907,16 @@ async function applyWatermark() {
 // Export function for App.tsx integration
 export async function addWatermarkToPdf() {
   const files = getFiles();
-  
+
   if (files.length === 0) {
     showAlert('No File', 'Please upload a PDF file first.');
     return;
   }
 
   const file = files[0];
-  
+
   showLoader('Loading PDF...');
-  
+
   try {
     // Load PDF from uploaded file
     const arrayBuffer = await file.arrayBuffer();
@@ -1042,7 +924,7 @@ export async function addWatermarkToPdf() {
     pageState.pdfDoc = await PDFLibDocument.load(pdfBytes);
     pageState.pdfBytes = pdfBytes;
     pageState.file = file;
-    
+
     // Now apply the watermark
     await applyWatermark();
   } catch (e: any) {

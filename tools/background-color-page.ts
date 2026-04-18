@@ -1,5 +1,5 @@
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui';
+import { showAlert, showLoader, hideLoader } from '../components/ui';
 import { downloadFile, hexToRgb, formatBytes } from '../utils/helpers';
 import { PDFDocument as PDFLibDocument, rgb } from 'pdf-lib';
 import { getFiles } from '../state';
@@ -14,7 +14,7 @@ const pageState: BackgroundColorState = { file: null, pdfDoc: null };
 // Main function to change background color - exported for use in App.tsx
 export async function changeBackgroundColorOfPdf(colorHex: string): Promise<boolean> {
   const files = getFiles();
-  
+
   if (files.length === 0) {
     showAlert('No File', 'Please upload a PDF file first.');
     return false;
@@ -29,33 +29,33 @@ export async function changeBackgroundColorOfPdf(colorHex: string): Promise<bool
 
     const color = hexToRgb(colorHex);
     const newPdfDoc = await PDFLibDocument.create();
-    
+
     for (let i = 0; i < pdfDoc.getPageCount(); i++) {
       const [originalPage] = await newPdfDoc.copyPages(pdfDoc, [i]);
       const { width, height } = originalPage.getSize();
       const newPage = newPdfDoc.addPage([width, height]);
-      
+
       // Draw colored background
-      newPage.drawRectangle({ 
-        x: 0, 
-        y: 0, 
-        width, 
-        height, 
-        color: rgb(color.r, color.g, color.b) 
+      newPage.drawRectangle({
+        x: 0,
+        y: 0,
+        width,
+        height,
+        color: rgb(color.r, color.g, color.b),
       });
-      
+
       // Draw original page on top
       const embeddedPage = await newPdfDoc.embedPage(originalPage);
       newPage.drawPage(embeddedPage, { x: 0, y: 0, width, height });
     }
-    
+
     const newPdfBytes = await newPdfDoc.save();
     const originalName = file.name.replace(/\.pdf$/i, '');
     downloadFile(
-      new Blob([new Uint8Array(newPdfBytes)], { type: 'application/pdf' }), 
+      new Blob([new Uint8Array(newPdfBytes)], { type: 'application/pdf' }),
       `${originalName}_background.pdf`
     );
-    
+
     hideLoader();
     showAlert('Success', 'Background color changed successfully!', 'success');
     return true;
@@ -100,7 +100,10 @@ function initializePage() {
       if (e.dataTransfer?.files.length) handleFiles(e.dataTransfer.files);
     });
   }
-  if (backBtn) backBtn.addEventListener('click', () => { window.location.href = '/'; });
+  if (backBtn)
+    backBtn.addEventListener('click', () => {
+      window.location.href = '/';
+    });
   if (processBtn) processBtn.addEventListener('click', changeBackgroundColor);
 }
 
@@ -169,10 +172,10 @@ async function changeBackgroundColor() {
     showAlert('Error', 'Please upload a PDF file first.');
     return;
   }
-  
+
   const colorHex = (document.getElementById('background-color') as HTMLInputElement).value;
   const success = await changeBackgroundColorOfPdf(colorHex);
-  
+
   if (success) {
     resetState();
   }

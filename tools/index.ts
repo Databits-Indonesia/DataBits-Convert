@@ -48,6 +48,7 @@ export * from './page-numbers-page';
 export { setupPageNumbersTool } from './page-numbers-page';
 export * from './fix-page-size-page';
 export { setupFixPageSizeTool } from './fix-page-size-page';
+export { setupScannerEffectPage } from './scanner-effect-page';
 export * from './n-up-pdf-page';
 export { setupNUpTool } from './n-up-pdf-page';
 export * from './png-to-pdf-page';
@@ -146,5 +147,11 @@ export {
   type ExtractedImage,
   type ExtractImagesOptions,
 } from './extract-images-page';
+export { extractTables, setupExtractTablesPage } from './extract-tables-page';
 export { setupOcrTool } from './ocr-pdf-page';
+export { setupPrepareForAiPage } from './prepare-pdf-for-ai-page';
+export { setupDeskewPage } from './deskew-pdf-page';
+export { setupRepairPage } from './repair-pdf-page';
+export { setupBookletPage } from './pdf-booklet-page';
+export { setupBatesNumberingPage } from './bates-numbering-page';
 // Note: digital-sign-pdf-page.ts uses DOMContentLoaded and is not exported as a function

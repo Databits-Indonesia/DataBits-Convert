@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile, readFileAsArrayBuffer, getPDFDocument } from '../utils/helpers';
 import { state } from '../state';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';

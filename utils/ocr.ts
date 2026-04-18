@@ -1,166 +1,254 @@
-import { PDFDocument } from 'pdf-lib';
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
-
-// Set worker path
-GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
+import Tesseract from 'tesseract.js';
+import { PDFDocument, StandardFonts, rgb, PDFFont } from 'pdf-lib';
+import fontkit from '@pdf-lib/fontkit';
+import { getFontForLanguage } from './font-loader';
+import type { OcrPage, OcrLine } from '@/types';
+import {
+  parseHocrDocument,
+  calculateWordTransform,
+  calculateSpaceTransform,
+} from './hocr-transform';
+import { getPDFDocument } from './helpers';
+import { loadPdfDocument } from './load-pdf-document';
+import { createConfiguredTesseractWorker } from './tesseract-runtime';
 
 export interface OcrOptions {
   language: string;
   resolution: number;
   binarize: boolean;
   whitelist: string;
+  embedFullFonts?: boolean;
   onProgress?: (status: string, progress: number) => void;
 }
 
 export interface OcrResult {
   pdfBytes: Uint8Array;
+  pdfDoc: PDFDocument;
   fullText: string;
 }
 
-let tesseractWorker: any = null;
-
-async function loadTesseract() {
-  if (tesseractWorker) return tesseractWorker;
-  
-  try {
-    const Tesseract = await import('tesseract.js');
-    tesseractWorker = await Tesseract.createWorker({
-      logger: (m: any) => console.log(m),
-    });
-    return tesseractWorker;
-  } catch (error) {
-    console.error('Failed to load Tesseract:', error);
-    throw new Error('Failed to initialize OCR engine. Please check your internet connection.');
-  }
-}
-
-async function pdfPageToImage(
-  pdfBytes: Uint8Array,
-  pageIndex: number,
-  scale: number = 2
-): Promise<ImageData> {
-  const loadingTask = getDocument({ data: pdfBytes });
-  const pdf = await loadingTask.promise;
-  const page = await pdf.getPage(pageIndex + 1);
-  
-  const viewport = page.getViewport({ scale });
-  const canvas = document.createElement('canvas');
-  const context = canvas.getContext('2d');
-  
-  if (!context) {
-    throw new Error('Could not get canvas context');
-  }
-  
-  canvas.width = viewport.width;
-  canvas.height = viewport.height;
-  
-  await page.render({
-    canvasContext: context,
-    viewport,
-  }).promise;
-  
-  return context.getImageData(0, 0, canvas.width, canvas.height);
-}
-
-function binarizeImage(imageData: ImageData): ImageData {
+function binarizeCanvas(ctx: CanvasRenderingContext2D) {
+  const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
   const data = imageData.data;
-  const threshold = 128;
-  
   for (let i = 0; i < data.length; i += 4) {
-    const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-    const val = avg >= threshold ? 255 : 0;
-    data[i] = val;
-    data[i + 1] = val;
-    data[i + 2] = val;
+    const brightness = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    const color = brightness > 128 ? 255 : 0;
+    data[i] = data[i + 1] = data[i + 2] = color;
   }
-  
-  return imageData;
+  ctx.putImageData(imageData, 0, 0);
+}
+
+function drawOcrTextLayer(
+  page: ReturnType<typeof PDFDocument.prototype.addPage>,
+  ocrPage: OcrPage,
+  pageHeight: number,
+  primaryFont: PDFFont,
+  latinFont: PDFFont
+): void {
+  ocrPage.lines.forEach(function (line: OcrLine) {
+    const words = line.words;
+
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      const text = word.text.replace(
+        /[\u0000-\u001F\u007F-\u009F\u200E\u200F\u202A-\u202E\uFEFF]/g,
+        ''
+      );
+
+      if (!text.trim()) continue;
+
+      const hasNonLatin = /[^\u0000-\u007F]/.test(text);
+      const font = hasNonLatin ? primaryFont : latinFont;
+
+      if (!font) {
+        console.warn('Font not available for text: "' + text + '"');
+        continue;
+      }
+
+      const transform = calculateWordTransform(
+        word,
+        line,
+        pageHeight,
+        (txt: string, size: number) => {
+          try {
+            return font.widthOfTextAtSize(txt, size);
+          } catch {
+            return 0;
+          }
+        }
+      );
+
+      if (transform.fontSize <= 0) continue;
+
+      try {
+        page.drawText(text, {
+          x: transform.x,
+          y: transform.y,
+          font,
+          size: transform.fontSize,
+          color: rgb(0, 0, 0),
+          opacity: 0,
+        });
+      } catch (error) {
+        console.warn(`Could not draw text "${text}":`, error);
+      }
+
+      if (line.injectWordBreaks && i < words.length - 1) {
+        const nextWord = words[i + 1];
+        const spaceTransform = calculateSpaceTransform(
+          word,
+          nextWord,
+          line,
+          pageHeight,
+          (size: number) => {
+            try {
+              return font.widthOfTextAtSize(' ', size);
+            } catch {
+              return 0;
+            }
+          }
+        );
+
+        if (spaceTransform && spaceTransform.horizontalScale > 0.1) {
+          try {
+            page.drawText(' ', {
+              x: spaceTransform.x,
+              y: spaceTransform.y,
+              font,
+              size: spaceTransform.fontSize,
+              color: rgb(0, 0, 0),
+              opacity: 0,
+            });
+          } catch {
+            console.warn(`Could not draw space between words`);
+          }
+        }
+      }
+    }
+  });
 }
 
 export async function performOcr(
-  pdfBytes: Uint8Array,
+  pdfBytes: Uint8Array | ArrayBuffer,
   options: OcrOptions
 ): Promise<OcrResult> {
-  const { language, resolution, binarize, whitelist, onProgress } = options;
-  
-  if (onProgress) {
-    onProgress('Initializing OCR engine...', 0);
-  }
-  
-  const worker = await loadTesseract();
-  
-  if (onProgress) {
-    onProgress('Loading language data...', 0.1);
-  }
-  
-  await worker.loadLanguage(language);
-  await worker.initialize(language);
-  
+  const { language, resolution, binarize, whitelist, embedFullFonts, onProgress } = options;
+  const progress = onProgress || (() => {});
+
+  const worker = await createConfiguredTesseractWorker(
+    language,
+    1,
+    function (m: { status: string; progress: number }) {
+      progress(m.status, m.progress || 0);
+    }
+  );
+
+  await worker.setParameters({
+    tessjs_create_hocr: '1',
+    tessedit_pageseg_mode: Tesseract.PSM.AUTO,
+  });
+
   if (whitelist) {
     await worker.setParameters({
       tessedit_char_whitelist: whitelist,
     });
   }
-  
-  if (onProgress) {
-    onProgress('Loading PDF...', 0.2);
-  }
-  
-  const loadingTask = getDocument({ data: pdfBytes });
-  const pdf = await loadingTask.promise;
-  const numPages = pdf.numPages;
-  
-  const fullTextParts: string[] = [];
-  const pdfDoc = await PDFDocument.load(pdfBytes);
-  
-  for (let i = 0; i < numPages; i++) {
-    const progress = 0.2 + ((i / numPages) * 0.7);
-    if (onProgress) {
-      onProgress(`Processing page ${i + 1} of ${numPages}...`, progress);
+
+  const sourcePdfDoc = await loadPdfDocument(pdfBytes);
+  const pdf = await getPDFDocument({ data: pdfBytes }).promise;
+  const newPdfDoc = await PDFDocument.create();
+  newPdfDoc.registerFontkit(fontkit);
+
+  progress('Loading fonts...', 0);
+
+  const selectedLangs = language.split('+');
+  const cjkLangs = ['jpn', 'chi_sim', 'chi_tra', 'kor'];
+  const indicLangs = ['hin', 'ben', 'guj', 'kan', 'mal', 'ori', 'pan', 'tam', 'tel', 'sin'];
+  const priorityLangs = [...cjkLangs, ...indicLangs, 'ara', 'rus', 'ukr'];
+
+  const primaryLang =
+    selectedLangs.find((l) => priorityLangs.includes(l)) || selectedLangs[0] || 'eng';
+
+  const hasCJK = selectedLangs.some((l) => cjkLangs.includes(l));
+  const hasIndic = selectedLangs.some((l) => indicLangs.includes(l));
+  const hasLatin =
+    selectedLangs.some((l) => !priorityLangs.includes(l)) || selectedLangs.includes('eng');
+  const isIndicPlusLatin = hasIndic && hasLatin && !hasCJK;
+
+  let primaryFont: PDFFont;
+  let latinFont: PDFFont;
+
+  try {
+    if (isIndicPlusLatin) {
+      const [scriptFontBytes, latinFontBytes] = await Promise.all([
+        getFontForLanguage(primaryLang),
+        getFontForLanguage('eng'),
+      ]);
+      primaryFont = await newPdfDoc.embedFont(scriptFontBytes, {
+        subset: !embedFullFonts,
+      });
+      latinFont = await newPdfDoc.embedFont(latinFontBytes, {
+        subset: !embedFullFonts,
+      });
+    } else {
+      const fontBytes = await getFontForLanguage(primaryLang);
+      primaryFont = await newPdfDoc.embedFont(fontBytes, {
+        subset: !embedFullFonts,
+      });
+      latinFont = primaryFont;
     }
-    
-    let imageData = await pdfPageToImage(pdfBytes, i, resolution);
-    
-    if (binarize) {
-      imageData = binarizeImage(imageData);
-    }
-    
-    // Convert ImageData to canvas for Tesseract
-    const canvas = document.createElement('canvas');
-    canvas.width = imageData.width;
-    canvas.height = imageData.height;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.putImageData(imageData, 0, 0);
-    }
-    
-    const { data } = await worker.recognize(canvas);
-    
-    if (data.text) {
-      fullTextParts.push(`\n--- Page ${i + 1} ---\n${data.text}`);
-    }
+  } catch (e) {
+    console.error('Font loading failed, falling back to Helvetica', e);
+    primaryFont = await newPdfDoc.embedFont(StandardFonts.Helvetica);
+    latinFont = primaryFont;
   }
-  
-  if (onProgress) {
-    onProgress('Generating searchable PDF...', 0.9);
+
+  let fullText = '';
+
+  try {
+    for (let i = 1; i <= pdf.numPages; i++) {
+      progress(`Processing page ${i} of ${pdf.numPages}`, (i - 1) / pdf.numPages);
+
+      const page = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale: resolution });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Failed to create canvas context');
+
+      await page.render({ canvasContext: context, viewport, canvas }).promise;
+
+      if (binarize) {
+        binarizeCanvas(context);
+      }
+
+      const result = await worker.recognize(canvas, {}, { text: true, hocr: true });
+      const data = result.data;
+
+      canvas.width = 0;
+      canvas.height = 0;
+
+      const [copiedPage] = await newPdfDoc.copyPages(sourcePdfDoc, [i - 1]);
+      newPdfDoc.addPage(copiedPage);
+
+      if (data.hocr) {
+        const ocrPage = parseHocrDocument(data.hocr);
+        drawOcrTextLayer(copiedPage, ocrPage, viewport.height, primaryFont, latinFont);
+      }
+
+      fullText += data.text + '\n\n';
+    }
+  } finally {
+    await worker.terminate();
   }
-  
-  // For now, we return the original PDF since creating a truly searchable PDF
-  // requires embedding the text layer which is complex
-  const resultPdfBytes = await pdfDoc.save();
-  
-  if (onProgress) {
-    onProgress('Complete!', 1.0);
-  }
-  
-  await worker.terminate();
-  tesseractWorker = null;
-  
+
+  const savedBytes = await newPdfDoc.save();
+
   return {
-    pdfBytes: resultPdfBytes,
-    fullText: fullTextParts.join('\n'),
+    pdfBytes: new Uint8Array(savedBytes),
+    pdfDoc: newPdfDoc,
+    fullText,
   };
 }

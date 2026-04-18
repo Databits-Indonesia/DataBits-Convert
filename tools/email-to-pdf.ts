@@ -9,7 +9,7 @@ import {
   downloadFile,
 } from '../utils/helpers';
 import type { EmailAttachment, ParsedEmail, EmailRenderOptions } from '@/types';
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { getFiles } from '../state';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';

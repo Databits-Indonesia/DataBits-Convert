@@ -1,11 +1,8 @@
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui';
+import { showAlert, showLoader, hideLoader } from '../components/ui';
 import { downloadFile, formatBytes } from '../utils/helpers';
 import { loadPyMuPDF } from '../utils/pymupdf-loader';
-import {
-  getSelectedQuality,
-  compressImageFile,
-} from '../utils/image-compress';
+import { getSelectedQuality, compressImageFile } from '../utils/image-compress';
 
 const SUPPORTED_FORMATS = '.jpg,.jpeg,.jp2,.jpx';
 const SUPPORTED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/jp2'];
@@ -74,7 +71,7 @@ function initializePage() {
   }
 
   document.getElementById('back-to-tools')?.addEventListener('click', () => {
-    window.location.href = (process.env.BASE_URL || '/');
+    window.location.href = process.env.BASE_URL || '/';
   });
 }
 
@@ -92,9 +89,7 @@ function getFileExtension(filename: string): string {
 function isValidImageFile(file: File): boolean {
   const ext = getFileExtension(file.name);
   const validExtensions = SUPPORTED_FORMATS.split(',');
-  return (
-    validExtensions.includes(ext) || SUPPORTED_MIME_TYPES.includes(file.type)
-  );
+  return validExtensions.includes(ext) || SUPPORTED_MIME_TYPES.includes(file.type);
 }
 
 function handleFiles(newFiles: FileList) {
@@ -133,8 +128,7 @@ function updateUI() {
 
     files.forEach((file, index) => {
       const fileDiv = document.createElement('div');
-      fileDiv.className =
-        'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+      fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
 
       const infoContainer = document.createElement('div');
       infoContainer.className = 'flex items-center gap-2 overflow-hidden';
@@ -150,8 +144,7 @@ function updateUI() {
       infoContainer.append(nameSpan, sizeSpan);
 
       const removeBtn = document.createElement('button');
-      removeBtn.className =
-        'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
+      removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
       removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
       removeBtn.onclick = () => {
         files = files.filter((_, i) => i !== index);
@@ -202,10 +195,7 @@ async function convertToPdf() {
     });
   } catch (e: any) {
     console.error('[JpgToPdf]', e);
-    showAlert(
-      'Conversion Error',
-      e.message || 'Failed to convert images to PDF.'
-    );
+    showAlert('Conversion Error', e.message || 'Failed to convert images to PDF.');
   } finally {
     hideLoader();
   }

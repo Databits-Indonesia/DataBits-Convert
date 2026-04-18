@@ -1,4 +1,4 @@
-import { showAlert } from '../ui';
+import { showAlert } from '../components/ui';
 import { downloadFile, formatBytes } from '../utils/helpers';
 import { PDFDocument } from 'pdf-lib';
 import { createIcons, icons } from 'lucide';
@@ -23,20 +23,22 @@ export async function encryptPdfDocument(file: File, options: EncryptOptions): P
       showWasmRequiredDialog('pymupdf', () => {
         window.location.reload();
       });
-      throw new Error('PyMuPDF is required for PDF encryption. Please configure it in Advanced Settings.');
+      throw new Error(
+        'PyMuPDF is required for PDF encryption. Please configure it in Advanced Settings.'
+      );
     }
 
     const pyMuPDF = await loadPyMuPDF();
-    
+
     // Open the PDF document
     const doc = await pyMuPDF.open(file);
-    
+
     // Prepare encryption options
     const encryptionOptions: any = {
       userPassword: userPassword,
       ownerPassword: ownerPassword || userPassword,
     };
-    
+
     // Add permissions if restrictions are enabled
     if (addRestrictions) {
       encryptionOptions.permissions = {
@@ -46,7 +48,7 @@ export async function encryptPdfDocument(file: File, options: EncryptOptions): P
         annotate: false,
       };
     }
-    
+
     // Save the document with encryption
     const encryptedBlob = await doc.saveAsBlob({
       encryption: encryptionOptions,
@@ -54,10 +56,10 @@ export async function encryptPdfDocument(file: File, options: EncryptOptions): P
       deflate: true,
       clean: true,
     });
-    
+
     // Close the document
     doc.close();
-    
+
     return encryptedBlob;
   } catch (error: any) {
     console.error('Encryption error:', error);

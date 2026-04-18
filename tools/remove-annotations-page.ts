@@ -1,4 +1,4 @@
-import { showAlert } from '../ui';
+import { showAlert } from '../components/ui';
 import { downloadFile } from '../utils/helpers';
 import { PDFDocument, PDFName } from 'pdf-lib';
 import { createIcons, icons } from 'lucide';
@@ -9,16 +9,17 @@ export interface RemoveAnnotationsOptions {
   removeAllAnnotations?: boolean;
 }
 
-export async function removeAnnotationsPdf(file: File, options: RemoveAnnotationsOptions = {}): Promise<Blob> {
-  const {
-    removeAllAnnotations = true
-  } = options;
+export async function removeAnnotationsPdf(
+  file: File,
+  options: RemoveAnnotationsOptions = {}
+): Promise<Blob> {
+  const { removeAllAnnotations = true } = options;
 
   try {
     const arrayBuffer = await file.arrayBuffer();
     const pdfDoc = await PDFDocument.load(arrayBuffer, {
       ignoreEncryption: true,
-      throwOnInvalidObject: false
+      throwOnInvalidObject: false,
     });
 
     const pages = pdfDoc.getPages();

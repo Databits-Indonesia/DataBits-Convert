@@ -1,10 +1,5 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
-import {
-  downloadFile,
-  readFileAsArrayBuffer,
-  formatBytes,
-  getPDFDocument,
-} from '../utils/helpers';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
+import { downloadFile, readFileAsArrayBuffer, formatBytes, getPDFDocument } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import { isWasmAvailable, getWasmBaseUrl } from '../config/wasm-cdn-config';
 import { showWasmRequiredDialog } from '../utils/wasm-provider';
@@ -38,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (backBtn) {
     backBtn.addEventListener('click', () => {
-      window.location.href = (process.env.BASE_URL || '/');
+      window.location.href = process.env.BASE_URL || '/';
     });
   }
 
@@ -48,8 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (currentFile) {
       fileDisplayArea.innerHTML = '';
       const fileDiv = document.createElement('div');
-      fileDiv.className =
-        'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+      fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
 
       const infoContainer = document.createElement('div');
       infoContainer.className = 'flex flex-col overflow-hidden';
@@ -65,8 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
       infoContainer.append(nameSpan, metaSpan);
 
       const removeBtn = document.createElement('button');
-      removeBtn.className =
-        'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
+      removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
       removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
       removeBtn.onclick = () => {
         resetState();
@@ -114,20 +107,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const modal = document.getElementById('input-modal');
       const titleEl = document.getElementById('input-title');
       const messageEl = document.getElementById('input-message');
-      const inputEl = document.getElementById(
-        'input-value'
-      ) as HTMLInputElement;
+      const inputEl = document.getElementById('input-value') as HTMLInputElement;
       const confirmBtn = document.getElementById('input-confirm');
       const cancelBtn = document.getElementById('input-cancel');
 
-      if (
-        !modal ||
-        !titleEl ||
-        !messageEl ||
-        !inputEl ||
-        !confirmBtn ||
-        !cancelBtn
-      ) {
+      if (!modal || !titleEl || !messageEl || !inputEl || !confirmBtn || !cancelBtn) {
         console.error('Input modal elements not found');
         resolve(null);
         return;
@@ -184,9 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Sort layers by displayOrder
-    const sortedLayers = layersArray.sort(
-      (a, b) => a.displayOrder - b.displayOrder
-    );
+    const sortedLayers = layersArray.sort((a, b) => a.displayOrder - b.displayOrder);
 
     layersList.innerHTML = sortedLayers
       .map(
@@ -207,38 +189,32 @@ document.addEventListener('DOMContentLoaded', () => {
       .join('');
 
     // Attach toggle handlers
-    layersList
-      .querySelectorAll('input[type="checkbox"]')
-      .forEach((checkbox) => {
-        checkbox.addEventListener('change', (e) => {
-          const target = e.target as HTMLInputElement;
-          const xref = parseInt(target.dataset.xref || '0');
-          const isOn = target.checked;
+    layersList.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+      checkbox.addEventListener('change', (e) => {
+        const target = e.target as HTMLInputElement;
+        const xref = parseInt(target.dataset.xref || '0');
+        const isOn = target.checked;
 
-          try {
-            currentDoc.setLayerVisibility(xref, isOn);
-            const layer = Array.from(layersMap.values()).find(
-              (l) => l.xref === xref
-            );
-            if (layer) {
-              layer.on = isOn;
-            }
-          } catch (err) {
-            console.error('Failed to set layer visibility:', err);
-            target.checked = !isOn;
-            showAlert('Error', 'Failed to toggle layer visibility');
+        try {
+          currentDoc.setLayerVisibility(xref, isOn);
+          const layer = Array.from(layersMap.values()).find((l) => l.xref === xref);
+          if (layer) {
+            layer.on = isOn;
           }
-        });
+        } catch (err) {
+          console.error('Failed to set layer visibility:', err);
+          target.checked = !isOn;
+          showAlert('Error', 'Failed to toggle layer visibility');
+        }
       });
+    });
 
     // Attach delete handlers
     layersList.querySelectorAll('.layer-delete').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         const target = e.target as HTMLButtonElement;
         const xref = parseInt(target.dataset.xref || '0');
-        const layer = Array.from(layersMap.values()).find(
-          (l) => l.xref === xref
-        );
+        const layer = Array.from(layersMap.values()).find((l) => l.xref === xref);
 
         if (!layer) {
           showAlert('Error', 'Layer not found');
@@ -260,9 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.addEventListener('click', async (e) => {
         const target = e.target as HTMLButtonElement;
         const parentXref = parseInt(target.dataset.xref || '0');
-        const parentLayer = Array.from(layersMap.values()).find(
-          (l) => l.xref === parentXref
-        );
+        const parentLayer = Array.from(layersMap.values()).find((l) => l.xref === parentXref);
 
         const childName = await promptForInput(
           'Add Child Layer',
@@ -272,10 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!childName || !childName.trim()) return;
 
         try {
-          const childXref = currentDoc.addOCGWithParent(
-            childName.trim(),
-            parentXref
-          );
+          const childXref = currentDoc.addOCGWithParent(childName.trim(), parentXref);
           const parentDisplayOrder = parentLayer?.displayOrder || 0;
           layersMap.forEach((l) => {
             if (l.displayOrder > parentDisplayOrder) {
@@ -357,9 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const setupLayerHandlers = () => {
     const addLayerBtn = document.getElementById('add-layer-btn');
-    const newLayerInput = document.getElementById(
-      'new-layer-name'
-    ) as HTMLInputElement;
+    const newLayerInput = document.getElementById('new-layer-name') as HTMLInputElement;
     const saveLayersBtn = document.getElementById('save-layers-btn');
 
     if (addLayerBtn && newLayerInput) {
@@ -401,8 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const blob = new Blob([new Uint8Array(pdfBytes)], {
             type: 'application/pdf',
           });
-          const outName =
-            currentFile!.name.replace(/\.pdf$/i, '') + '_layers.pdf';
+          const outName = currentFile!.name.replace(/\.pdf$/i, '') + '_layers.pdf';
           downloadFile(blob, outName);
           hideLoader();
           resetState();
@@ -418,10 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const handleFileSelect = (files: FileList | null) => {
     if (files && files.length > 0) {
       const file = files[0];
-      if (
-        file.type === 'application/pdf' ||
-        file.name.toLowerCase().endsWith('.pdf')
-      ) {
+      if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
         currentFile = file;
         updateUI();
       } else {

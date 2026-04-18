@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile, formatBytes } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
@@ -66,20 +66,20 @@ function updateUI() {
 
 function setupButtonListeners() {
   console.log('[Reverse] setupButtonListeners called');
-  
+
   const processBtn = document.getElementById('reverse-process-btn');
   console.log('[Reverse] processBtn:', processBtn);
 
   if (processBtn) {
     console.log('[Reverse] Adding click listener to process button');
-    processBtn.onclick = function() {
+    processBtn.onclick = function () {
       console.log('[Reverse] Process button clicked!');
       reversePages();
     };
   } else {
     console.warn('[Reverse] Process button not found!');
   }
-  
+
   // Also expose on window for debugging
   (window as any).testReversePages = reversePages;
   console.log('[Reverse] Test function available as: window.testReversePages()');
@@ -183,4 +183,3 @@ export async function setupReverseTool() {
 }
 
 export { reversePages };
-

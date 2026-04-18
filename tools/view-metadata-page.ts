@@ -1,4 +1,4 @@
-import { showAlert } from '../ui';
+import { showAlert } from '../components/ui';
 import { formatBytes } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument as PDFLibDocument, PDFName } from 'pdf-lib';
@@ -27,16 +27,16 @@ export async function viewMetadataPdf(file: File): Promise<ViewMetadataResult> {
     const arrayBuffer = await file.arrayBuffer();
     const pdfDoc = await PDFLibDocument.load(arrayBuffer, {
       ignoreEncryption: true,
-      throwOnInvalidObject: false
+      throwOnInvalidObject: false,
     });
 
     const basicInfo: Record<string, string> = {
-      'Title': pdfDoc.getTitle() || 'Not set',
-      'Author': pdfDoc.getAuthor() || 'Not set',
-      'Subject': pdfDoc.getSubject() || 'Not set',
-      'Keywords': pdfDoc.getKeywords() || 'Not set',
-      'Creator': pdfDoc.getCreator() || 'Not set',
-      'Producer': pdfDoc.getProducer() || 'Not set',
+      Title: pdfDoc.getTitle() || 'Not set',
+      Author: pdfDoc.getAuthor() || 'Not set',
+      Subject: pdfDoc.getSubject() || 'Not set',
+      Keywords: pdfDoc.getKeywords() || 'Not set',
+      Creator: pdfDoc.getCreator() || 'Not set',
+      Producer: pdfDoc.getProducer() || 'Not set',
       'Creation Date': parsePdfDate(pdfDoc.getCreationDate()),
       'Modification Date': parsePdfDate(pdfDoc.getModificationDate()),
     };
@@ -48,8 +48,14 @@ export async function viewMetadataPdf(file: File): Promise<ViewMetadataResult> {
       // @ts-expect-error getInfoDict is private but accessible at runtime
       const infoDict = pdfDoc.getInfoDict();
       const standardKeys = new Set([
-        'Title', 'Author', 'Subject', 'Keywords', 'Creator',
-        'Producer', 'CreationDate', 'ModDate'
+        'Title',
+        'Author',
+        'Subject',
+        'Keywords',
+        'Creator',
+        'Producer',
+        'CreationDate',
+        'ModDate',
       ]);
 
       const allKeys = infoDict
@@ -81,13 +87,13 @@ export async function viewMetadataPdf(file: File): Promise<ViewMetadataResult> {
     const documentInfo = {
       pageCount: pdfDoc.getPageCount(),
       fileSize: file.size,
-      pdfVersion: pdfDoc.context?.version || undefined
+      pdfVersion: pdfDoc.context?.version || undefined,
     };
 
     return {
       basicInfo,
       customFields,
-      documentInfo
+      documentInfo,
     };
   } catch (error: any) {
     console.error('View metadata error:', error);
@@ -160,13 +166,14 @@ export function displayMetadataInUI(result: ViewMetadataResult) {
 
   if (metadataEmpty) metadataEmpty.classList.add('hidden');
   if (metadataResult) metadataResult.classList.remove('hidden');
-  
+
   // Display basic info
   if (metadataBasic) {
     metadataBasic.innerHTML = '';
     Object.entries(result.basicInfo).forEach(([key, value]) => {
       const row = document.createElement('div');
-      row.className = 'flex flex-col sm:flex-row py-2 border-b border-gray-200 dark:border-gray-700 last:border-0';
+      row.className =
+        'flex flex-col sm:flex-row py-2 border-b border-gray-200 dark:border-gray-700 last:border-0';
       row.innerHTML = `
         <div class="font-medium text-gray-700 dark:text-gray-300 sm:w-48 flex-shrink-0">${key}:</div>
         <div class="text-gray-900 dark:text-white break-all">${value}</div>
@@ -182,7 +189,8 @@ export function displayMetadataInUI(result: ViewMetadataResult) {
       metadataCustomFields.innerHTML = '';
       Object.entries(result.customFields).forEach(([key, value]) => {
         const row = document.createElement('div');
-        row.className = 'flex flex-col sm:flex-row py-2 border-b border-gray-200 dark:border-gray-700 last:border-0';
+        row.className =
+          'flex flex-col sm:flex-row py-2 border-b border-gray-200 dark:border-gray-700 last:border-0';
         row.innerHTML = `
           <div class="font-medium text-gray-700 dark:text-gray-300 sm:w-48 flex-shrink-0">${key}:</div>
           <div class="text-gray-900 dark:text-white break-all">${value}</div>
@@ -196,19 +204,20 @@ export function displayMetadataInUI(result: ViewMetadataResult) {
   if (metadataDocument) metadataDocument.classList.remove('hidden');
   if (metadataDocumentInfo) {
     metadataDocumentInfo.innerHTML = '';
-    
+
     const docInfo = [
       { label: 'Page Count', value: result.documentInfo.pageCount.toString() },
       { label: 'File Size', value: formatBytes(result.documentInfo.fileSize) },
     ];
-    
+
     if (result.documentInfo.pdfVersion) {
       docInfo.push({ label: 'PDF Version', value: result.documentInfo.pdfVersion });
     }
 
     docInfo.forEach(({ label, value }) => {
       const row = document.createElement('div');
-      row.className = 'flex flex-col sm:flex-row py-2 border-b border-gray-200 dark:border-gray-700 last:border-0';
+      row.className =
+        'flex flex-col sm:flex-row py-2 border-b border-gray-200 dark:border-gray-700 last:border-0';
       row.innerHTML = `
         <div class="font-medium text-gray-700 dark:text-gray-300 sm:w-48 flex-shrink-0">${label}:</div>
         <div class="text-gray-900 dark:text-white break-all">${value}</div>

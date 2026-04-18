@@ -1,4 +1,4 @@
-import { showAlert } from '../ui';
+import { showAlert } from '../components/ui';
 import { downloadFile, formatBytes } from '../utils/helpers';
 import { convertFileToOutlines } from '../utils/ghostscript-loader';
 import { isGhostscriptAvailable } from '../utils/ghostscript-dynamic-loader';
@@ -42,8 +42,7 @@ async function updateUI() {
   if (pageState.files.length > 0) {
     pageState.files.forEach((file, index) => {
       const fileDiv = document.createElement('div');
-      fileDiv.className =
-        'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+      fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
 
       const infoContainer = document.createElement('div');
       infoContainer.className = 'flex flex-col overflow-hidden';
@@ -59,8 +58,7 @@ async function updateUI() {
       infoContainer.append(nameSpan, metaSpan);
 
       const removeBtn = document.createElement('button');
-      removeBtn.className =
-        'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
+      removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
       removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
       removeBtn.onclick = function () {
         pageState.files.splice(index, 1);
@@ -84,8 +82,7 @@ async function updateUI() {
 function handleFileSelect(files: FileList | null) {
   if (files && files.length > 0) {
     const pdfFiles = Array.from(files).filter(
-      (f) =>
-        f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
+      (f) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
     );
     if (pdfFiles.length > 0) {
       pageState.files.push(...pdfFiles);
@@ -112,8 +109,7 @@ async function processFiles() {
   try {
     if (pageState.files.length === 1) {
       if (loaderModal) loaderModal.classList.remove('hidden');
-      if (loaderText)
-        loaderText.textContent = 'Converting fonts to outlines...';
+      if (loaderText) loaderText.textContent = 'Converting fonts to outlines...';
 
       const file = pageState.files[0];
       const resultBlob = await convertFileToOutlines(file, (msg) => {
@@ -149,14 +145,9 @@ async function processFiles() {
       if (processedCount > 0) {
         const zipBlob = await zip.generateAsync({ type: 'blob' });
         downloadFile(zipBlob, 'outlined_pdfs.zip');
-        showAlert(
-          'Success',
-          `Processed ${processedCount} PDFs.`,
-          'success',
-          () => {
-            resetState();
-          }
-        );
+        showAlert('Success', `Processed ${processedCount} PDFs.`, 'success', () => {
+          resetState();
+        });
       } else {
         showAlert('Error', 'No PDFs could be processed.');
       }
@@ -165,8 +156,7 @@ async function processFiles() {
   } catch (e: unknown) {
     console.error(e);
     if (loaderModal) loaderModal.classList.add('hidden');
-    const errorMessage =
-      e instanceof Error ? e.message : 'An unexpected error occurred.';
+    const errorMessage = e instanceof Error ? e.message : 'An unexpected error occurred.';
     showAlert('Error', errorMessage);
   }
 }
@@ -181,7 +171,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (backBtn) {
     backBtn.addEventListener('click', function () {
-      window.location.href = (process.env.BASE_URL || '/');
+      window.location.href = process.env.BASE_URL || '/';
     });
   }
 

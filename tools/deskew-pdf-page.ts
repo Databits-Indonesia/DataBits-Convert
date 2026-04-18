@@ -1,8 +1,12 @@
-import { isWasmAvailable, getWasmBaseUrl } from '../config/wasm-cdn-config';
-import { showWasmRequiredDialog } from '../utils/wasm-provider';
-import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';
+import { loadPyMuPDF } from '../utils/pymupdf-loader';
+import type { PyMuPDFInstance } from '@/types';
+import { batchDecryptIfNeeded } from '../utils/password-prompt';
 import { createIcons, icons } from 'lucide';
 import { downloadFile } from '../utils/helpers';
+import { isWasmAvailable } from '../config/wasm-cdn-config';
+import { showWasmRequiredDialog } from '../utils/wasm-provider';
+import { state } from '../state';
+import { showAlert, showLoader, hideLoader } from '../components/ui';
 
 interface DeskewResult {
   totalPages: number;
@@ -11,74 +15,154 @@ interface DeskewResult {
   corrected: boolean[];
 }
 
-let selectedFiles: File[] = [];
-let pymupdf: any = null;
+function getDeskewOutputFileName(inputName: string): string {
+  if (/\.pdf$/i.test(inputName)) {
+    return inputName.replace(/\.pdf$/i, '_deskewed.pdf');
+  }
+  return `${inputName}_deskewed.pdf`;
+}
 
-async function initPyMuPDF(): Promise<any> {
+let selectedFiles: File[] = [];
+let pymupdf: PyMuPDFInstance | null = null;
+let isDeskewSetup = false;
+
+function getDeskewElement<T extends HTMLElement = HTMLElement>(id: string): T | null {
+  const direct = document.getElementById(id) as T | null;
+  if (direct) return direct;
+
+  const container = document.getElementById('deskew-container');
+  if (!container) return null;
+
+  return container.querySelector(`#${id}`) as T | null;
+}
+
+async function initPyMuPDF(): Promise<PyMuPDFInstance> {
   if (!pymupdf) {
-    pymupdf = await loadPyMuPDF();
+    pymupdf = (await loadPyMuPDF()) as PyMuPDFInstance;
   }
   return pymupdf;
 }
 
-function showLoader(message: string): void {
-  const loader = document.getElementById('loader-modal');
-  const text = document.getElementById('loader-text');
-  if (loader && text) {
-    text.textContent = message;
-    loader.classList.remove('hidden');
+function setProcessButtonLoading(isLoading: boolean) {
+  const processBtn = getDeskewElement<HTMLButtonElement>('deskew-process-btn');
+  if (!processBtn) return;
+
+  const idleLabel = processBtn.dataset.idleLabel || processBtn.textContent || 'Deskew PDF';
+  processBtn.dataset.idleLabel = idleLabel;
+  processBtn.disabled = isLoading;
+  processBtn.textContent = isLoading ? 'Deskewing...' : idleLabel;
+}
+
+function ensureDeskewUi() {
+  const container = document.getElementById('deskew-container');
+  if (!container) return;
+
+  const panelRoot =
+    (container.querySelector('.bg-white') as HTMLElement | null) ||
+    (container.firstElementChild as HTMLElement | null) ||
+    container;
+
+  let body = getDeskewElement('deskew-body');
+  if (!body) {
+    body = document.createElement('div');
+    body.id = 'deskew-body';
+    body.className = 'space-y-6';
+    panelRoot.appendChild(body);
+  }
+
+  if (!getDeskewElement('deskew-file-display-area')) {
+    const fileArea = document.createElement('div');
+    fileArea.id = 'deskew-file-display-area';
+    fileArea.className = 'space-y-2';
+    body.appendChild(fileArea);
+  }
+
+  if (!getDeskewElement('deskew-options')) {
+    const options = document.createElement('div');
+    options.id = 'deskew-options';
+    options.className = 'grid grid-cols-1 md:grid-cols-2 gap-4';
+    options.innerHTML = `
+      <div>
+        <label for="deskew-threshold" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Skew Threshold</label>
+        <select id="deskew-threshold" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+          <option value="0.3">Low (0.3)</option>
+          <option value="0.5" selected>Medium (0.5)</option>
+          <option value="0.7">High (0.7)</option>
+        </select>
+      </div>
+      <div>
+        <label for="deskew-dpi" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Analysis DPI</label>
+        <select id="deskew-dpi" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+          <option value="100">100 DPI</option>
+          <option value="150" selected>150 DPI</option>
+          <option value="200">200 DPI</option>
+          <option value="300">300 DPI</option>
+        </select>
+      </div>
+    `;
+    body.appendChild(options);
+  }
+
+  if (!getDeskewElement('deskew-results')) {
+    const results = document.createElement('div');
+    results.id = 'deskew-results';
+    results.className = 'hidden rounded-lg border border-gray-200 dark:border-gray-700 p-4';
+    results.innerHTML = `
+      <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Deskew Results</h3>
+      <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+        Total pages: <span id="deskew-result-total">0</span> | Corrected pages: <span id="deskew-result-corrected">0</span>
+      </p>
+      <div id="deskew-angles-list" class="space-y-1"></div>
+    `;
+    body.appendChild(results);
+  }
+
+  let actionRow = getDeskewElement('deskew-action-row');
+  if (!actionRow) {
+    actionRow = document.createElement('div');
+    actionRow.id = 'deskew-action-row';
+    actionRow.className = 'flex justify-center';
+    body.appendChild(actionRow);
+  }
+
+  const processBtn = panelRoot.querySelector('button');
+  if (processBtn && processBtn.id !== 'deskew-process-btn') {
+    processBtn.id = 'deskew-process-btn';
+  }
+
+  if (processBtn && actionRow && processBtn.parentElement !== actionRow) {
+    actionRow.appendChild(processBtn);
   }
 }
 
-function hideLoader(): void {
-  const loader = document.getElementById('loader-modal');
-  if (loader) {
-    loader.classList.add('hidden');
-  }
-}
+function renderFiles() {
+  const fileArea = getDeskewElement('deskew-file-display-area');
+  const processBtn = getDeskewElement<HTMLButtonElement>('deskew-process-btn');
+  const results = getDeskewElement('deskew-results');
 
-function showAlert(title: string, message: string): void {
-  const modal = document.getElementById('alert-modal');
-  const titleEl = document.getElementById('alert-title');
-  const msgEl = document.getElementById('alert-message');
-  if (modal && titleEl && msgEl) {
-    titleEl.textContent = title;
-    msgEl.textContent = message;
-    modal.classList.remove('hidden');
-  }
-}
+  if (!fileArea) return;
 
-function updateFileDisplay(): void {
-  const fileDisplayArea = document.getElementById('file-display-area');
-  const fileControls = document.getElementById('file-controls');
-  const deskewOptions = document.getElementById('deskew-options');
-  const resultsArea = document.getElementById('results-area');
-
-  if (!fileDisplayArea || !fileControls || !deskewOptions || !resultsArea)
-    return;
-
-  resultsArea.classList.add('hidden');
+  if (results) results.classList.add('hidden');
 
   if (selectedFiles.length === 0) {
-    fileDisplayArea.innerHTML = '';
-    fileControls.classList.add('hidden');
-    deskewOptions.classList.add('hidden');
+    fileArea.innerHTML =
+      '<p class="text-sm text-gray-500 dark:text-gray-400">Upload one or more PDF files to deskew.</p>';
+    if (processBtn) processBtn.disabled = true;
     return;
   }
 
-  fileControls.classList.remove('hidden');
-  deskewOptions.classList.remove('hidden');
+  if (processBtn) processBtn.disabled = false;
 
-  fileDisplayArea.innerHTML = selectedFiles
+  fileArea.innerHTML = selectedFiles
     .map(
       (file, index) => `
-      <div class="flex items-center justify-between bg-gray-700 p-3 rounded-lg">
-        <div class="flex items-center gap-3">
+      <div class="flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm">
+        <div class="flex items-center gap-3 min-w-0">
           <i data-lucide="file-text" class="w-5 h-5 text-indigo-400"></i>
-          <span class="text-gray-200 truncate max-w-xs">${file.name}</span>
-          <span class="text-gray-500 text-sm">(${(file.size / 1024).toFixed(1)} KB)</span>
+          <span class="text-gray-200 truncate">${file.name}</span>
+          <span class="text-gray-400">(${(file.size / 1024).toFixed(1)} KB)</span>
         </div>
-        <button class="remove-file text-gray-400 hover:text-red-400" data-index="${index}">
+        <button class="deskew-remove-file text-gray-400 hover:text-red-400" data-index="${index}" type="button">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
@@ -88,31 +172,30 @@ function updateFileDisplay(): void {
 
   createIcons({ icons });
 
-  fileDisplayArea.querySelectorAll('.remove-file').forEach((btn) => {
+  fileArea.querySelectorAll('.deskew-remove-file').forEach((btn) => {
     btn.addEventListener('click', (e) => {
-      const index = parseInt(
-        (e.currentTarget as HTMLElement).dataset.index || '0',
-        10
-      );
-      selectedFiles.splice(index, 1);
-      updateFileDisplay();
+      const index = parseInt((e.currentTarget as HTMLElement).dataset.index || '-1', 10);
+      if (index >= 0) {
+        selectedFiles.splice(index, 1);
+        renderFiles();
+      }
     });
   });
 }
 
-function displayResults(result: DeskewResult): void {
-  const resultsArea = document.getElementById('results-area');
-  const totalEl = document.getElementById('result-total');
-  const correctedEl = document.getElementById('result-corrected');
-  const anglesList = document.getElementById('angles-list');
+function displayResults(result: DeskewResult) {
+  const results = getDeskewElement('deskew-results');
+  const total = getDeskewElement('deskew-result-total');
+  const corrected = getDeskewElement('deskew-result-corrected');
+  const angles = getDeskewElement('deskew-angles-list');
 
-  if (!resultsArea || !totalEl || !correctedEl || !anglesList) return;
+  if (!results || !total || !corrected || !angles) return;
 
-  resultsArea.classList.remove('hidden');
-  totalEl.textContent = result.totalPages.toString();
-  correctedEl.textContent = result.correctedPages.toString();
+  results.classList.remove('hidden');
+  total.textContent = String(result.totalPages);
+  corrected.textContent = String(result.correctedPages);
 
-  anglesList.innerHTML = result.angles
+  angles.innerHTML = result.angles
     .map((angle, idx) => {
       const wasCorrected = result.corrected[idx];
       const color = wasCorrected ? 'text-green-400' : 'text-gray-400';
@@ -131,131 +214,85 @@ function displayResults(result: DeskewResult): void {
   createIcons({ icons });
 }
 
-async function processDeskew(): Promise<void> {
+async function processDeskew() {
   if (selectedFiles.length === 0) {
-    showAlert('No Files', 'Please select at least one PDF file.');
+    showAlert('No Files', 'Please upload at least one PDF file first.');
     return;
   }
 
-  // Check if PyMuPDF is configured
   if (!isWasmAvailable('pymupdf')) {
     showWasmRequiredDialog('pymupdf');
     return;
   }
 
-  const thresholdSelect = document.getElementById(
-    'deskew-threshold'
-  ) as HTMLSelectElement;
-  const dpiSelect = document.getElementById('deskew-dpi') as HTMLSelectElement;
+  const threshold = parseFloat(
+    getDeskewElement<HTMLSelectElement>('deskew-threshold')?.value || '0.5'
+  );
+  const dpi = parseInt(getDeskewElement<HTMLSelectElement>('deskew-dpi')?.value || '150', 10);
 
-  const threshold = parseFloat(thresholdSelect?.value || '0.5');
-  const dpi = parseInt(dpiSelect?.value || '150', 10);
-
-  showLoader('Initializing PyMuPDF...');
+  setProcessButtonLoading(true);
 
   try {
+    selectedFiles = await batchDecryptIfNeeded(selectedFiles);
+    if (selectedFiles.length === 0) {
+      showAlert('No Files', 'No files available after decrypt step.');
+      renderFiles();
+      return;
+    }
+
+    showLoader('Initializing PyMuPDF...');
     const pdf = await initPyMuPDF();
     await pdf.load();
 
     for (const file of selectedFiles) {
       showLoader(`Deskewing ${file.name}...`);
-
-      const { pdf: resultPdf, result } = await pdf.deskewPdf(file, {
-        threshold,
-        dpi,
-      });
-
+      const { pdf: resultPdf, result } = await pdf.deskewPdf(file, { threshold, dpi });
       displayResults(result);
-
-      const filename = file.name.replace('.pdf', '_deskewed.pdf');
-      downloadFile(resultPdf, filename);
+      downloadFile(resultPdf, getDeskewOutputFileName(file.name));
     }
 
     hideLoader();
     showAlert(
       'Success',
-      `Deskewed ${selectedFiles.length} file(s). ${selectedFiles.length > 1 ? 'Downloads started for all files.' : ''}`
+      `Deskewed ${selectedFiles.length} file(s). ${selectedFiles.length > 1 ? 'Downloads started for all files.' : ''}`,
+      'success'
     );
   } catch (error) {
     hideLoader();
     console.error('Deskew error:', error);
     showAlert(
       'Error',
-      `Failed to deskew PDF: ${error instanceof Error ? error.message : 'Unknown error'}`
+      `Failed to deskew PDF: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      'error'
     );
+  } finally {
+    setProcessButtonLoading(false);
   }
 }
 
-function initPage(): void {
-  const fileInput = document.getElementById('file-input') as HTMLInputElement;
-  const dropZone = document.getElementById('drop-zone');
-  const addMoreBtn = document.getElementById('add-more-btn');
-  const clearFilesBtn = document.getElementById('clear-files-btn');
-  const processBtn = document.getElementById('process-btn');
-  const alertOk = document.getElementById('alert-ok');
-  const backBtn = document.getElementById('back-to-tools');
-
-  if (fileInput) {
-    fileInput.addEventListener('change', () => {
-      if (fileInput.files) {
-        selectedFiles = [...selectedFiles, ...Array.from(fileInput.files)];
-        updateFileDisplay();
-        fileInput.value = '';
-      }
-    });
+export function setupDeskewPage() {
+  const container = document.getElementById('deskew-container');
+  if (container) {
+    container.classList.remove('hidden');
   }
 
-  if (dropZone) {
-    dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropZone.classList.add('bg-gray-700');
-    });
+  ensureDeskewUi();
 
-    dropZone.addEventListener('dragleave', () => {
-      dropZone.classList.remove('bg-gray-700');
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('bg-gray-700');
-      if (e.dataTransfer?.files) {
-        const pdfFiles = Array.from(e.dataTransfer.files).filter(
-          (f) => f.type === 'application/pdf'
-        );
-        selectedFiles = [...selectedFiles, ...pdfFiles];
-        updateFileDisplay();
-      }
-    });
+  if (state.files.length > 0) {
+    selectedFiles = [...state.files];
   }
 
-  if (addMoreBtn) {
-    addMoreBtn.addEventListener('click', () => fileInput?.click());
-  }
+  renderFiles();
 
-  if (clearFilesBtn) {
-    clearFilesBtn.addEventListener('click', () => {
-      selectedFiles = [];
-      updateFileDisplay();
-    });
-  }
+  if (isDeskewSetup) return;
+  isDeskewSetup = true;
 
+  const processBtn = getDeskewElement<HTMLButtonElement>('deskew-process-btn');
   if (processBtn) {
-    processBtn.addEventListener('click', processDeskew);
-  }
-
-  if (alertOk) {
-    alertOk.addEventListener('click', () => {
-      document.getElementById('alert-modal')?.classList.add('hidden');
-    });
-  }
-
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      window.location.href = '/';
+    processBtn.addEventListener('click', () => {
+      void processDeskew();
     });
   }
 
   createIcons({ icons });
 }
-
-document.addEventListener('DOMContentLoaded', initPage);

@@ -1,4 +1,4 @@
-import { showAlert } from '../ui';
+import { showAlert } from '../components/ui';
 import { downloadFile, formatBytes } from '../utils/helpers';
 import { icons, createIcons } from 'lucide';
 import { SanitizePdfState } from '@/types';
@@ -33,8 +33,7 @@ async function updateUI() {
 
   if (pageState.file) {
     const fileDiv = document.createElement('div');
-    fileDiv.className =
-      'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+    fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
 
     const infoContainer = document.createElement('div');
     infoContainer.className = 'flex flex-col overflow-hidden';
@@ -69,10 +68,7 @@ async function updateUI() {
 async function handleFileSelect(files: FileList | null) {
   if (files && files.length > 0) {
     const file = files[0];
-    if (
-      file.type === 'application/pdf' ||
-      file.name.toLowerCase().endsWith('.pdf')
-    ) {
+    if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
       pageState.file = file;
       updateUI();
     }
@@ -157,42 +153,29 @@ async function runSanitize() {
 
   try {
     const options: SanitizeOptions = {
-      flattenForms: (
-        document.getElementById('flatten-forms') as HTMLInputElement
-      )?.checked || false,
-      removeMetadata: (
-        document.getElementById('remove-metadata') as HTMLInputElement
-      )?.checked || false,
-      removeAnnotations: (
-        document.getElementById('remove-annotations') as HTMLInputElement
-      )?.checked || false,
-      removeJavascript: (
-        document.getElementById('remove-javascript') as HTMLInputElement
-      )?.checked || false,
-      removeEmbeddedFiles: (
-        document.getElementById('remove-embedded-files') as HTMLInputElement
-      )?.checked || false,
-      removeLayers: (
-        document.getElementById('remove-layers') as HTMLInputElement
-      )?.checked || false,
-      removeLinks: (document.getElementById('remove-links') as HTMLInputElement)
-        ?.checked || false,
-      removeStructureTree: (
-        document.getElementById('remove-structure-tree') as HTMLInputElement
-      )?.checked || false,
-      removeMarkInfo: (
-        document.getElementById('remove-markinfo') as HTMLInputElement
-      )?.checked || false,
-      removeFonts: (document.getElementById('remove-fonts') as HTMLInputElement)
-        ?.checked || false,
+      flattenForms:
+        (document.getElementById('flatten-forms') as HTMLInputElement)?.checked || false,
+      removeMetadata:
+        (document.getElementById('remove-metadata') as HTMLInputElement)?.checked || false,
+      removeAnnotations:
+        (document.getElementById('remove-annotations') as HTMLInputElement)?.checked || false,
+      removeJavascript:
+        (document.getElementById('remove-javascript') as HTMLInputElement)?.checked || false,
+      removeEmbeddedFiles:
+        (document.getElementById('remove-embedded-files') as HTMLInputElement)?.checked || false,
+      removeLayers:
+        (document.getElementById('remove-layers') as HTMLInputElement)?.checked || false,
+      removeLinks: (document.getElementById('remove-links') as HTMLInputElement)?.checked || false,
+      removeStructureTree:
+        (document.getElementById('remove-structure-tree') as HTMLInputElement)?.checked || false,
+      removeMarkInfo:
+        (document.getElementById('remove-markinfo') as HTMLInputElement)?.checked || false,
+      removeFonts: (document.getElementById('remove-fonts') as HTMLInputElement)?.checked || false,
     };
 
     const hasAnyOption = Object.values(options).some(Boolean);
     if (!hasAnyOption) {
-      showAlert(
-        'No Changes',
-        'Please select at least one sanitization option.'
-      );
+      showAlert('No Changes', 'Please select at least one sanitization option.');
       if (loaderModal) loaderModal.classList.add('hidden');
       return;
     }
@@ -200,18 +183,10 @@ async function runSanitize() {
     const arrayBuffer = await pageState.file.arrayBuffer();
     const result = await sanitizePdfDocument(new Uint8Array(arrayBuffer), options);
 
-    downloadFile(
-      new Blob([result], { type: 'application/pdf' }),
-      'sanitized.pdf'
-    );
-    showAlert(
-      'Success',
-      'PDF has been sanitized and downloaded.',
-      'success',
-      () => {
-        resetState();
-      }
-    );
+    downloadFile(new Blob([result], { type: 'application/pdf' }), 'sanitized.pdf');
+    showAlert('Success', 'PDF has been sanitized and downloaded.', 'success', () => {
+      resetState();
+    });
   } catch (e: any) {
     console.error('Sanitization Error:', e);
     showAlert('Error', `An error occurred during sanitization: ${e.message}`);
@@ -228,7 +203,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (backBtn) {
     backBtn.addEventListener('click', function () {
-      window.location.href = (process.env.BASE_URL || '/');
+      window.location.href = process.env.BASE_URL || '/';
     });
   }
 

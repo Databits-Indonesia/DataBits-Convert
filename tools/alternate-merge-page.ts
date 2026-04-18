@@ -1,5 +1,5 @@
 import { AlternateMergeState } from '@/types';
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile, formatBytes, getPDFDocument } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import Sortable from 'sortablejs';

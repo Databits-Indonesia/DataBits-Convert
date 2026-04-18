@@ -1,4 +1,4 @@
-import { showAlert } from '../ui';
+import { showAlert } from '../components/ui';
 import { downloadFile, formatBytes } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument as PDFLibDocument, PDFName, PDFString } from 'pdf-lib';
@@ -20,7 +20,7 @@ export async function editMetadataPdf(file: File, options: EditMetadataOptions):
     const arrayBuffer = await file.arrayBuffer();
     const pdfDoc = await PDFLibDocument.load(arrayBuffer, {
       ignoreEncryption: true,
-      throwOnInvalidObject: false
+      throwOnInvalidObject: false,
     });
 
     // Set standard metadata fields
@@ -29,15 +29,15 @@ export async function editMetadataPdf(file: File, options: EditMetadataOptions):
     if (options.subject !== undefined) pdfDoc.setSubject(options.subject);
     if (options.creator !== undefined) pdfDoc.setCreator(options.creator);
     if (options.producer !== undefined) pdfDoc.setProducer(options.producer);
-    
+
     if (options.keywords !== undefined) {
       pdfDoc.setKeywords(options.keywords);
     }
-    
+
     if (options.creationDate) {
       pdfDoc.setCreationDate(options.creationDate);
     }
-    
+
     if (options.modificationDate) {
       pdfDoc.setModificationDate(options.modificationDate);
     } else {
@@ -49,8 +49,14 @@ export async function editMetadataPdf(file: File, options: EditMetadataOptions):
       // @ts-expect-error getInfoDict is private but accessible at runtime
       const infoDict = pdfDoc.getInfoDict();
       const standardKeys = new Set([
-        'Title', 'Author', 'Subject', 'Keywords', 'Creator',
-        'Producer', 'CreationDate', 'ModDate'
+        'Title',
+        'Author',
+        'Subject',
+        'Keywords',
+        'Creator',
+        'Producer',
+        'CreationDate',
+        'ModDate',
       ]);
 
       // Remove existing custom keys
@@ -85,7 +91,7 @@ export async function getMetadataPdf(file: File): Promise<EditMetadataOptions> {
     const arrayBuffer = await file.arrayBuffer();
     const pdfDoc = await PDFLibDocument.load(arrayBuffer, {
       ignoreEncryption: true,
-      throwOnInvalidObject: false
+      throwOnInvalidObject: false,
     });
 
     const metadata: EditMetadataOptions = {
@@ -97,7 +103,7 @@ export async function getMetadataPdf(file: File): Promise<EditMetadataOptions> {
       producer: pdfDoc.getProducer() || '',
       creationDate: pdfDoc.getCreationDate(),
       modificationDate: pdfDoc.getModificationDate(),
-      customFields: {}
+      customFields: {},
     };
 
     // Extract custom fields
@@ -105,8 +111,14 @@ export async function getMetadataPdf(file: File): Promise<EditMetadataOptions> {
       // @ts-expect-error getInfoDict is private but accessible at runtime
       const infoDict = pdfDoc.getInfoDict();
       const standardKeys = new Set([
-        'Title', 'Author', 'Subject', 'Keywords', 'Creator',
-        'Producer', 'CreationDate', 'ModDate'
+        'Title',
+        'Author',
+        'Subject',
+        'Keywords',
+        'Creator',
+        'Producer',
+        'CreationDate',
+        'ModDate',
       ]);
 
       const allKeys = infoDict

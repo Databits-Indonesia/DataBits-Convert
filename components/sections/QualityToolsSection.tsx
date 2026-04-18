@@ -1,12 +1,33 @@
 import React from 'react';
 import SimpleToolPanel from '../SimpleToolPanel';
 import { qualitySimplePanels } from '../../app/lib/tool-panels-config';
+import { setupDeskewPage } from '../../tools/deskew-pdf-page';
+import { setupFixPageSizeTool } from '../../tools/fix-page-size-page';
+import { setupScannerEffectPage } from '../../tools/scanner-effect-page';
+import { repairPdf } from '../../tools/repair-pdf';
+import { scanToPdf } from '../../tools/scan-to-pdf';
 
 const QualityToolsSection: React.FC = () => {
   return (
     <>
       {qualitySimplePanels.map((panel) => (
-        <SimpleToolPanel key={panel.containerId} {...panel} />
+        <SimpleToolPanel
+          key={panel.containerId}
+          {...panel}
+          onAction={
+            panel.containerId === 'deskew-container'
+              ? setupDeskewPage
+              : panel.containerId === 'repair-container'
+                ? repairPdf
+                : panel.containerId === 'fix-page-size-container'
+                  ? setupFixPageSizeTool
+                  : panel.containerId === 'scanner-effect-container'
+                    ? setupScannerEffectPage
+                    : panel.containerId === 'scan-to-pdf-container'
+                      ? scanToPdf
+                      : undefined
+          }
+        />
       ))}
 
       <div id="remove-blank-pages-container" className="hidden max-w-6xl mx-auto mt-8">

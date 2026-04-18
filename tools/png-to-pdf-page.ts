@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile } from '../utils/helpers';
 import { getFiles } from '../state';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
@@ -37,7 +37,11 @@ export async function pngToPdf() {
     }
 
     if (pngFiles.length < selectedFiles.length) {
-      showAlert('Invalid Files', `Only ${pngFiles.length} of ${selectedFiles.length} files were PNG images.`, 'warning');
+      showAlert(
+        'Invalid Files',
+        `Only ${pngFiles.length} of ${selectedFiles.length} files were PNG images.`,
+        'warning'
+      );
     }
 
     // Process the valid files
@@ -59,7 +63,7 @@ export async function pngToPdf() {
         canvas.height = imageBitmap.height;
         const ctx = canvas.getContext('2d');
         if (!ctx) throw new Error('Could not get canvas context');
-        
+
         ctx.drawImage(imageBitmap, 0, 0);
 
         // Convert to PNG
@@ -69,7 +73,7 @@ export async function pngToPdf() {
             else reject(new Error('Failed to create PNG blob'));
           }, 'image/png');
         });
-        
+
         const pngBytes = new Uint8Array(await pngBlob.arrayBuffer());
 
         // Embed the PNG image in the PDF

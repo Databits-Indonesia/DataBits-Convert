@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile, readFileAsArrayBuffer } from '../utils/helpers';
 import { getFiles } from '../state';
 import JSZip from 'jszip';
@@ -12,7 +12,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 
 export async function pdfToTiff() {
   const files = getFiles();
-  
+
   if (files.length === 0) {
     showAlert('No File', 'Please upload a PDF file first.');
     return;
@@ -23,38 +23,40 @@ export async function pdfToTiff() {
   try {
     const file = files[0];
     const arrayBuffer = await readFileAsArrayBuffer(file);
-    
+
     const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
     const pdf = await loadingTask.promise;
-    
+
     const zip = new JSZip();
-    
+
     const dpiInput = document.getElementById('pdf-to-tiff-dpi') as HTMLSelectElement;
     const dpi = dpiInput ? parseFloat(dpiInput.value) : 150;
     const scale = dpi / 72;
 
-    const compressionInput = document.getElementById('pdf-to-tiff-compression') as HTMLSelectElement;
+    const compressionInput = document.getElementById(
+      'pdf-to-tiff-compression'
+    ) as HTMLSelectElement;
     const compression = compressionInput ? compressionInput.value : 'none';
 
     for (let i = 1; i <= pdf.numPages; i++) {
       showLoader(`Converting page ${i} of ${pdf.numPages}...`);
-      
+
       const page = await pdf.getPage(i);
       const viewport = page.getViewport({ scale });
-      
+
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
-      
+
       if (!context) {
         throw new Error('Could not get canvas context');
       }
-      
+
       canvas.height = viewport.height;
       canvas.width = viewport.width;
 
       await page.render({
         canvasContext: context,
-        viewport: viewport
+        viewport: viewport,
       }).promise;
 
       const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
@@ -80,17 +82,14 @@ export async function pdfToTiff() {
     showLoader('Creating ZIP file...');
     const zipBlob = await zip.generateAsync({ type: 'blob' });
     const fileName = file.name.replace(/\.pdf$/i, '_images.zip');
-    
+
     downloadFile(zipBlob, fileName);
-    
+
     hideLoader();
     showAlert('Success', 'PDF converted to TIFF images successfully!', 'success');
   } catch (error: any) {
     console.error('[PDF2TIFF] Error:', error);
     hideLoader();
-    showAlert(
-      'Error',
-      `An error occurred during conversion. ${error.message}`
-    );
+    showAlert('Error', `An error occurred during conversion. ${error.message}`);
   }
 }

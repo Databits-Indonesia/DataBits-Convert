@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile } from '../utils/helpers';
 import { getFiles } from '../state';
 import jsPDF from 'jspdf';
@@ -31,8 +31,8 @@ export async function mdToPdf() {
 
     // Validate Markdown files
     const mdFiles = Array.from(selectedFiles).filter(
-      (file) => 
-        file.type === 'text/markdown' || 
+      (file) =>
+        file.type === 'text/markdown' ||
         file.name.toLowerCase().endsWith('.md') ||
         file.name.toLowerCase().endsWith('.markdown')
     );
@@ -70,7 +70,7 @@ export async function mdToPdf() {
       console.log('[MD2PDF] Converting single file:', originalFile.name);
 
       const text = await originalFile.text();
-      
+
       if (!text.trim()) {
         throw new Error('Markdown file is empty');
       }
@@ -87,13 +87,13 @@ export async function mdToPdf() {
 
       // Add icon and title
       const title = originalFile.name.replace(/\.(md|markdown)$/i, '');
-      
+
       // Add document icon (using text symbol)
       pdf.setFontSize(16);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(59, 130, 246); // Blue color
       pdf.text('[MD]', 14, 15);
-      
+
       // Add title (filename without extension)
       pdf.setTextColor(0, 0, 0); // Reset to black
       pdf.text(title, 34, 15);
@@ -127,7 +127,7 @@ export async function mdToPdf() {
 
         try {
           const text = await file.text();
-          
+
           if (!text.trim()) {
             console.warn(`[MD2PDF] Skipping empty file: ${file.name}`);
             continue;
@@ -145,13 +145,13 @@ export async function mdToPdf() {
 
           // Add icon and title
           const title = file.name.replace(/\.(md|markdown)$/i, '');
-          
+
           // Add document icon (using text symbol)
           pdf.setFontSize(16);
           pdf.setFont('helvetica', 'bold');
           pdf.setTextColor(59, 130, 246); // Blue color
           pdf.text('[MD]', 14, 15);
-          
+
           // Add title (filename without extension)
           pdf.setTextColor(0, 0, 0); // Reset to black
           pdf.text(title, 34, 15);
@@ -202,7 +202,7 @@ async function renderHTMLToPDF(pdf: jsPDF, htmlContent: string, startY: number) 
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
   const margin = 14;
-  const maxWidth = pageWidth - (margin * 2);
+  const maxWidth = pageWidth - margin * 2;
   let y = startY;
 
   // Process each element
@@ -255,7 +255,7 @@ async function renderHTMLToPDF(pdf: jsPDF, htmlContent: string, startY: number) 
           const bullet = tagName === 'ul' ? '•' : `${j + 1}.`;
           const text = li.textContent || '';
           const lines = pdf.splitTextToSize(`${bullet} ${text}`, maxWidth - 5);
-          
+
           for (const line of lines) {
             if (y > pageHeight - 20) {
               pdf.addPage();
@@ -288,7 +288,7 @@ async function renderHTMLToPDF(pdf: jsPDF, htmlContent: string, startY: number) 
     const text = element.textContent || '';
     if (text.trim()) {
       const lines = pdf.splitTextToSize(text, maxWidth);
-      
+
       for (const line of lines) {
         if (y > pageHeight - 20) {
           pdf.addPage();
@@ -301,7 +301,7 @@ async function renderHTMLToPDF(pdf: jsPDF, htmlContent: string, startY: number) 
 
     // Reset formatting
     pdf.setTextColor(0, 0, 0);
-    
+
     // Add spacing after element
     y += tagName.startsWith('h') ? 6 : 4;
   }

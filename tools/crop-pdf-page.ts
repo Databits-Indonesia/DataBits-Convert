@@ -1,11 +1,6 @@
 import { createIcons, icons } from 'lucide';
-import { showLoader, hideLoader, showAlert } from '../ui';
-import {
-  downloadFile,
-  readFileAsArrayBuffer,
-  formatBytes,
-  getPDFDocument,
-} from '../utils/helpers';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
+import { downloadFile, readFileAsArrayBuffer, formatBytes, getPDFDocument } from '../utils/helpers';
 import Cropper from 'cropperjs';
 import * as pdfjsLib from 'pdfjs-dist';
 import { PDFDocument as PDFLibDocument } from 'pdf-lib';
@@ -60,18 +55,12 @@ function initializePage() {
   }
 
   document.getElementById('back-to-tools')?.addEventListener('click', () => {
-    window.location.href = (process.env.BASE_URL || '/');
+    window.location.href = process.env.BASE_URL || '/';
   });
 
-  document
-    .getElementById('prev-page')
-    ?.addEventListener('click', () => changePage(-1));
-  document
-    .getElementById('next-page')
-    ?.addEventListener('click', () => changePage(1));
-  document
-    .getElementById('crop-button')
-    ?.addEventListener('click', performCrop);
+  document.getElementById('prev-page')?.addEventListener('click', () => changePage(-1));
+  document.getElementById('next-page')?.addEventListener('click', () => changePage(1));
+  document.getElementById('crop-button')?.addEventListener('click', performCrop);
 }
 
 function handleFileUpload(e: Event) {
@@ -80,10 +69,7 @@ function handleFileUpload(e: Event) {
 }
 
 async function handleFile(file: File) {
-  if (
-    file.type !== 'application/pdf' &&
-    !file.name.toLowerCase().endsWith('.pdf')
-  ) {
+  if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
     showAlert('Invalid File', 'Please select a PDF file.');
     return;
   }
@@ -116,8 +102,7 @@ function updateFileDisplay() {
 
   fileDisplayArea.innerHTML = '';
   const fileDiv = document.createElement('div');
-  fileDiv.className =
-    'flex items-center justify-between bg-gray-700 p-3 rounded-lg';
+  fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg';
 
   const infoContainer = document.createElement('div');
   infoContainer.className = 'flex flex-col flex-1 min-w-0';
@@ -234,21 +219,17 @@ function enableControls() {
   const cropBtn = document.getElementById('crop-button') as HTMLButtonElement;
 
   if (prevBtn) prevBtn.disabled = cropperState.currentPageNum <= 1;
-  if (nextBtn)
-    nextBtn.disabled =
-      cropperState.currentPageNum >= cropperState.pdfDoc.numPages;
+  if (nextBtn) nextBtn.disabled = cropperState.currentPageNum >= cropperState.pdfDoc.numPages;
   if (cropBtn) cropBtn.disabled = false;
 }
 
 async function performCrop() {
   saveCurrentCrop();
 
-  const isDestructive = (
-    document.getElementById('destructive-crop-toggle') as HTMLInputElement
-  )?.checked;
-  const isApplyToAll = (
-    document.getElementById('apply-to-all-toggle') as HTMLInputElement
-  )?.checked;
+  const isDestructive = (document.getElementById('destructive-crop-toggle') as HTMLInputElement)
+    ?.checked;
+  const isApplyToAll = (document.getElementById('apply-to-all-toggle') as HTMLInputElement)
+    ?.checked;
 
   let finalCropData: Record<number, any> = {};
 
@@ -266,10 +247,7 @@ async function performCrop() {
   }
 
   if (Object.keys(finalCropData).length === 0) {
-    showAlert(
-      'No Crop Area',
-      'Please select an area on at least one page to crop.'
-    );
+    showAlert('No Crop Area', 'Please select an area on at least one page to crop.');
     return;
   }
 
@@ -284,15 +262,9 @@ async function performCrop() {
     }
 
     const fileName = isDestructive ? 'flattened_crop.pdf' : 'standard_crop.pdf';
-    downloadFile(
-      new Blob([finalPdfBytes], { type: 'application/pdf' }),
-      fileName
-    );
-    showAlert(
-      'Success',
-      'Crop complete! Your download has started.',
-      'success',
-      () => resetState()
+    downloadFile(new Blob([finalPdfBytes], { type: 'application/pdf' }), fileName);
+    showAlert('Success', 'Crop complete! Your download has started.', 'success', () =>
+      resetState()
     );
   } catch (e) {
     console.error(e);
@@ -302,13 +274,11 @@ async function performCrop() {
   }
 }
 
-async function performMetadataCrop(
-  cropData: Record<number, any>
-): Promise<Uint8Array> {
-  const pdfToModify = await PDFLibDocument.load(
-    cropperState.originalPdfBytes!,
-    { ignoreEncryption: true, throwOnInvalidObject: false }
-  );
+async function performMetadataCrop(cropData: Record<number, any>): Promise<Uint8Array> {
+  const pdfToModify = await PDFLibDocument.load(cropperState.originalPdfBytes!, {
+    ignoreEncryption: true,
+    throwOnInvalidObject: false,
+  });
 
   for (const pageNum in cropData) {
     const pdfJsPage = await cropperState.pdfDoc.getPage(Number(pageNum));
@@ -327,9 +297,7 @@ async function performMetadataCrop(
       { x: cropX, y: cropY + cropH },
     ];
 
-    const pdfCorners = visualCorners.map((p) =>
-      viewport.convertToPdfPoint(p.x, p.y)
-    );
+    const pdfCorners = visualCorners.map((p) => viewport.convertToPdfPoint(p.x, p.y));
     const pdfXs = pdfCorners.map((p) => p[0]);
     const pdfYs = pdfCorners.map((p) => p[1]);
 
@@ -345,14 +313,12 @@ async function performMetadataCrop(
   return pdfToModify.save();
 }
 
-async function performFlatteningCrop(
-  cropData: Record<number, any>
-): Promise<Uint8Array> {
+async function performFlatteningCrop(cropData: Record<number, any>): Promise<Uint8Array> {
   const newPdfDoc = await PDFLibDocument.create();
-  const sourcePdfDocForCopying = await PDFLibDocument.load(
-    cropperState.originalPdfBytes!,
-    { ignoreEncryption: true, throwOnInvalidObject: false }
-  );
+  const sourcePdfDocForCopying = await PDFLibDocument.load(cropperState.originalPdfBytes!, {
+    ignoreEncryption: true,
+    throwOnInvalidObject: false,
+  });
   const totalPages = cropperState.pdfDoc.numPages;
 
   for (let i = 0; i < totalPages; i++) {
@@ -390,11 +356,7 @@ async function performFlatteningCrop(
       );
 
       const pngBytes = await new Promise<ArrayBuffer>((res) =>
-        finalCanvas.toBlob(
-          (blob) => blob?.arrayBuffer().then(res),
-          'image/jpeg',
-          0.9
-        )
+        finalCanvas.toBlob((blob) => blob?.arrayBuffer().then(res), 'image/jpeg', 0.9)
       );
       const embeddedImage = await newPdfDoc.embedPng(pngBytes);
       const newPage = newPdfDoc.addPage([finalWidth, finalHeight]);
@@ -405,9 +367,7 @@ async function performFlatteningCrop(
         height: finalHeight,
       });
     } else {
-      const [copiedPage] = await newPdfDoc.copyPages(sourcePdfDocForCopying, [
-        i,
-      ]);
+      const [copiedPage] = await newPdfDoc.copyPages(sourcePdfDocForCopying, [i]);
       newPdfDoc.addPage(copiedPage);
     }
   }

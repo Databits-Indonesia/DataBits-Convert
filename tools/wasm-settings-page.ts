@@ -1,5 +1,5 @@
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui';
+import { showAlert, showLoader, hideLoader } from '../components/ui';
 import { WasmProvider, type WasmPackage } from '../utils/wasm-provider';
 import { clearPyMuPDFCache } from '../utils/pymupdf-loader';
 import { clearGhostscriptCache } from '../utils/ghostscript-dynamic-loader';
@@ -42,22 +42,12 @@ function initializePage() {
   });
 
   const pymupdfUrl = document.getElementById('pymupdf-url') as HTMLInputElement;
-  const pymupdfTest = document.getElementById(
-    'pymupdf-test'
-  ) as HTMLButtonElement;
-  const pymupdfStatus = document.getElementById(
-    'pymupdf-status'
-  ) as HTMLSpanElement;
+  const pymupdfTest = document.getElementById('pymupdf-test') as HTMLButtonElement;
+  const pymupdfStatus = document.getElementById('pymupdf-status') as HTMLSpanElement;
 
-  const ghostscriptUrl = document.getElementById(
-    'ghostscript-url'
-  ) as HTMLInputElement;
-  const ghostscriptTest = document.getElementById(
-    'ghostscript-test'
-  ) as HTMLButtonElement;
-  const ghostscriptStatus = document.getElementById(
-    'ghostscript-status'
-  ) as HTMLSpanElement;
+  const ghostscriptUrl = document.getElementById('ghostscript-url') as HTMLInputElement;
+  const ghostscriptTest = document.getElementById('ghostscript-test') as HTMLButtonElement;
+  const ghostscriptStatus = document.getElementById('ghostscript-status') as HTMLSpanElement;
 
   const cpdfUrl = document.getElementById('cpdf-url') as HTMLInputElement;
   const cpdfTest = document.getElementById('cpdf-test') as HTMLButtonElement;
@@ -68,7 +58,7 @@ function initializePage() {
   const backBtn = document.getElementById('back-to-tools');
 
   backBtn?.addEventListener('click', () => {
-    window.location.href = (process.env.BASE_URL || '/');
+    window.location.href = process.env.BASE_URL || '/';
   });
 
   loadConfiguration();
@@ -96,11 +86,7 @@ function initializePage() {
     }
   }
 
-  function updateStatus(
-    packageName: WasmPackage,
-    configured: boolean,
-    testing = false
-  ) {
+  function updateStatus(packageName: WasmPackage, configured: boolean, testing = false) {
     const statusMap: Record<WasmPackage, HTMLSpanElement> = {
       pymupdf: pymupdfStatus,
       ghostscript: ghostscriptStatus,
@@ -112,20 +98,16 @@ function initializePage() {
 
     if (testing) {
       statusEl.textContent = 'Testing...';
-      statusEl.className =
-        'text-xs px-2 py-1 rounded-full bg-yellow-600/30 text-yellow-300';
+      statusEl.className = 'text-xs px-2 py-1 rounded-full bg-yellow-600/30 text-yellow-300';
     } else if (configured && WasmProvider.isUserConfigured(packageName)) {
       statusEl.textContent = 'Custom Override';
-      statusEl.className =
-        'text-xs px-2 py-1 rounded-full bg-blue-600/30 text-blue-300';
+      statusEl.className = 'text-xs px-2 py-1 rounded-full bg-blue-600/30 text-blue-300';
     } else if (configured || WasmProvider.hasEnvDefault(packageName)) {
       statusEl.textContent = 'Pre-configured';
-      statusEl.className =
-        'text-xs px-2 py-1 rounded-full bg-green-600/30 text-green-300';
+      statusEl.className = 'text-xs px-2 py-1 rounded-full bg-green-600/30 text-green-300';
     } else {
       statusEl.textContent = 'Not Configured';
-      statusEl.className =
-        'text-xs px-2 py-1 rounded-full bg-gray-600 text-gray-300';
+      statusEl.className = 'text-xs px-2 py-1 rounded-full bg-gray-600 text-gray-300';
     }
   }
 
@@ -148,10 +130,7 @@ function initializePage() {
       );
     } else {
       updateStatus(packageName, false);
-      showAlert(
-        'Connection Failed',
-        result.error || 'Could not connect to the URL.'
-      );
+      showAlert('Connection Failed', result.error || 'Could not connect to the URL.');
     }
   }
 

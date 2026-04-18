@@ -1,11 +1,23 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile, formatBytes } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import JSZip from 'jszip';
-import { isWasmAvailable, getWasmBaseUrl } from '../config/wasm-cdn-config';
-import { showWasmRequiredDialog } from '../utils/wasm-provider';
-import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';
+import { loadPyMuPDF } from '../utils/pymupdf-loader';
+import { state } from '../state';
+
 let file: File | null = null;
+let isExtractTablesSetup = false;
+
+type ExportFormat = 'csv' | 'json' | 'markdown';
+
+interface TableData {
+  page: number;
+  tableIndex: number;
+  rows: (string | null)[][];
+  markdown: string;
+  rowCount: number;
+  colCount: number;
+}
 
 const updateUI = () => {
   const fileDisplayArea = document.getElementById('file-display-area');
@@ -19,8 +31,7 @@ const updateUI = () => {
     optionsPanel.classList.remove('hidden');
 
     const fileDiv = document.createElement('div');
-    fileDiv.className =
-      'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+    fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
 
     const infoContainer = document.createElement('div');
     infoContainer.className = 'flex flex-col overflow-hidden';
@@ -62,11 +73,7 @@ function tableToCsv(rows: (string | null)[][]): string {
       row
         .map((cell) => {
           const cellStr = cell ?? '';
-          if (
-            cellStr.includes(',') ||
-            cellStr.includes('"') ||
-            cellStr.includes('\n')
-          ) {
+          if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
             return `"${cellStr.replace(/"/g, '""')}"`;
           }
           return cellStr;
@@ -82,31 +89,83 @@ async function extract() {
     return;
   }
 
+  void extractTables();
+}
+
+function getSelectedExportFormat(): ExportFormat {
+  const formatSelect = document.getElementById('extract-tables-format') as HTMLSelectElement | null;
+  if (formatSelect) {
+    const value = formatSelect.value;
+    if (value === 'json' || value === 'markdown' || value === 'csv') {
+      return value;
+    }
+  }
+
   const formatRadios = document.querySelectorAll('input[name="export-format"]');
-  let format = 'csv';
+  let format: ExportFormat = 'csv';
+
   formatRadios.forEach((radio: Element) => {
-    if ((radio as HTMLInputElement).checked) {
-      format = (radio as HTMLInputElement).value;
+    const input = radio as HTMLInputElement;
+    if (input.checked) {
+      format = input.value === 'json' ? 'json' : input.value === 'markdown' ? 'markdown' : 'csv';
     }
   });
+
+  return format;
+}
+
+function getExportPayload(
+  table: TableData,
+  format: ExportFormat
+): {
+  content: string;
+  ext: string;
+  mimeType: string;
+} {
+  if (format === 'csv') {
+    return {
+      content: tableToCsv(table.rows),
+      ext: 'csv',
+      mimeType: 'text/csv',
+    };
+  }
+
+  if (format === 'json') {
+    return {
+      content: JSON.stringify(table.rows, null, 2),
+      ext: 'json',
+      mimeType: 'application/json',
+    };
+  }
+
+  return {
+    content: table.markdown,
+    ext: 'md',
+    mimeType: 'text/markdown',
+  };
+}
+
+export async function extractTables() {
+  if (state.files.length > 0 && state.files[0]?.type === 'application/pdf') {
+    file = state.files[0];
+  }
+
+  if (!file) {
+    showAlert('No File', 'Please upload a PDF file first.');
+    return;
+  }
+
+  const format = getSelectedExportFormat();
 
   try {
     showLoader('Loading Engine...');
     const pymupdf = await loadPyMuPDF();
+
     showLoader('Extracting tables...');
 
     const doc = await pymupdf.open(file);
     const pageCount = doc.pageCount;
     const baseName = file.name.replace(/\.[^/.]+$/, '');
-
-    interface TableData {
-      page: number;
-      tableIndex: number;
-      rows: (string | null)[][];
-      markdown: string;
-      rowCount: number;
-      colCount: number;
-    }
 
     const allTables: TableData[] = [];
 
@@ -134,51 +193,18 @@ async function extract() {
 
     if (allTables.length === 1) {
       const table = allTables[0];
-      let content: string;
-      let ext: string;
-      let mimeType: string;
-
-      if (format === 'csv') {
-        content = tableToCsv(table.rows);
-        ext = 'csv';
-        mimeType = 'text/csv';
-      } else if (format === 'json') {
-        content = JSON.stringify(table.rows, null, 2);
-        ext = 'json';
-        mimeType = 'application/json';
-      } else {
-        content = table.markdown;
-        ext = 'md';
-        mimeType = 'text/markdown';
-      }
+      const { content, ext, mimeType } = getExportPayload(table, format);
 
       const blob = new Blob([content], { type: mimeType });
       downloadFile(blob, `${baseName}_table.${ext}`);
-      showAlert(
-        'Success',
-        `Extracted 1 table successfully!`,
-        'success',
-        resetState
-      );
+      showAlert('Success', `Extracted 1 table successfully!`, 'success', resetState);
     } else {
       showLoader('Creating ZIP file...');
       const zip = new JSZip();
 
       allTables.forEach((table, idx) => {
         const filename = `table_${idx + 1}_page${table.page}`;
-        let content: string;
-        let ext: string;
-
-        if (format === 'csv') {
-          content = tableToCsv(table.rows);
-          ext = 'csv';
-        } else if (format === 'json') {
-          content = JSON.stringify(table.rows, null, 2);
-          ext = 'json';
-        } else {
-          content = table.markdown;
-          ext = 'md';
-        }
+        const { content, ext } = getExportPayload(table, format);
 
         zip.file(`${filename}.${ext}`, content);
       });
@@ -195,29 +221,36 @@ async function extract() {
   } catch (e) {
     console.error(e);
     const message = e instanceof Error ? e.message : 'Unknown error';
-    showAlert('Error', `Failed to extract tables. ${message}`);
+
+    if (message.toLowerCase().includes('password') || message.toLowerCase().includes('encrypted')) {
+      showAlert('Password Required', 'This PDF is password-protected and is not supported yet.');
+    } else {
+      showAlert('Error', `Failed to extract tables. ${message}`);
+    }
   } finally {
     hideLoader();
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+export function setupExtractTablesPage() {
+  if (isExtractTablesSetup) return;
+  isExtractTablesSetup = true;
+
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   const dropZone = document.getElementById('drop-zone');
-  const processBtn = document.getElementById('process-btn');
+  const processBtn =
+    document.getElementById('extract-tables-process-btn') ?? document.getElementById('process-btn');
   const backBtn = document.getElementById('back-to-tools');
 
   if (backBtn) {
     backBtn.addEventListener('click', () => {
-      window.location.href = (process.env.BASE_URL || '/');
+      window.location.href = process.env.BASE_URL || '/';
     });
   }
 
   const handleFileSelect = (newFiles: FileList | null) => {
     if (!newFiles || newFiles.length === 0) return;
-    const validFile = Array.from(newFiles).find(
-      (f) => f.type === 'application/pdf'
-    );
+    const validFile = Array.from(newFiles).find((f) => f.type === 'application/pdf');
 
     if (!validFile) {
       showAlert('Invalid File', 'Please upload a PDF file.');
@@ -255,6 +288,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (processBtn) {
-    processBtn.addEventListener('click', extract);
+    processBtn.addEventListener('click', () => {
+      void extractTables();
+    });
   }
-});
+}

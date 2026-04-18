@@ -1,4 +1,4 @@
-import { showLoader, hideLoader, showAlert } from '../ui';
+import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile, formatBytes } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
 import { PDFDocument } from 'pdf-lib';
@@ -16,7 +16,7 @@ let files: File[] = [];
 // Main function to convert to greyscale - exported for use in App.tsx
 export async function convertPdfToGreyscale(): Promise<boolean> {
   const stateFiles = getFiles();
-  
+
   if (stateFiles.length === 0) {
     showAlert('No File', 'Please upload a PDF file first.');
     return false;
@@ -33,7 +33,7 @@ export async function convertPdfToGreyscale(): Promise<boolean> {
 
     for (let i = 1; i <= pdfjsDoc.numPages; i++) {
       showLoader(`Processing page ${i} of ${pdfjsDoc.numPages}...`);
-      
+
       const page = await pdfjsDoc.getPage(i);
       const viewport = page.getViewport({ scale: 2.0 });
       const canvas = document.createElement('canvas');
@@ -43,12 +43,7 @@ export async function convertPdfToGreyscale(): Promise<boolean> {
 
       await page.render({ canvasContext: context!, viewport: viewport }).promise;
 
-      const imageData = context!.getImageData(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-      );
+      const imageData = context!.getImageData(0, 0, canvas.width, canvas.height);
       const greyImageData = toGreyscale(imageData);
       context!.putImageData(greyImageData, 0, 0);
 
@@ -75,13 +70,9 @@ export async function convertPdfToGreyscale(): Promise<boolean> {
       new Blob([new Uint8Array(resultBytes)], { type: 'application/pdf' }),
       `${originalName}_greyscale.pdf`
     );
-    
+
     hideLoader();
-    showAlert(
-      'Success',
-      'PDF converted to greyscale successfully!',
-      'success'
-    );
+    showAlert('Success', 'PDF converted to greyscale successfully!', 'success');
     return true;
   } catch (e: any) {
     console.error(e);
@@ -109,8 +100,7 @@ const updateUI = () => {
     // Render files synchronously first
     files.forEach((file) => {
       const fileDiv = document.createElement('div');
-      fileDiv.className =
-        'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
+      fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg text-sm';
 
       const infoContainer = document.createElement('div');
       infoContainer.className = 'flex flex-col overflow-hidden';
@@ -126,8 +116,7 @@ const updateUI = () => {
       infoContainer.append(nameSpan, metaSpan);
 
       const removeBtn = document.createElement('button');
-      removeBtn.className =
-        'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
+      removeBtn.className = 'ml-4 text-red-400 hover:text-red-300 flex-shrink-0';
       removeBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
       removeBtn.onclick = () => {
         files = [];
@@ -138,7 +127,8 @@ const updateUI = () => {
       fileDisplayArea.appendChild(fileDiv);
 
       // Fetch page count asynchronously
-      file.arrayBuffer()
+      file
+        .arrayBuffer()
         .then((buffer) => {
           const loadingTask = pdfjsLib.getDocument({ data: buffer });
           return loadingTask.promise;
@@ -171,9 +161,9 @@ async function convert() {
     showAlert('No File', 'Please upload a PDF file first.');
     return;
   }
-  
+
   const success = await convertPdfToGreyscale();
-  
+
   if (success) {
     resetState();
   }
@@ -193,9 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const handleFileSelect = (newFiles: FileList | null) => {
     if (!newFiles || newFiles.length === 0) return;
-    const validFiles = Array.from(newFiles).filter(
-      (file) => file.type === 'application/pdf'
-    );
+    const validFiles = Array.from(newFiles).filter((file) => file.type === 'application/pdf');
 
     if (validFiles.length === 0) {
       showAlert('Invalid File', 'Please upload a PDF file.');

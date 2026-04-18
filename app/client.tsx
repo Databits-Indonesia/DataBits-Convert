@@ -75,8 +75,15 @@ import {
   setupRemoveBlankPagesTool as setupRemoveBlankPagesToolImpl,
   setupPageNumbersTool as setupPageNumbersToolImpl,
   setupFixPageSizeTool as setupFixPageSizeToolImpl,
+  setupScannerEffectPage,
   setupNUpTool as setupNUpToolImpl,
   setupOcrTool,
+  setupExtractTablesPage,
+  setupPrepareForAiPage,
+  setupDeskewPage,
+  setupRepairPage,
+  setupBookletPage,
+  setupBatesNumberingPage,
 } from '../tools';
 import { addAttachmentsToPdf } from '../tools/add-attachments-page';
 import { extractAttachmentsFromPdf } from '../tools/extract-attachments-page';
@@ -128,7 +135,7 @@ import {
 } from '../tools/extract-images-page';
 import type { AdjustColorsSettings } from '../types/adjust-colors-type';
 import { state, setFiles } from '../state';
-import { showAlert, showLoader, hideLoader } from '../ui';
+import { showAlert, showLoader, hideLoader } from '../components/ui';
 import { POPULAR_TOOLS } from '../config/constants';
 import { TOOL_CONTAINER_MAP, getUploadConfig, matchesAcceptRule } from './lib/tool-config';
 import { scrollToElement } from './lib/dom-utils';
@@ -1177,19 +1184,37 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
   const setupExtractImagesTool = () => {
     setupGenericTool('extract-images-container');
   };
-  const setupExtractTablesTool = () => setupGenericTool('extract-tables-container');
-  const setupPrepareForAiTool = () => setupGenericTool('prepare-for-ai-container');
+  const setupExtractTablesTool = () => {
+    setupGenericTool('extract-tables-container');
+    setupExtractTablesPage();
+  };
+  const setupPrepareForAiTool = () => {
+    setupGenericTool('prepare-for-ai-container');
+    setupPrepareForAiPage();
+  };
 
   // PDF Quality & Repair Setup Functions
-  const setupDeskewTool = () => setupGenericTool('deskew-container');
-  const setupRepairTool = () => setupGenericTool('repair-container');
+  const setupDeskewTool = () => {
+    setupGenericTool('deskew-container');
+    setupDeskewPage();
+  };
+  const setupRepairTool = () => {
+    setupGenericTool('repair-container');
+    setupRepairPage();
+  };
   const setupFixPageSizeTool = () => setupGenericTool('fix-page-size-container');
-  const setupScannerEffectTool = () => setupGenericTool('scanner-effect-container');
+  const setupScannerEffectTool = () => setupScannerEffectPage();
   const setupScanToPdfTool = () => setupGenericTool('scan-to-pdf-container');
 
   // PDF Formatting & Layout Setup Functions
-  const setupBookletTool = () => setupGenericTool('booklet-container');
-  const setupBatesNumberingTool = () => setupGenericTool('bates-numbering-container');
+  const setupBookletTool = () => {
+    setupGenericTool('booklet-container');
+    setupBookletPage();
+  };
+  const setupBatesNumberingTool = () => {
+    setupGenericTool('bates-numbering-container');
+    setupBatesNumberingPage();
+  };
   const setupTableOfContentsTool = () => setupGenericTool('table-of-contents-container');
   const setupBookmarkTool = () => setupGenericTool('bookmark-container');
   const setupLayersTool = () => setupGenericTool('layers-container');

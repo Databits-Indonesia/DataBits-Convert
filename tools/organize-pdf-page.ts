@@ -1,11 +1,6 @@
 import { createIcons, icons } from 'lucide';
-import { showAlert, showLoader, hideLoader } from '../ui';
-import {
-  readFileAsArrayBuffer,
-  formatBytes,
-  downloadFile,
-  getPDFDocument,
-} from '../utils/helpers';
+import { showAlert, showLoader, hideLoader } from '../components/ui';
+import { readFileAsArrayBuffer, formatBytes, downloadFile, getPDFDocument } from '../utils/helpers';
 import { initPagePreview } from '../utils/page-preview';
 import { PDFDocument } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -70,7 +65,7 @@ function initializePage() {
   if (processBtn) processBtn.addEventListener('click', saveChanges);
 
   document.getElementById('back-to-tools')?.addEventListener('click', () => {
-    window.location.href = (process.env.BASE_URL || '/');
+    window.location.href = process.env.BASE_URL || '/';
   });
 
   const applyOrderBtn = document.getElementById('apply-order-btn');
@@ -78,9 +73,7 @@ function initializePage() {
 }
 
 function applyCustomOrder() {
-  const orderInput = document.getElementById(
-    'page-order-input'
-  ) as HTMLInputElement;
+  const orderInput = document.getElementById('page-order-input') as HTMLInputElement;
   const grid = document.getElementById('page-grid');
 
   if (!orderInput || !grid) return;
@@ -111,10 +104,7 @@ function applyCustomOrder() {
 
   const uniqueNumbers = new Set(newOrder);
   if (uniqueNumbers.size !== newOrder.length) {
-    showAlert(
-      'Duplicate Page Numbers',
-      'Please ensure all page numbers in the order are unique.'
-    );
+    showAlert('Duplicate Page Numbers', 'Please ensure all page numbers in the order are unique.');
     return;
   }
 
@@ -125,8 +115,7 @@ function applyCustomOrder() {
   for (const pageNum of newOrder) {
     const originalIndexToFind = pageNum - 1; // pageNum is 1-based, originalPageIndex is 0-based
     const foundThumbnail = currentThumbnails.find(
-      (thumb) =>
-        thumb.dataset.originalPageIndex === originalIndexToFind.toString()
+      (thumb) => thumb.dataset.originalPageIndex === originalIndexToFind.toString()
     );
 
     if (foundThumbnail) {
@@ -139,10 +128,7 @@ function applyCustomOrder() {
     foundIndices.has(thumb.dataset.originalPageIndex)
   );
 
-  if (
-    reorderedThumbnails.length !== currentGridCount ||
-    !allOriginalIndicesPresent
-  ) {
+  if (reorderedThumbnails.length !== currentGridCount || !allOriginalIndicesPresent) {
     showAlert(
       'Invalid Page Order',
       'The specified page order is incomplete or contains invalid page numbers. Please ensure you provide a new position for every original page.'
@@ -165,10 +151,7 @@ function handleFileUpload(e: Event) {
 }
 
 async function handleFile(file: File) {
-  if (
-    file.type !== 'application/pdf' &&
-    !file.name.toLowerCase().endsWith('.pdf')
-  ) {
+  if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
     showAlert('Invalid File', 'Please select a PDF file.');
     return;
   }
@@ -203,8 +186,7 @@ function updateFileDisplay() {
 
   fileDisplayArea.innerHTML = '';
   const fileDiv = document.createElement('div');
-  fileDiv.className =
-    'flex items-center justify-between bg-gray-700 p-3 rounded-lg';
+  fileDiv.className = 'flex items-center justify-between bg-gray-700 p-3 rounded-lg';
 
   const infoContainer = document.createElement('div');
   infoContainer.className = 'flex flex-col flex-1 min-w-0';
@@ -260,10 +242,7 @@ function attachEventListeners(element: HTMLElement) {
       renumberPages();
       initializeSortable();
     } else {
-      showAlert(
-        'Cannot Delete',
-        'You cannot delete the last page of the document.'
-      );
+      showAlert('Cannot Delete', 'You cannot delete the last page of the document.');
     }
   });
 }
@@ -367,9 +346,7 @@ async function saveChanges() {
 
     const finalPageElements = grid.querySelectorAll('.page-thumbnail');
     const finalIndices = Array.from(finalPageElements)
-      .map((el) =>
-        parseInt((el as HTMLElement).dataset.originalPageIndex || '', 10)
-      )
+      .map((el) => parseInt((el as HTMLElement).dataset.originalPageIndex || '', 10))
       .filter((index) => !isNaN(index) && index >= 0);
 
     if (finalIndices.length === 0) {
@@ -378,10 +355,7 @@ async function saveChanges() {
     }
 
     const newPdf = await PDFDocument.create();
-    const copiedPages = await newPdf.copyPages(
-      organizeState.pdfDoc,
-      finalIndices
-    );
+    const copiedPages = await newPdf.copyPages(organizeState.pdfDoc, finalIndices);
     copiedPages.forEach((page) => newPdf.addPage(page));
 
     const pdfBytes = await newPdf.save();
@@ -392,9 +366,7 @@ async function saveChanges() {
     );
 
     hideLoader();
-    showAlert('Success', 'PDF organized successfully!', 'success', () =>
-      resetState()
-    );
+    showAlert('Success', 'PDF organized successfully!', 'success', () => resetState());
   } catch (error) {
     console.error('Error saving changes:', error);
     hideLoader();
