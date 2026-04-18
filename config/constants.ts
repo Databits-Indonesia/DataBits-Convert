@@ -864,13 +864,6 @@ export const POPULAR_TOOLS: Tool[] = [
 
   // Advanced Tools
   {
-    id: 'pdf-workflow',
-    name: 'PDF Workflow',
-    icon: 'auto_awesome',
-    description: 'Automated multi-step PDF processing.',
-    category: 'advanced',
-  },
-  {
     id: 'form-creator',
     name: 'Form Creator',
     icon: 'apps',

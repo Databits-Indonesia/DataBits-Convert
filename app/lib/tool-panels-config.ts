@@ -73,12 +73,6 @@ export const layoutSimplePanels: SimpleToolPanelConfig[] = [
 
 export const advancedSimplePanels: SimpleToolPanelConfig[] = [
   {
-    containerId: 'pdf-workflow-container',
-    title: 'PDF Workflow',
-    description: 'Create automated PDF workflows',
-    actionLabel: 'Create Workflow',
-  },
-  {
     containerId: 'form-creator-container',
     title: 'Form Creator',
     description: 'Create fillable PDF forms',

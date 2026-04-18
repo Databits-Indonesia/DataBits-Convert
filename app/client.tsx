@@ -1227,7 +1227,6 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
   const setupCombineSinglePageTool = () => setupGenericTool('combine-single-page-container');
 
   // Advanced Tools Setup Functions
-  const setupPdfWorkflowTool = () => setupGenericTool('pdf-workflow-container');
   const setupFormCreatorTool = () => setupGenericTool('form-creator-container');
   const setupFormFillerTool = () => setupGenericTool('form-filler-container');
 
@@ -1331,7 +1330,6 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
     'compare-pdfs': () => setupComparePdfsTool(),
     'alternate-merge': () => setupAlternateMergeTool(),
     'combine-single-page': () => setupCombineSinglePageTool(),
-    'pdf-workflow': () => setupPdfWorkflowTool(),
     'form-creator': () => setupFormCreatorTool(),
     'form-filler': () => setupFormFillerTool(),
   };
