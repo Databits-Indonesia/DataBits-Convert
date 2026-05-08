@@ -1,7 +1,7 @@
 import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile, formatBytes } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
-import { PDFDocument as PDFLibDocument, PDFName } from 'pdf-lib';
+import { PDFDocument as PDFLibDocument, PDFName, PDFDict, PDFArray, PDFStream } from 'pdf-lib';
 import JSZip from 'jszip';
 import { getFiles } from '../state';
 
@@ -36,27 +36,27 @@ export async function extractAttachmentsFromPdf() {
       const pdfDoc = await PDFLibDocument.load(pdfArrayBuffer);
 
       // Get embedded files (attachments) using pdf-lib's context API
-      const catalog = pdfDoc.context.lookup(pdfDoc.catalog);
+      const catalog = pdfDoc.catalog;
 
       if (catalog) {
         const namesDict = catalog.get(PDFName.of('Names'));
 
         if (namesDict) {
-          const namesRef = pdfDoc.context.lookup(namesDict);
+          const namesRef = pdfDoc.context.lookup(namesDict) as PDFDict;
 
           if (namesRef) {
             const embeddedFilesDict = namesRef.get(PDFName.of('EmbeddedFiles'));
 
             if (embeddedFilesDict) {
-              const embeddedFilesRef = pdfDoc.context.lookup(embeddedFilesDict);
+              const embeddedFilesRef = pdfDoc.context.lookup(embeddedFilesDict) as PDFDict;
 
               if (embeddedFilesRef) {
                 const namesArray = embeddedFilesRef.get(PDFName.of('Names'));
 
                 if (namesArray) {
-                  const namesArrayRef = pdfDoc.context.lookup(namesArray);
+                  const namesArrayRef = pdfDoc.context.lookup(namesArray) as any;
 
-                  if (namesArrayRef && Array.isArray(namesArrayRef.asArray())) {
+                  if (namesArrayRef && typeof namesArrayRef.asArray === 'function') {
                     const entries = namesArrayRef.asArray();
 
                     // Names array contains pairs: [name, fileSpec, name, fileSpec, ...]
@@ -66,29 +66,30 @@ export async function extractAttachmentsFromPdf() {
                       try {
                         const nameObj = entries[j];
                         const fileSpecRef = entries[j + 1];
+                        const nameObjAny = nameObj as any;
 
                         // Get file name
                         let fileName = 'attachment';
-                        if (nameObj && typeof nameObj.decodeText === 'function') {
-                          fileName = nameObj.decodeText();
+                        if (nameObj && typeof nameObjAny.decodeText === 'function') {
+                          fileName = nameObjAny.decodeText();
                         } else if (nameObj) {
                           fileName = String(nameObj).replace(/[()]/g, '');
                         }
 
                         // Get file spec
-                        const fileSpec = pdfDoc.context.lookup(fileSpecRef);
+                        const fileSpec = pdfDoc.context.lookup(fileSpecRef) as PDFDict;
 
                         if (fileSpec) {
                           const efDictRef = fileSpec.get(PDFName.of('EF'));
 
                           if (efDictRef) {
-                            const efDict = pdfDoc.context.lookup(efDictRef);
+                            const efDict = pdfDoc.context.lookup(efDictRef) as PDFDict;
 
                             if (efDict) {
                               const fileStreamRef = efDict.get(PDFName.of('F'));
 
                               if (fileStreamRef) {
-                                const fileStream = pdfDoc.context.lookup(fileStreamRef);
+                                const fileStream = pdfDoc.context.lookup(fileStreamRef) as any;
 
                                 if (fileStream && fileStream.contents) {
                                   allAttachments.push({
