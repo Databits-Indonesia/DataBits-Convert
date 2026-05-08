@@ -39,9 +39,9 @@ export async function epubToPdf() {
       // Get all sections
       const spine = await book.loaded.spine;
 
-      for (const item of spine.items) {
+      for (const item of spine) {
         const doc = await book.load(item.href);
-        const content = doc.body ? doc.body.textContent : '';
+        const content = (doc as Document).body ? (doc as Document).body.textContent : '';
 
         if (content) {
           if (!firstPage) {
@@ -82,9 +82,9 @@ export async function epubToPdf() {
         let firstPage = true;
         const spine = await book.loaded.spine;
 
-        for (const item of spine.items) {
+        for (const item of spine) {
           const doc = await book.load(item.href);
-          const content = doc.body ? doc.body.textContent : '';
+          const content = (doc as Document).body ? (doc as Document).body.textContent : '';
 
           if (content) {
             if (!firstPage) {
