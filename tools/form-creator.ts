@@ -1873,7 +1873,7 @@ downloadBtn.addEventListener('click', async () => {
 
     // Set document metadata for accessibility
     pdfDoc.setTitle('Fillable Form');
-    pdfDoc.setAuthor('BentoPDF');
+    pdfDoc.setAuthor('Databits Convert');
     pdfDoc.setLanguage('en-US');
 
     const radioGroups = new Map<string, any>(); // Track created radio groups
@@ -2353,7 +2353,7 @@ const backToToolsBtns = document.querySelectorAll(
 ) as NodeListOf<HTMLButtonElement>;
 backToToolsBtns.forEach((btn) => {
   btn.addEventListener('click', () => {
-    window.location.href = (process.env.BASE_URL || '/');
+    window.location.href = process.env.BASE_URL || '/';
   });
 });
 
@@ -2461,7 +2461,7 @@ async function renderCanvas(): Promise<void> {
       const blobUrl = URL.createObjectURL(blob);
 
       const iframe = document.createElement('iframe');
-      iframe.src = `${(process.env.BASE_URL || '/')}pdfjs-viewer/viewer.html?file=${encodeURIComponent(blobUrl)}#page=${currentPageIndex + 1}&toolbar=0`;
+      iframe.src = `${process.env.BASE_URL || '/'}pdfjs-viewer/viewer.html?file=${encodeURIComponent(blobUrl)}#page=${currentPageIndex + 1}&toolbar=0`;
       iframe.style.width = '100%';
       iframe.style.height = `${canvasHeight}px`;
       iframe.style.border = 'none';

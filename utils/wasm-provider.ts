@@ -11,7 +11,7 @@ const STORAGE_KEY = 'bentopdf:wasm-providers';
 const CDN_DEFAULTS: Record<WasmPackage, string> = {
   pymupdf: 'https://cdn.jsdelivr.net/npm/@bentopdf/pymupdf-wasm@0.11.16/',
   ghostscript: 'https://cdn.jsdelivr.net/npm/@bentopdf/gs-wasm/assets/',
-  cpdf: 'https://cdn.jsdelivr.net/npm/coherentpdf/dist/',
+  cpdf: 'https://cdn.jsdelivr.net/npm/coherentpdf@2.5.5/dist/',
 };
 
 function envOrDefault(envVar: string | undefined, fallback: string): string {
@@ -19,9 +19,18 @@ function envOrDefault(envVar: string | undefined, fallback: string): string {
 }
 
 const ENV_DEFAULTS: Record<WasmPackage, string> = {
-  pymupdf: envOrDefault(process.env.NEXT_PUBLIC_WASM_PYMUPDF_URL || process.env.WASM_PYMUPDF_URL, CDN_DEFAULTS.pymupdf),
-  ghostscript: envOrDefault(process.env.NEXT_PUBLIC_WASM_GS_URL || process.env.WASM_GS_URL, CDN_DEFAULTS.ghostscript),
-  cpdf: envOrDefault(process.env.NEXT_PUBLIC_WASM_CPDF_URL || process.env.WASM_CPDF_URL, CDN_DEFAULTS.cpdf),
+  pymupdf: envOrDefault(
+    process.env.NEXT_PUBLIC_WASM_PYMUPDF_URL || process.env.WASM_PYMUPDF_URL,
+    CDN_DEFAULTS.pymupdf
+  ),
+  ghostscript: envOrDefault(
+    process.env.NEXT_PUBLIC_WASM_GS_URL || process.env.WASM_GS_URL,
+    CDN_DEFAULTS.ghostscript
+  ),
+  cpdf: envOrDefault(
+    process.env.NEXT_PUBLIC_WASM_CPDF_URL || process.env.WASM_CPDF_URL,
+    CDN_DEFAULTS.cpdf
+  ),
 };
 
 class WasmProviderManager {

@@ -1,4 +1,5 @@
 import React from 'react';
+import { FaInstagram, FaLinkedin, FaGithub } from 'react-icons/fa';
 
 const Footer: React.FC = () => {
   return (
@@ -49,7 +50,7 @@ const Footer: React.FC = () => {
               <li>
                 <a
                   className="hover:text-primary dark:hover:text-white transition-colors"
-                  href="http://databits.co-id.id/"
+                  href="https://databitsid.tech/"
                 >
                   Company
                 </a>
@@ -57,37 +58,55 @@ const Footer: React.FC = () => {
               <li>
                 <a
                   className="hover:text-primary dark:hover:text-white transition-colors"
-                  href="http://databits.co-id.id/"
+                  href="https://databitsid.tech/services"
                 >
                   Service
                 </a>
               </li>
               <li>
-                <a className="hover:text-primary dark:hover:text-white transition-colors" href="#">
-                  Pricing
+                <a
+                  className="hover:text-primary dark:hover:text-white transition-colors"
+                  href="https://databitsid.tech/about"
+                >
+                  About Us
                 </a>
               </li>
             </ul>
           </div>
           <div className="flex flex-col items-center md:items-start">
-            <h4 className="font-semibold text-gray-900 dark:text-white">Contact</h4>
+            <h4 className="font-semibold text-gray-900 dark:text-white">Follow Us</h4>
             <p className="mt-2 text-gray-600 dark:text-gray-300 mb-3">
               More service in AI and Analytics
             </p>
-            <a
-              href="mailto:databitsteam@gmail.com"
-              className="flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-white transition-colors mb-2"
-            >
-              <span className="icon text-lg">email</span>
-              <span>databitsteam@gmail.com</span>
-            </a>
-            <a
-              href="tel:+6289636344666"
-              className="flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-white transition-colors"
-            >
-              <span className="icon text-lg">call</span>
-              <span>+62 896-3634-4666</span>
-            </a>
+            <div className="flex flex-row gap-3">
+              <a
+                href="https://github.com/Databits-Indonesia"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-white transition-colors"
+                title="GitHub"
+              >
+                <FaGithub className="w-6 h-6" />
+              </a>
+              <a
+                href="https://www.instagram.com/databits.idn/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-white transition-colors"
+                title="Instagram"
+              >
+                <FaInstagram className="w-6 h-6" />
+              </a>
+              <a
+                href="https://www.linkedin.com/company/databits-indonesia/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-white transition-colors"
+                title="LinkedIn"
+              >
+                <FaLinkedin className="w-6 h-6" />
+              </a>
+            </div>
           </div>
         </div>
       </div>

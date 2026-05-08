@@ -803,80 +803,80 @@ export const POPULAR_TOOLS: Tool[] = [
     description: 'Add legal Bates numbers.',
     category: 'formatting',
   },
-  {
-    id: 'table-of-contents',
-    name: 'Add Table of Contents',
-    icon: 'list_alt',
-    description: 'Generate PDF table of contents.',
-    category: 'formatting',
-  },
-  {
-    id: 'bookmark',
-    name: 'Add Bookmarks',
-    icon: 'bookmark',
-    description: 'Create PDF bookmarks/outlines.',
-    category: 'formatting',
-  },
-  {
-    id: 'layers',
-    name: 'PDF Layers',
-    icon: 'layers',
-    description: 'Manage PDF layers.',
-    category: 'formatting',
-  },
-  {
-    id: 'font-to-outline',
-    name: 'Font to Outline',
-    icon: 'text_fields',
-    description: 'Convert fonts to outlines.',
-    category: 'formatting',
-  },
-  {
-    id: 'pdf-to-pdfa',
-    name: 'Convert to PDF/A',
-    icon: 'archive',
-    description: 'Convert to PDF/A archival format.',
-    category: 'formatting',
-  },
-  {
-    id: 'compare-pdfs',
-    name: 'Compare PDFs',
-    icon: 'compare',
-    description: 'Compare two PDF documents.',
-    category: 'formatting',
-  },
+  // {
+  //   id: 'table-of-contents',
+  //   name: 'Edit Table of Contents',
+  //   icon: 'list_alt',
+  //   description: 'Generate PDF table of contents.',
+  //   category: 'formatting',
+  // },
+  // {
+  //   id: 'bookmark',
+  //   name: 'Add Bookmarks',
+  //   icon: 'bookmark',
+  //   description: 'Create PDF bookmarks/outlines.',
+  //   category: 'formatting',
+  // },
+  // {
+  //   id: 'layers',
+  //   name: 'PDF Layers',
+  //   icon: 'layers',
+  //   description: 'Manage PDF layers.',
+  //   category: 'formatting',
+  // },
+  // {
+  //   id: 'font-to-outline',
+  //   name: 'Font to Outline',
+  //   icon: 'text_fields',
+  //   description: 'Convert fonts to outlines.',
+  //   category: 'formatting',
+  // },
+  // {
+  //   id: 'pdf-to-pdfa',
+  //   name: 'Convert to PDF/A',
+  //   icon: 'archive',
+  //   description: 'Convert to PDF/A archival format.',
+  //   category: 'formatting',
+  // },
+  // {
+  //   id: 'compare-pdfs',
+  //   name: 'Compare PDFs',
+  //   icon: 'compare',
+  //   description: 'Compare two PDF documents.',
+  //   category: 'formatting',
+  // },
 
-  // Merge Variations
-  {
-    id: 'alternate-merge',
-    name: 'Alternate Merge',
-    icon: 'call_merge',
-    description: 'Merge PDFs by alternating pages.',
-    category: 'formatting',
-  },
-  {
-    id: 'combine-single-page',
-    name: 'Combine to Single Page',
-    icon: 'call_merge',
-    description: 'Merge PDFs into single pages.',
-    category: 'formatting',
-  },
+  // // Merge Variations
+  // {
+  //   id: 'alternate-merge',
+  //   name: 'Alternate Merge',
+  //   icon: 'call_merge',
+  //   description: 'Merge PDFs by alternating pages.',
+  //   category: 'formatting',
+  // },
+  // {
+  //   id: 'combine-single-page',
+  //   name: 'Combine to Single Page',
+  //   icon: 'call_merge',
+  //   description: 'Merge PDFs into single pages.',
+  //   category: 'formatting',
+  // },
 
-  // Advanced Tools
-  {
-    id: 'form-creator',
-    name: 'Form Creator',
-    icon: 'apps',
-    description: 'Create fillable PDF forms.',
-    category: 'advanced',
-  },
-  {
-    id: 'form-filler',
-    name: 'Form Filler',
-    icon: 'edit',
-    description: 'Automatically fill PDF forms.',
-    category: 'advanced',
-  },
+  // // Advanced Tools
+  // {
+  //   id: 'form-creator',
+  //   name: 'Form Creator',
+  //   icon: 'apps',
+  //   description: 'Create fillable PDF forms.',
+  //   category: 'advanced',
+  // },
+  // {
+  //   id: 'form-filler',
+  //   name: 'Form Filler',
+  //   icon: 'edit',
+  //   description: 'Automatically fill PDF forms.',
+  //   category: 'advanced',
+  // },
 ] as const;
 
 export const ERROR_MESSAGES = {

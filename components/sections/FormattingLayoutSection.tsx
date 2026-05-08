@@ -2,6 +2,7 @@ import React from 'react';
 import SimpleToolPanel from '../SimpleToolPanel';
 import SelectOptionActionPanel from '../SelectOptionActionPanel';
 import SecondaryFileActionPanel from '../SecondaryFileActionPanel';
+// import TableOfContentsToolPanel from '../TableOfContentsToolPanel';
 import { layoutSimplePanels } from '../../app/lib/tool-panels-config';
 
 const FormattingLayoutSection: React.FC = () => {
@@ -10,6 +11,8 @@ const FormattingLayoutSection: React.FC = () => {
       {layoutSimplePanels.map((panel) => (
         <SimpleToolPanel key={panel.containerId} {...panel} />
       ))}
+
+      {/* <TableOfContentsToolPanel containerId="table-of-contents-container" /> */}
 
       <div id="bates-numbering-container" className="hidden max-w-6xl mx-auto mt-8">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">

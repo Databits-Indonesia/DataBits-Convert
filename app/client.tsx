@@ -1215,7 +1215,12 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
     setupGenericTool('bates-numbering-container');
     setupBatesNumberingPage();
   };
-  const setupTableOfContentsTool = () => setupGenericTool('table-of-contents-container');
+  const setupTableOfContentsTool = () => {
+    const container = document.getElementById('table-of-contents-container');
+    if (container) {
+      container.classList.remove('hidden');
+    }
+  };
   const setupBookmarkTool = () => setupGenericTool('bookmark-container');
   const setupLayersTool = () => setupGenericTool('layers-container');
   const setupFontToOutlineTool = () => setupGenericTool('font-to-outline-container');
