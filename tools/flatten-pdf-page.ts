@@ -42,7 +42,7 @@ export async function flattenPdf(): Promise<boolean> {
       }
 
       const newPdfBytes = await pdfDoc.save();
-      downloadFile(new Blob([newPdfBytes], { type: 'application/pdf' }), `flattened_${file.name}`);
+      downloadFile(new Blob([new Uint8Array(newPdfBytes)], { type: 'application/pdf' }), `flattened_${file.name}`);
 
       hideLoader();
       showAlert('Flatten Complete', 'PDF forms and annotations have been flattened.', 'success');
