@@ -200,7 +200,7 @@ export function renderEmailToHtml(email: ParsedEmail, options: EmailRenderOption
   let dateStr = 'Unknown Date';
   if (email.rawDateString) {
     dateStr = formatRawDate(email.rawDateString);
-  } else if (email.date && !isNaN(email.date.getTime())) {
+  } else if (email.date instanceof Date && !isNaN(email.date.getTime())) {
     dateStr = email.date.toLocaleString('en-US', {
       weekday: 'long',
       year: 'numeric',
