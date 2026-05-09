@@ -176,7 +176,7 @@ async function addPageNumbers() {
     const originalName = state.files[0].name.replace(/\.pdf$/i, '');
 
     downloadFile(
-      new Blob([newPdfBytes], { type: 'application/pdf' }),
+      new Blob([new Uint8Array(newPdfBytes)], { type: 'application/pdf' }),
       `${originalName}_paginated.pdf`
     );
 

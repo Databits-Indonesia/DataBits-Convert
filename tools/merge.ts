@@ -4,11 +4,11 @@ import { state } from '../state';
 import { renderPagesProgressively, cleanupLazyRendering } from '../utils/render-utils';
 
 import { createIcons, icons } from 'lucide';
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
+import * as pdfjsLib from 'pdfjs-dist';
 import Sortable from 'sortablejs';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/legacy/build/pdf.worker.min.mjs',
+  'pdfjs-dist/build/pdf.worker.min.mjs',
   import.meta.url
 ).toString();
 
@@ -267,7 +267,7 @@ export async function merge() {
 
     // Save the merged PDF
     const mergedPdfBytes = await mergedPdf.save();
-    const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
+    const blob = new Blob([new Uint8Array(mergedPdfBytes)], { type: 'application/pdf' });
     downloadFile(blob, 'merged.pdf');
 
     hideLoader();

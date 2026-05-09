@@ -41,7 +41,7 @@ export async function convertPdfToGreyscale(): Promise<boolean> {
       canvas.height = viewport.height;
       canvas.width = viewport.width;
 
-      await page.render({ canvasContext: context!, viewport: viewport }).promise;
+      await page.render({ canvasContext: context!, canvas, viewport: viewport }).promise;
 
       const imageData = context!.getImageData(0, 0, canvas.width, canvas.height);
       const greyImageData = toGreyscale(imageData);

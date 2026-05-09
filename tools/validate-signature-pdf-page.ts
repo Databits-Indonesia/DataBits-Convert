@@ -6,6 +6,9 @@ import forge from 'node-forge';
 import { SignatureValidationResult, ValidateSignatureState } from '@/types';
 
 const state: ValidateSignatureState = {
+  file: null,
+  pdfDoc: null,
+  validationResult: null,
   pdfFile: null,
   pdfBytes: null,
   results: [],
@@ -416,7 +419,7 @@ function createSignatureCard(result: SignatureValidationResult, index: number): 
                 ? `
                 <div>
                     <p class="text-gray-400">Signed On</p>
-                    <p class="text-white">${formatDate(result.signatureDate)}</p>
+                    <p class="text-white">${formatDate(typeof result.signatureDate === 'string' ? new Date(result.signatureDate) : result.signatureDate)}</p>
                 </div>
             `
                 : ''
@@ -425,11 +428,11 @@ function createSignatureCard(result: SignatureValidationResult, index: number): 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <p class="text-gray-400">Valid From</p>
-                    <p class="text-white">${formatDate(result.validFrom)}</p>
+                    <p class="text-white">${formatDate(typeof result.validFrom === 'string' ? new Date(result.validFrom) : result.validFrom)}</p>
                 </div>
                 <div>
                     <p class="text-gray-400">Valid Until</p>
-                    <p class="${result.isExpired ? 'text-red-400' : 'text-white'}">${formatDate(result.validTo)}</p>
+                    <p class="${result.isExpired ? 'text-red-400' : 'text-white'}">${formatDate(typeof result.validTo === 'string' ? new Date(result.validTo) : result.validTo)}</p>
                 </div>
             </div>
 

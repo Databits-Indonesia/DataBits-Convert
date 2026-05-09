@@ -50,6 +50,7 @@ export async function pdfToBmp() {
 
       await page.render({
         canvasContext: context,
+        canvas,
         viewport: viewport,
       }).promise;
 

@@ -91,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       showLoader('Loading engine...');
       await converter.initialize((progress: LoadProgress) => {
-        showLoader(progress.message, progress.percent);
+        showLoader(`${progress.message} (${Math.round(progress.percent)}%)`);
       });
 
       if (state.files.length === 1) {

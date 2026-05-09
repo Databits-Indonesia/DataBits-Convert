@@ -4,6 +4,8 @@ import { state, getFiles } from '../state';
 import { createIcons, icons } from 'lucide';
 import * as pdfjsLib from 'pdfjs-dist';
 import { PDFDocument, rgb, degrees } from 'pdf-lib';
+import { loadPyMuPDF, isPyMuPDFAvailable } from '../utils/pymupdf-loader';
+import { showWasmRequiredDialog } from '../utils/wasm-provider';
 
 export interface RasterizeOptions {
   dpi: number;
@@ -124,7 +126,7 @@ async function rasterizeSinglePdf(
     canvas.width = viewport.width;
     canvas.height = viewport.height;
 
-    await page.render({ canvasContext: context, viewport }).promise;
+    await page.render({ canvasContext: context, canvas, viewport }).promise;
 
     // Convert to grayscale if needed
     if (grayscale) {
@@ -172,7 +174,7 @@ async function rasterizeSinglePdf(
 
   // Save the new PDF
   const pdfBytes = await newPdfDoc.save();
-  return new Blob([pdfBytes], { type: 'application/pdf' });
+  return new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -188,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (backBtn) {
     backBtn.addEventListener('click', () => {
-      window.location.href = import.meta.env?.BASE_URL || '/';
+      window.location.href = process.env.BASE_URL || '/';
     });
   }
 

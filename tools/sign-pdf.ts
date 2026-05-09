@@ -2,7 +2,7 @@ import { PDFDocument } from 'pdf-lib';
 import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { readFileAsArrayBuffer, getPDFDocument } from '../utils/helpers';
 import { state, setPdfDoc } from '../state';
-import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf';
+import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 const signState = {
   currentPage: 1,
@@ -446,7 +446,7 @@ export async function applyAndSaveSignatures() {
 
     // Save the PDF
     const pdfBytes = await pdfDoc.save();
-    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;

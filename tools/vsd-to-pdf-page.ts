@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const converter = getLibreOfficeConverter();
       showLoader('Loading engine...');
       await converter.initialize((progress: LoadProgress) => {
-        showLoader(progress.message, progress.percent);
+        showLoader(`${progress.message} ${progress.percent}%`);
       });
       if (state.files.length === 1) {
         const file = state.files[0];

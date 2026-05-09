@@ -1,7 +1,7 @@
 import { showLoader, hideLoader, showAlert } from '../components/ui';
 import { downloadFile, formatBytes, getPDFDocument } from '../utils/helpers';
 import { createIcons, icons } from 'lucide';
-import { PDFDocument as PDFLibDocument } from 'pdf-lib';
+import { PDFDocument as PDFLibDocument, RotationTypes } from 'pdf-lib';
 import { renderPagesProgressively, cleanupLazyRendering } from '../utils/render-utils';
 import * as pdfjsLib from 'pdfjs-dist';
 import { state } from '../state';
@@ -122,7 +122,6 @@ async function renderThumbnails() {
     batchSize: 8,
     useLazyLoading: true,
     lazyLoadMargin: '200px',
-    eagerLoadBatches: 2,
     onBatchComplete: function () {
       createIcons({ icons });
     },
@@ -272,7 +271,7 @@ async function applyRotations() {
         const currentRotation = pages[i].getRotation().angle;
         const newRotation = (currentRotation + rotateState.rotations[i]) % 360;
         console.log(`[Rotate] Page ${i}: rotating from ${currentRotation} to ${newRotation}`);
-        pages[i].setRotation({ type: 'degrees', angle: newRotation });
+        pages[i].setRotation({ type: RotationTypes.Degrees, angle: newRotation });
       }
     }
 
@@ -285,7 +284,7 @@ async function applyRotations() {
     console.log('[Rotate] Downloading as:', filename);
 
     downloadFile(
-      new Blob([pdfBytes], {
+      new Blob([new Uint8Array(pdfBytes)], {
         type: 'application/pdf',
       }),
       filename

@@ -57,6 +57,7 @@ export async function pdfToZip() {
 
         await page.render({
           canvasContext: context,
+          canvas,
           viewport: viewport,
         }).promise;
 
@@ -104,6 +105,7 @@ export async function pdfToZip() {
 
           await page.render({
             canvasContext: context,
+            canvas,
             viewport: viewport,
           }).promise;
 

@@ -22,27 +22,30 @@ interface ExtractedSignature {
 }
 
 interface SignatureValidationResult {
-  signatureIndex: number;
-  isValid: boolean;
-  signerName: string;
+  valid: boolean;
+  isValid?: boolean;
+  isExpired?: boolean;
+  isTrusted?: boolean;
+  isSelfSigned?: boolean;
+  signerName?: string;
   signerOrg?: string;
   signerEmail?: string;
-  issuer: string;
+  issuer?: string;
   issuerOrg?: string;
-  validFrom: Date;
-  validTo: Date;
-  isExpired: boolean;
-  isSelfSigned: boolean;
-  algorithms: {
+  signatureDate?: string | Date;
+  validFrom?: string | Date;
+  validTo?: string | Date;
+  reason?: string;
+  location?: string;
+  coverageStatus?: 'full' | 'partial' | 'none';
+  serialNumber?: string;
+  algorithms?: {
     digest: string;
     signature: string;
   };
-  serialNumber: string;
-  reason?: string;
-  location?: string;
-  contactInfo?: string;
-  signatureDate?: Date;
   errorMessage?: string;
+  errors?: string[];
+  signatureIndex?: number;
   isBSrE?: boolean;
   qrCodeData?: string;
 }
@@ -245,11 +248,13 @@ async function detectBSrEQRCode(pdf: any): Promise<BSrEQRCodeInfo> {
 
 function validateSignature(
   signature: ExtractedSignature,
-  pdfBytes: Uint8Array
+  pdfBytes: Uint8Array,
+  trustedCert?: any
 ): SignatureValidationResult {
   const result: SignatureValidationResult = {
-    signatureIndex: signature.index,
+    valid: false,
     isValid: false,
+    signatureIndex: signature.index,
     signerName: 'Unknown',
     issuer: 'Unknown',
     validFrom: new Date(0),
@@ -260,7 +265,6 @@ function validateSignature(
     serialNumber: '',
     reason: signature.reason,
     location: signature.location,
-    contactInfo: signature.contactInfo,
   };
 
   try {
@@ -319,6 +323,7 @@ function validateSignature(
       result.signatureDate = new Date(signature.signingTime);
     }
 
+    result.valid = true;
     result.isValid = true;
   } catch (e) {
     result.errorMessage = e instanceof Error ? e.message : 'Failed to parse signature';
@@ -425,4 +430,45 @@ export async function validateSignaturePdf() {
     hideLoader();
     showAlert('Error', `An error occurred while validating signatures: ${error.message}`);
   }
+}
+
+export async function validatePdfSignatures(
+  pdfBytes: Uint8Array,
+  trustedCert?: any
+): Promise<SignatureValidationResult[]> {
+  // Load PDF with pdf.js for QR code detection
+  const loadingTask = pdfjsLib.getDocument({
+    data: pdfBytes,
+  });
+  const pdf = await loadingTask.promise;
+
+  // Detect BSrE QR code signatures
+  const bsreQRCode = await detectBSrEQRCode(pdf);
+
+  // Extract traditional digital signatures using node-forge
+  const signatures = extractSignatures(pdfBytes);
+
+  // Validate each signature
+  const results = signatures.map((sig) => validateSignature(sig, pdfBytes, trustedCert));
+
+  // If BSrE QR code is found, add it as a result
+  if (bsreQRCode.found) {
+    results.push({
+      signatureIndex: results.length,
+      isValid: true,
+      signerName: bsreQRCode.issuer || 'BSrE QR Code',
+      issuer: 'Balai Sertifikasi Elektronik (BSrE), BSSN',
+      validFrom: new Date(),
+      validTo: new Date(),
+      isExpired: false,
+      isSelfSigned: false,
+      algorithms: { digest: 'Unknown', signature: 'BSrE QR Code' },
+      serialNumber: bsreQRCode.serialNumber || 'Unknown',
+      signatureDate: bsreQRCode.signatureDate ? new Date(bsreQRCode.signatureDate) : undefined,
+      qrCodeData: bsreQRCode.data,
+      isBSrE: true,
+    });
+  }
+
+  return results;
 }

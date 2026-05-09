@@ -66,7 +66,7 @@ export async function posterizePdf(options: PosterizeOptions): Promise<boolean> 
       const viewport = page.getViewport({ scale: 2.0 });
       tempCanvas.width = viewport.width;
       tempCanvas.height = viewport.height;
-      await page.render({ canvasContext: tempCtx, viewport }).promise;
+      await page.render({ canvasContext: tempCtx, canvas: tempCanvas, viewport }).promise;
 
       let [targetWidth, targetHeight] = PageSizes[options.pageSize] || PageSizes.A4;
       let currentOrientation = options.orientation;
@@ -147,6 +147,7 @@ export async function posterizePdf(options: PosterizeOptions): Promise<boolean> 
 
 const pageState: PosterizeState = {
   file: null,
+  pdfDoc: null,
   pdfJsDoc: null,
   pdfBytes: null,
   pageSnapshots: {},
@@ -467,7 +468,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (backBtn) {
     backBtn.addEventListener('click', function () {
-      window.location.href = import.meta.env?.BASE_URL || '/';
+      window.location.href = process.env.BASE_URL || '/';
     });
   }
 

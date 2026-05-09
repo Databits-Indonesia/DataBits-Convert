@@ -61,6 +61,7 @@ export async function pdfToSvg() {
 
       await page.render({
         canvasContext: context,
+        canvas,
         viewport: viewport,
       }).promise;
 

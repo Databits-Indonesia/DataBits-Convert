@@ -31,7 +31,7 @@ export async function redact(redactions: any, canvasScale: any) {
     });
 
     const redactedBytes = await state.pdfDoc.save();
-    downloadFile(new Blob([redactedBytes], { type: 'application/pdf' }), 'redacted.pdf');
+    downloadFile(new Blob([new Uint8Array(redactedBytes)], { type: 'application/pdf' }), 'redacted.pdf');
   } catch (e) {
     console.error(e);
     showAlert('Error', 'Failed to apply redactions.');

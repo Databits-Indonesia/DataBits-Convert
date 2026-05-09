@@ -54,7 +54,7 @@ export async function changeTextColorOfPdf(colorHex: string): Promise<boolean> {
       canvas.width = viewport.width;
       canvas.height = viewport.height;
       const context = canvas.getContext('2d')!;
-      await page.render({ canvasContext: context, viewport }).promise;
+      await page.render({ canvasContext: context, canvas, viewport }).promise;
 
       const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;

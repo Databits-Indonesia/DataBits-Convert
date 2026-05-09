@@ -235,7 +235,6 @@ async function renderThumbnails() {
     batchSize: 8,
     useLazyLoading: true,
     lazyLoadMargin: '200px',
-    eagerLoadBatches: 2,
     onBatchComplete: function () {
       createIcons({ icons });
     },

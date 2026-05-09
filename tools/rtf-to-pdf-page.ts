@@ -90,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Initialize LibreOffice if not already done
       await converter.initialize((progress: LoadProgress) => {
-        showLoader(progress.message, progress.percent);
+        showLoader(`${progress.message} ${progress.percent}%`);
       });
 
       if (state.files.length === 1) {

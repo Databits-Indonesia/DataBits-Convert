@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const file = state.files[0];
         const pdfBlob = await convertXmlToPdf(file, {
           onProgress: (percent, message) => {
-            showLoader(message, percent);
+            showLoader(`${message} ${percent}%`);
           },
         });
 
@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const file = state.files[i];
           const pdfBlob = await convertXmlToPdf(file, {
             onProgress: (percent, message) => {
-              showLoader(`File ${i + 1}/${state.files.length}: ${message}`, percent);
+              showLoader(`File ${i + 1}/${state.files.length}: ${message} ${percent}%`);
             },
           });
 

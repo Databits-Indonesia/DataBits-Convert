@@ -4,6 +4,8 @@ import { PDFDocument } from 'pdf-lib';
 import { icons, createIcons } from 'lucide';
 import { PageDimensionsState } from '@/types';
 
+type DimensionsUnit = 'in' | 'mm' | 'pt' | 'px';
+
 const pageState: PageDimensionsState = {
   file: null,
   pdfDoc: null,
@@ -16,7 +18,7 @@ function calculateAspectRatio(width: number, height: number): string {
   return ratio.toFixed(3);
 }
 
-function calculateArea(width: number, height: number, unit: string): string {
+function calculateArea(width: number, height: number, unit: DimensionsUnit): string {
   const areaInPoints = width * height;
   let convertedArea = 0;
   let unitSuffix = '';
@@ -124,7 +126,7 @@ function renderSummary() {
   }
 }
 
-function renderTable(unit: string) {
+function renderTable(unit: DimensionsUnit) {
   const tableBody = document.getElementById('dimensions-table-body');
   if (!tableBody) return;
 
@@ -181,7 +183,7 @@ function renderTable(unit: string) {
 
 function exportToCSV() {
   const unitsSelect = document.getElementById('units-select') as HTMLSelectElement;
-  const unit = unitsSelect?.value || 'pt';
+  const unit = (unitsSelect?.value as DimensionsUnit) || 'pt';
 
   const headers = [
     'Page #',
@@ -248,14 +250,15 @@ function analyzeAndDisplayDimensions() {
 
   const resultsContainer = document.getElementById('dimensions-results');
   const unitsSelect = document.getElementById('units-select') as HTMLSelectElement;
+  const unit = (unitsSelect.value as DimensionsUnit) || 'pt';
 
   renderSummary();
-  renderTable(unitsSelect.value);
+  renderTable(unit);
 
   if (resultsContainer) resultsContainer.classList.remove('hidden');
 
   unitsSelect.addEventListener('change', (e) => {
-    renderTable((e.target as HTMLSelectElement).value);
+    renderTable((e.target as HTMLSelectElement).value as DimensionsUnit);
   });
 
   const exportButton = document.getElementById('export-csv-btn');

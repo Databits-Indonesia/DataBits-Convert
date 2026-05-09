@@ -442,7 +442,6 @@ async function loadPdfs(files: File[]) {
             onBatchComplete: () => {
               createIcons({ icons });
             },
-            shouldCancel: () => renderCancelled, // Pass cancellation check
           }
         );
       } catch (e) {

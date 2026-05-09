@@ -56,6 +56,7 @@ export async function pdfToTiff() {
 
       await page.render({
         canvasContext: context,
+        canvas,
         viewport: viewport,
       }).promise;
 

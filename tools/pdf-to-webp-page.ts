@@ -53,6 +53,7 @@ export async function pdfToWebp() {
 
       await page.render({
         canvasContext: context,
+        canvas,
         viewport: viewport,
       }).promise;
 

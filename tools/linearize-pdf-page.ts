@@ -194,7 +194,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   if (processBtn) {
-    processBtn.addEventListener('click', linearizePdf);
+    processBtn.addEventListener('click', () => linearizePdf());
   }
 
   if (addMoreBtn) {

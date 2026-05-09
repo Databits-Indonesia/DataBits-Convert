@@ -2,7 +2,7 @@ import { showAlert } from '../components/ui';
 import { downloadFile, formatBytes } from '../utils/helpers';
 import { icons, createIcons } from 'lucide';
 import { SanitizePdfState } from '@/types';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, PDFName } from 'pdf-lib';
 
 const pageState: SanitizePdfState = {
   file: null,
@@ -106,11 +106,11 @@ export async function sanitizePdfDocument(
 
   // Remove JavaScript
   if (options.removeJavascript) {
-    const catalog = pdfDoc.context.lookup(pdfDoc.context.trailerInfo.Root);
-    if (catalog) {
-      catalog.delete('Names');
-      catalog.delete('OpenAction');
-      catalog.delete('AA');
+    const catalog = pdfDoc.context.lookup(pdfDoc.context.trailerInfo.Root) as any;
+    if (catalog && typeof catalog.delete === 'function') {
+      catalog.delete(PDFName.of('Names'));
+      catalog.delete(PDFName.of('OpenAction'));
+      catalog.delete(PDFName.of('AA'));
     }
   }
 
@@ -118,8 +118,10 @@ export async function sanitizePdfDocument(
   if (options.removeAnnotations) {
     const pages = pdfDoc.getPages();
     for (const page of pages) {
-      const pageDict = page.node;
-      pageDict.delete('Annots');
+      const pageDict = page.node as any;
+      if (typeof pageDict.delete === 'function') {
+        pageDict.delete(PDFName.of('Annots'));
+      }
     }
   }
 
@@ -183,7 +185,7 @@ async function runSanitize() {
     const arrayBuffer = await pageState.file.arrayBuffer();
     const result = await sanitizePdfDocument(new Uint8Array(arrayBuffer), options);
 
-    downloadFile(new Blob([result], { type: 'application/pdf' }), 'sanitized.pdf');
+    downloadFile(new Blob([new Uint8Array(result)], { type: 'application/pdf' }), 'sanitized.pdf');
     showAlert('Success', 'PDF has been sanitized and downloaded.', 'success', () => {
       resetState();
     });

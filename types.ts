@@ -182,6 +182,10 @@ export interface PageDimensionsState {
 export interface PosterizeState {
   file: File | null;
   pdfDoc: any | null;
+  pdfJsDoc: any | null;
+  pdfBytes: Uint8Array | null;
+  pageSnapshots: { [pageNum: number]: ImageData };
+  currentPage: number;
 }
 
 export interface RemoveRestrictionsState {
@@ -231,10 +235,27 @@ export interface DigitalSignState {
 
 export interface SignatureValidationResult {
   valid: boolean;
+  isValid?: boolean;
+  isExpired?: boolean;
+  isTrusted?: boolean;
+  isSelfSigned?: boolean;
   signerName?: string;
-  signDate?: string;
+  signerOrg?: string;
+  signerEmail?: string;
+  issuer?: string;
+  issuerOrg?: string;
+  signatureDate?: string | Date;
+  validFrom?: string | Date;
+  validTo?: string | Date;
   reason?: string;
   location?: string;
+  coverageStatus?: 'full' | 'partial' | 'none';
+  serialNumber?: string;
+  algorithms?: {
+    digest: string;
+    signature: string;
+  };
+  errorMessage?: string;
   errors?: string[];
 }
 
@@ -242,6 +263,11 @@ export interface ValidateSignatureState {
   file: File | null;
   pdfDoc: any | null;
   validationResult: SignatureValidationResult | null;
+  pdfFile: File | null;
+  pdfBytes: Uint8Array | null;
+  results: SignatureValidationResult[];
+  trustedCertFile: File | null;
+  trustedCert: any | null; // forge certificate object
 }
 
 export interface ViewMetadataState {

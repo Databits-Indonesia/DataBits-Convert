@@ -45,6 +45,7 @@ export async function pdfToJpg() {
 
       await page.render({
         canvasContext: context,
+        canvas,
         viewport: viewport,
       }).promise;
 

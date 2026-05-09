@@ -43,7 +43,7 @@ export async function pdfToJson() {
       const metadata = await pdf.getMetadata();
       jsonData.document.metadata = {
         info: metadata.info,
-        contentDispositionFilename: metadata.contentDispositionFilename,
+        metadata: metadata.metadata,
       };
     }
 

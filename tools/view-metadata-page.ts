@@ -87,7 +87,6 @@ export async function viewMetadataPdf(file: File): Promise<ViewMetadataResult> {
     const documentInfo = {
       pageCount: pdfDoc.getPageCount(),
       fileSize: file.size,
-      pdfVersion: pdfDoc.context?.version || undefined,
     };
 
     return {
