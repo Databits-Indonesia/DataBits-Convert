@@ -42,6 +42,7 @@ class WasmProviderManager {
   }
 
   private loadConfig(): WasmProviderConfig {
+    if (typeof localStorage === 'undefined') return {};
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
@@ -58,6 +59,7 @@ class WasmProviderManager {
   }
 
   private saveConfig(): void {
+    if (typeof localStorage === 'undefined') return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.config));
     } catch (e) {
@@ -212,6 +214,7 @@ class WasmProviderManager {
   clearAll(): void {
     this.config = {};
     this.validationCache.clear();
+    if (typeof localStorage === 'undefined') return;
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch (e) {

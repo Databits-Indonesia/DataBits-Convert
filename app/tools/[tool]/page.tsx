@@ -1,4 +1,4 @@
-import ClientOnly from '../../client';
+import ToolClient from './tool-client';
 import { POPULAR_TOOLS } from '../../../config/constants';
 
 export function generateStaticParams() {
@@ -11,5 +11,5 @@ interface ToolPageProps {
 
 export default async function ToolPage({ params }: ToolPageProps) {
   const resolvedParams = await params;
-  return <ClientOnly initialTool={resolvedParams.tool} />;
+  return <ToolClient initialTool={resolvedParams.tool} />;
 }

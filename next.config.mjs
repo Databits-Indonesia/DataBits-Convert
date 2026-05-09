@@ -1,5 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // serverExternalPackages only helps with CJS-compatible packages.
+  // Browser-only libraries (pdfjs-dist, etc.) are handled by ssr:false
+  // dynamic imports in the tool page, which prevents them from ever
+  // being bundled or evaluated server-side.
+  serverExternalPackages: [
+    'node-forge',
+    'mammoth',
+    'docx',
+    'xlsx',
+  ],
   env: {
     NEXT_PUBLIC_WASM_PYMUPDF_URL: 'https://cdn.jsdelivr.net/npm/@bentopdf/pymupdf-wasm@0.11.16/',
     NEXT_PUBLIC_WASM_GS_URL: 'https://cdn.jsdelivr.net/npm/@bentopdf/gs-wasm/assets/',
