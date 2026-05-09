@@ -402,8 +402,8 @@ export async function validateSignaturePdf() {
         message += '\n';
         message += `  Signer: ${result.signerName}${result.signerOrg ? ` (${result.signerOrg})` : ''}\n`;
         message += `  Issuer: ${result.issuer}${result.issuerOrg ? ` (${result.issuerOrg})` : ''}\n`;
-        message += `  Valid From: ${result.validFrom.toLocaleDateString()}\n`;
-        message += `  Valid To: ${result.validTo.toLocaleDateString()}\n`;
+        message += `  Valid From: ${result.validFrom instanceof Date ? result.validFrom.toLocaleDateString() : result.validFrom}\n`;
+        message += `  Valid To: ${result.validTo instanceof Date ? result.validTo.toLocaleDateString() : result.validTo}\n`;
         message += `  Status: ${result.isExpired ? '❌ Expired' : '✅ Valid'}\n`;
         message += `  Self-Signed: ${result.isSelfSigned ? 'Yes' : 'No'}\n`;
         if (result.isBSrE) message += `  Certificate Type: Balai Sertifikasi Elektronik (BSrE)\n`;
@@ -455,6 +455,7 @@ export async function validatePdfSignatures(
   if (bsreQRCode.found) {
     results.push({
       signatureIndex: results.length,
+      valid: true,
       isValid: true,
       signerName: bsreQRCode.issuer || 'BSrE QR Code',
       issuer: 'Balai Sertifikasi Elektronik (BSrE), BSSN',
