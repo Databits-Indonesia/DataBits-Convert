@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import Script from 'next/script';
+import { Analytics } from '@vercel/analytics/next';
 
 export const metadata: Metadata = {
   title: 'DataBits Convert',
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="bg-background-light dark:bg-background-dark font-display text-gray-700 dark:text-gray-300 antialiased selection:bg-primary selection:text-white">
         <div id="root">{children}</div>
+        <Analytics />
         <Script type="module" strategy="beforeInteractive">
           {`
             import EmbedPDF from 'https://snippet.embedpdf.com/embedpdf.js';
