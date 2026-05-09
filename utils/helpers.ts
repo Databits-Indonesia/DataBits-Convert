@@ -3,13 +3,10 @@
  * Common functions for file handling, PDF operations, and downloads
  */
 
-import { PDFDocument } from 'pdf-lib';
-import * as pdfjsLib from 'pdfjs-dist';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
+// NOTE: pdf-lib and pdfjs-dist are NOT imported at the top level.
+// They reference browser-only globals (DOMMatrix, etc.) during module
+// evaluation, which crashes Next.js SSR prerendering.
+// Each function that needs them uses a dynamic import() instead.
 
 // Common page sizes in points (72 dpi)
 const STANDARD_SIZES = {
@@ -34,12 +31,54 @@ export async function readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
 }
 
 /**
- * Get a PDF.js document from array buffer
+ * Get a PDF.js document from array buffer.
+ * pdfjs-dist is loaded lazily on first call so it is never evaluated
+ * during Next.js SSR prerendering (where DOMMatrix is not available).
+ *
+ * Returns an object with a `.promise` property matching the pdfjs
+ * PDFDocumentLoadingTask interface, so all existing call sites work unchanged.
  */
-export function getPDFDocument(options: { data: ArrayBuffer | Uint8Array; password?: string }) {
-  return pdfjsLib.getDocument({
+let _pdfjsLib: typeof import('pdfjs-dist') | null = null;
+
+async function getPdfjsLib() {
+  if (!_pdfjsLib) {
+    _pdfjsLib = await import('pdfjs-dist');
+    _pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+      'pdfjs-dist/build/pdf.worker.min.mjs',
+      import.meta.url
+    ).toString();
+  }
+  return _pdfjsLib;
+}
+
+export function getPDFDocument(options: {
+  data: ArrayBuffer | Uint8Array;
+  password?: string;
+}): { promise: Promise<import('pdfjs-dist').PDFDocumentProxy> } {
+  return {
+    promise: getPdfjsLib().then((lib) =>
+      lib
+        .getDocument({
+          ...options,
+          // Ensure OpenJPEG wasm is resolvable in PDF.js v5+
+          wasmUrl: '/pdfjs-viewer/wasm/',
+        })
+        .promise
+    ),
+  };
+}
+
+/**
+ * Returns the real PDFDocumentLoadingTask for callers that need
+ * `.onPassword` / `.destroy()` (e.g. password-prompt.ts).
+ */
+export async function getPDFLoadingTask(options: {
+  data: ArrayBuffer | Uint8Array;
+  password?: string;
+}) {
+  const lib = await getPdfjsLib();
+  return lib.getDocument({
     ...options,
-    // Ensure OpenJPEG wasm is resolvable in PDF.js v5+
     wasmUrl: '/pdfjs-viewer/wasm/',
   });
 }
@@ -168,8 +207,9 @@ export function parsePageRanges(rangeString: string, totalPages: number): number
  */
 export async function createPdfFromPages(
   pageIndices: number[],
-  sourcePdf: PDFDocument
-): Promise<PDFDocument> {
+  sourcePdf: import('pdf-lib').PDFDocument
+): Promise<import('pdf-lib').PDFDocument> {
+  const { PDFDocument } = await import('pdf-lib');
   const newPdf = await PDFDocument.create();
   const copiedPages = await newPdf.copyPages(sourcePdf, pageIndices);
   copiedPages.forEach((page) => newPdf.addPage(page));

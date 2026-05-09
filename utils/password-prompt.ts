@@ -1,4 +1,4 @@
-import { readFileAsArrayBuffer, getPDFDocument } from './helpers';
+import { readFileAsArrayBuffer, getPDFDocument, getPDFLoadingTask } from './helpers';
 import { createIcons, icons } from 'lucide';
 import { PasswordResponses } from 'pdfjs-dist';
 import { loadPyMuPDF } from './pymupdf-loader';
@@ -132,32 +132,37 @@ function validatePasswordWithPdfjs(pdfBytes: ArrayBuffer, password: string): Pro
   return new Promise((resolve) => {
     let settled = false;
 
-    const task = getPDFDocument({
+    getPDFLoadingTask({
       data: pdfBytes.slice(0),
       password,
+    }).then((task) => {
+      task.onPassword = (_callback: (password: string) => void, reason: number) => {
+        if (settled) return;
+        settled = true;
+        resolve(reason !== PasswordResponses.INCORRECT_PASSWORD);
+        task.destroy().catch(() => {});
+      };
+
+      task.promise
+        .then((doc) => {
+          doc.destroy();
+          if (!settled) {
+            settled = true;
+            resolve(true);
+          }
+        })
+        .catch(() => {
+          if (!settled) {
+            settled = true;
+            resolve(false);
+          }
+        });
+    }).catch(() => {
+      if (!settled) {
+        settled = true;
+        resolve(false);
+      }
     });
-
-    task.onPassword = (_callback: (password: string) => void, reason: number) => {
-      if (settled) return;
-      settled = true;
-      resolve(reason !== PasswordResponses.INCORRECT_PASSWORD);
-      task.destroy().catch(() => {});
-    };
-
-    task.promise
-      .then((doc) => {
-        doc.destroy();
-        if (!settled) {
-          settled = true;
-          resolve(true);
-        }
-      })
-      .catch(() => {
-        if (!settled) {
-          settled = true;
-          resolve(false);
-        }
-      });
   });
 }
 
@@ -165,30 +170,35 @@ async function isFileEncrypted(file: File): Promise<boolean> {
   const bytes = (await readFileAsArrayBuffer(file)) as ArrayBuffer;
   return new Promise((resolve) => {
     let settled = false;
-    const task = getPDFDocument({ data: bytes.slice(0) });
+    getPDFLoadingTask({ data: bytes.slice(0) }).then((task) => {
+      task.onPassword = () => {
+        if (!settled) {
+          settled = true;
+          resolve(true);
+          task.destroy().catch(() => {});
+        }
+      };
 
-    task.onPassword = () => {
+      task.promise
+        .then((doc) => {
+          doc.destroy();
+          if (!settled) {
+            settled = true;
+            resolve(false);
+          }
+        })
+        .catch(() => {
+          if (!settled) {
+            settled = true;
+            resolve(false);
+          }
+        });
+    }).catch(() => {
       if (!settled) {
         settled = true;
-        resolve(true);
-        task.destroy().catch(() => {});
+        resolve(false);
       }
-    };
-
-    task.promise
-      .then((doc) => {
-        doc.destroy();
-        if (!settled) {
-          settled = true;
-          resolve(false);
-        }
-      })
-      .catch(() => {
-        if (!settled) {
-          settled = true;
-          resolve(false);
-        }
-      });
+    });
   });
 }
 
