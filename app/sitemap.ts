@@ -1,8 +1,16 @@
 import { MetadataRoute } from 'next';
+import { POPULAR_TOOLS } from '../config/constants';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+
+  const toolRoutes = POPULAR_TOOLS.map((tool) => ({
+    url: `${baseUrl}/tools/${tool.id}`,
+    lastModified: new Date(),
+    changeFrequency: 'weekly' as const,
+    priority: 0.8,
+  }));
+
   return [
     {
       url: baseUrl,
@@ -10,6 +18,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'yearly',
       priority: 1,
     },
-    // Add additional routes here
+    ...toolRoutes,
   ];
 }
