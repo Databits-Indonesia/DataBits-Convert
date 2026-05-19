@@ -481,14 +481,16 @@ export function setupOcrTool() {
   const selectedLangsDisplay = getOcrElement('selected-langs-display');
   const presetSelect = getOcrElement('whitelist-preset') as HTMLSelectElement | null;
   const whitelistInput = getOcrElement('ocr-whitelist') as HTMLInputElement | null;
-  const copyBtn = getOcrElement('copy-text-btn');
-  const downloadTxtBtn = getOcrElement('download-txt-btn');
   const downloadPdfBtn = getOcrElement('download-searchable-pdf');
 
   populateLanguageList();
   updateLanguageAvailabilityNotice();
   ensureFallbackProgressUi();
   ensureFallbackResultsUi();
+
+  // These buttons may be created by ensureFallbackResultsUi(), so look them up after.
+  const copyBtn = getOcrElement('copy-text-btn');
+  const downloadTxtBtn = getOcrElement('download-txt-btn');
 
   if (state.files.length > 0 && state.files[0]) {
     pageState.file = state.files[0];
