@@ -42,6 +42,7 @@ import {
   jsonToPdf,
   mdToPdf,
   excelToPdf,
+  excelToCsv,
   epubToPdf,
   pdfToJpg,
   setupPdfToJpgTool,
@@ -1051,6 +1052,7 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
     jsonToPdf: () => void jsonToPdf(),
     mdToPdf: () => void mdToPdf(),
     excelToPdf: () => void excelToPdf(),
+    excelToCsv: () => void excelToCsv(),
     powerpointToPdf: () =>
       void powerpointToPdf(
         state.files.length > 0 ? state.files : selectedFile?.file ? [selectedFile.file] : []
@@ -1503,7 +1505,11 @@ const App: React.FC<AppProps> = ({ initialTool }) => {
               selectedFile={selectedFile}
               accept={getUploadConfig(selectedTool).accept}
               fileTypeLabel={getUploadConfig(selectedTool).label}
-              allowMultiple={selectedTool === 'merge' || selectedTool === 'image-to-pdf'}
+              allowMultiple={
+                selectedTool === 'merge' ||
+                selectedTool === 'image-to-pdf' ||
+                selectedTool === 'excel-to-csv'
+              }
             />
           )}
 

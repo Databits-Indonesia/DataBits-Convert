@@ -71,6 +71,8 @@ export * from './md-to-pdf';
 export { mdToPdf } from './md-to-pdf';
 export * from './excel-to-pdf-page';
 export { excelToPdf } from './excel-to-pdf-page';
+export * from './excel-to-csv-page';
+export { excelToCsv } from './excel-to-csv-page';
 export * from './epub-to-pdf-page';
 export { epubToPdf } from './epub-to-pdf-page';
 export * from './pdf-to-jpg-page';

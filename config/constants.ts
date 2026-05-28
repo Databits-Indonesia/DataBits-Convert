@@ -288,6 +288,13 @@ export const POPULAR_TOOLS: Tool[] = [
     category: 'convert-to-pdf',
   },
   {
+    id: 'excel-to-csv',
+    name: 'Excel to CSV',
+    icon: 'table_chart',
+    description: 'Convert Excel spreadsheets to CSV format.',
+    category: 'convert-to-pdf',
+  },
+  {
     id: 'powerpoint-to-pdf',
     name: 'PowerPoint to PDF',
     icon: 'slideshow',

@@ -32,6 +32,7 @@ export const TOOL_CONTAINER_MAP: Record<string, string> = {
   'json-to-pdf': 'json-to-pdf-container',
   'markdown-to-pdf': 'markdown-to-pdf-container',
   'excel-to-pdf': 'excel-to-pdf-container',
+  'excel-to-csv': 'excel-to-csv-container',
   'powerpoint-to-pdf': 'powerpoint-to-pdf-container',
   'epub-to-pdf': 'epub-to-pdf-container',
   'mobi-to-pdf': 'mobi-to-pdf-container',
@@ -165,7 +166,12 @@ export const TOOL_UPLOAD_ACCEPT_MAP: Record<string, { accept: string; label: str
   },
   'excel-to-pdf': {
     accept:
-      'application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xls,.xlsx',
+      'application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xls,.xlsx,.xlsm,.xlsb',
+    label: 'Excel file (.xls or .xlsx)',
+  },
+  'excel-to-csv': {
+    accept:
+      'application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xls,.xlsx,.xlsm,.xlsb',
     label: 'Excel file (.xls or .xlsx)',
   },
   'powerpoint-to-pdf': {

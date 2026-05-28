@@ -100,6 +100,7 @@ export type ConversionBasicActionKey =
   | 'jsonToPdf'
   | 'mdToPdf'
   | 'excelToPdf'
+  | 'excelToCsv'
   | 'powerpointToPdf'
   | 'epubToPdf';
 
@@ -216,6 +217,14 @@ export const conversionBasicPanels: ConversionBasicPanelConfig[] = [
     actionLabel: 'Convert to PDF',
     buttonId: 'excel-to-pdf-convert-btn',
     actionKey: 'excelToPdf',
+  },
+  {
+    containerId: 'excel-to-csv-container',
+    title: 'Excel to CSV',
+    description: 'Convert Excel spreadsheets (.xlsx, .xls) to CSV format using SheetJS',
+    actionLabel: 'Convert to CSV',
+    buttonId: 'excel-to-csv-convert-btn',
+    actionKey: 'excelToCsv',
   },
   {
     containerId: 'powerpoint-to-pdf-container',
