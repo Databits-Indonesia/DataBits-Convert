@@ -16,7 +16,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
-          <Script
+        <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-PSW504XN9Z"
           strategy="afterInteractive"
         />
