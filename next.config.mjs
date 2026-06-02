@@ -21,9 +21,9 @@ const nextConfig = {
   },
   turbopack: {
     resolveAlias: {
-      fs: './empty-module.js',
-      path: './empty-module.js',
-      crypto: './empty-module.js',
+      fs: { browser: './empty-module.js' },
+      path: { browser: './empty-module.js' },
+      crypto: { browser: './empty-module.js' },
     },
   },
   webpack: (config, { isServer }) => {

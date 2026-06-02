@@ -22,6 +22,13 @@ export async function excelToCsv() {
       return;
     }
 
+    // Read the "Double Quote Wrap" option from the UI, defaulting to true
+    const forceQuotes =
+      typeof document !== 'undefined'
+        ? (document.getElementById('excel-to-csv-double-quote') as HTMLInputElement)?.checked !==
+          false
+        : true;
+
     // Validate that every uploaded file is a recognised Excel format
     for (const file of filesToConvert) {
       if (!file.name.match(/\.(xlsx|xls|xlsm|xlsb|ods)$/i)) {
@@ -47,7 +54,7 @@ export async function excelToCsv() {
         // Single sheet → single CSV download
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const csvContent = XLSX.utils.sheet_to_csv(worksheet);
+        const csvContent = XLSX.utils.sheet_to_csv(worksheet, { forceQuotes });
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         downloadFile(blob, `${baseName}.csv`);
@@ -61,7 +68,7 @@ export async function excelToCsv() {
 
         for (const sheetName of workbook.SheetNames) {
           const worksheet = workbook.Sheets[sheetName];
-          const csvContent = XLSX.utils.sheet_to_csv(worksheet);
+          const csvContent = XLSX.utils.sheet_to_csv(worksheet, { forceQuotes });
           // Sanitise sheet name for use as a filename
           const safeName = sheetName.replace(/[\\/:*?"<>|]/g, '_');
           zip.file(`${baseName}_${safeName}.csv`, csvContent);
@@ -93,7 +100,7 @@ export async function excelToCsv() {
 
           for (const sheetName of workbook.SheetNames) {
             const worksheet = workbook.Sheets[sheetName];
-            const csvContent = XLSX.utils.sheet_to_csv(worksheet);
+            const csvContent = XLSX.utils.sheet_to_csv(worksheet, { forceQuotes });
             const safeName = sheetName.replace(/[\\/:*?"<>|]/g, '_');
 
             // Use a sub-folder per Excel file when there are multiple files

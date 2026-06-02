@@ -2,7 +2,7 @@
   "name": "databits-convert",
   "private": true,
   "version": "1.0.0",
-  "packageManager": "pnpm@10.30.3",
+  "packageManager": "pnpm@11.3.0",
   "type": "module",
   "scripts": {
     "dev": "next dev",

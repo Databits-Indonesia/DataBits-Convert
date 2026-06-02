@@ -1,0 +1,6 @@
+allowBuilds:
+  core-js: true
+  es5-ext: true
+  sharp: true
+  tesseract.js: true
+  unrs-resolver: true

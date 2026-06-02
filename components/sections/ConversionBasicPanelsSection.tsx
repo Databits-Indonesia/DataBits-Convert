@@ -24,6 +24,24 @@ const ConversionBasicPanelsSection: React.FC<ConversionBasicPanelsSectionProps> 
               </h2>
               <p className="text-gray-600 dark:text-gray-400">{panel.description}</p>
             </div>
+            {panel.containerId === 'excel-to-csv-container' && (
+              <div className="mb-6 max-w-md mx-auto text-left bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="excel-to-csv-double-quote"
+                    defaultChecked={true}
+                    className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                  />
+                  <span className="text-gray-700 dark:text-gray-300 font-medium">
+                    Double Quote Wrap
+                  </span>
+                </label>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-7">
+                  Wrap all fields in double quotes by default for consistent CSV parsing.
+                </p>
+              </div>
+            )}
             <div className="flex justify-center">
               <button
                 id={panel.buttonId}
